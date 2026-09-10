@@ -6,14 +6,15 @@ Status: the initial schema and restricted MiniMessage formatting are implemented
 
 1. The plugin identifies the player and checks acceptance for the active documents.
 2. Players with valid acceptance continue immediately.
-3. Others see a summary with one checkbox and one Read button per required document.
-4. Read opens local full text with Previous, Next, and Back buttons where needed.
-5. Continue validates the required checkboxes and saves the acceptance.
-6. Only a confirmed save releases the connection. Leave disconnects without granting acceptance.
+3. If the optional language selector is enabled, players choose from the configured translations.
+4. Others see a summary with one checkbox and one Read button per required document.
+5. Read opens local full text with Previous, Next, and Back buttons where needed.
+6. Continue validates the required checkboxes and saves the acceptance.
+7. Only a confirmed save releases the connection. Leave disconnects without granting acceptance.
 
 Unchecked boxes stay unchecked by default. Preserve selections across Read and Back using validated session state. A document screen may offer “Accept and return” for that document. Optional informational documents require no checkbox.
 
-Keep Leave available on every screen. Escape, client disconnect, and timeout never count as acceptance. Screen closure is not the gate: server-side connection state is the gate.
+Leave is the summary exit action. Reading screens use Back and do not repeat Leave. Escape, client disconnect, and timeout never count as acceptance. Screen closure is not the gate: server-side connection state is the gate.
 
 ## Administrator controls
 
@@ -52,14 +53,16 @@ plugins/ConsentGate/
     community-rules.yml
     data-notice.yml
   messages/
-    en-US.yml
-    id-ID.yml
+    en-US.properties
+    id-ID.properties
   data/
     consent.db
     remote-cache.db
 ```
 
-The messages directory and `remote-cache.db` belong to later features. The local SQLite configuration below is runnable now.
+Velocity loads editable UTF-8 interface text from `messages/en-US.properties` and `messages/id-ID.properties`. Add another `<locale>.properties` file for another interface language. Missing entries fall back to the configured default language, then English. Current files use Java properties syntax. `remote-cache.db` belongs to a later feature.
+
+The language selector title, prompt, labels, and order are configurable under `language.selector`. It accepts two to eight choices. Document files support up to 32 translations. A valid acceptance in any current translation skips the selector on reconnect, even when the client's language differs. Changed versions, changed accepted content, and withdrawals still require consent.
 
 ```yaml
 config-version: 1
@@ -71,6 +74,14 @@ gate:
 language:
   default: en-US
   use-client-locale: true
+  selector:
+    enabled: false
+    title: "<gold><bold>Language / Bahasa</bold></gold>"
+    prompt: "<gray>Choose the language used for these documents.</gray>"
+    columns: 2
+    options:
+      en-US: "English"
+      id-ID: "Bahasa Indonesia"
 appearance:
   title-color: gold
   accent-color: gold
@@ -86,7 +97,7 @@ storage:
     file: data/consent.db
 ```
 
-This first schema accepts only relative document and database paths inside the plugin directory. `enabled: false` is the safe initial state. Enabling the gate requires at least one required document. Unsupported storage types and unknown or duplicate keys stop startup validation.
+This first schema accepts only relative document and database paths inside the plugin directory. `enabled: false` is the safe initial state. Enabling the gate requires at least one required document. The optional language selector accepts two to eight choices in one or two columns, and every choice must have an exact translation in every required document. Unsupported storage types and unknown or duplicate keys stop startup validation.
 
 ```yaml
 id: community-rules

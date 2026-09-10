@@ -1,6 +1,6 @@
 # Development
 
-Velocity now uses the shared configuration, document, admission, and SQLite components. It supports summary checkboxes, full multi-page reading, restricted MiniMessage formatting, durable acceptance before backend release, and accepted reconnects. Paper remains a connection prototype. Cached acceptance, remote databases, native Cumulus forms, and administrator commands are not implemented. Do not install either artifact on a production server or proxy.
+Velocity now uses the shared configuration, document, admission, and SQLite components. It supports summary checkboxes, optional language selection, full multi-page reading, restricted MiniMessage formatting, durable acceptance before backend release, and accepted reconnects. Paper remains a connection prototype. Cached acceptance, remote databases, native Cumulus forms, and administrator commands are not implemented. Do not install either artifact on a production server or proxy.
 
 ## Build
 
