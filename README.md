@@ -6,7 +6,7 @@ ConsentGate lets administrators present rules, policies, and other documents bef
 
 ## Status
 
-Early development. Local connection prototypes are available for Velocity and Paper. The shared core validates configuration and document files, plans admission, preserves multi-document selections, and stores acceptance in SQLite. These parts are not wired together yet. They are not production releases. Features below describe the planned complete plugin.
+Early development. Velocity now loads local documents, checks and stores SQLite acceptance before backend admission, and supports full document navigation. Paper remains a connection prototype. Neither artifact is a production release. Features below describe the planned complete plugin.
 
 ## Planned features
 

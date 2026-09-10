@@ -1,6 +1,6 @@
 # Player flow and configuration
 
-Status: the initial core schema is implemented and tested. Platform adapters do not load it yet. Bedrock, remote storage, messages, and commands remain proposed.
+Status: the initial schema is implemented and used by Velocity. Paper integration, Bedrock, remote storage, configurable messages, formatting, and commands remain proposed.
 
 ## Player experience
 
@@ -19,7 +19,7 @@ Keep Leave available on every screen. Escape, client disconnect, and timeout nev
 
 - Any document title, summary, button label, checkbox wording, and order.
 - Stable document IDs and independent string versions, such as `2026-09` or `v3`.
-- Full text stored locally, with optional pages and MiniMessage formatting.
+- Full text stored locally with optional pages. Limited MiniMessage formatting can follow after renderer validation.
 - Required agreements. Informational documents and separate optional opt-in choices can follow later.
 - Configurable language files, default language, timeouts, and unsupported-client messages.
 - Commands for validation, safe reload, preview, status, document viewing, and withdrawal/reset with clear permissions.

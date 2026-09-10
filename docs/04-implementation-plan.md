@@ -2,7 +2,7 @@
 
 Status: early implementation. Strict admission still needs real-client proof before support can be advertised.
 
-Implementation status: both connection prototypes build, shared tests pass, and the local Velocity wire checks pass. Validated configuration, local documents, multi-document admission state, and transactional SQLite storage are implemented in the core but are not wired into the adapters yet. Paper runtime and real Java/Bedrock validation remain open. See [development notes](05-development.md). Milestone 1 is not complete yet.
+Implementation status: Velocity uses validated configuration, local documents, multi-page navigation, bounded database work, and transactional SQLite storage before backend admission. Paper remains a connection prototype. Shared tests and the local Velocity wire checks pass. Paper runtime and real Java/Bedrock validation remain open. See [development notes](05-development.md). Milestones 1 and 2 are not complete yet.
 
 ## Design decisions
 
