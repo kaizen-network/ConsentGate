@@ -22,6 +22,36 @@ import static org.junit.jupiter.api.Assertions.*;
 class AdmissionServiceTest {
     @org.junit.jupiter.api.io.TempDir Path databaseDirectory;
 
+    @Test void adminResetPreservesHistoryAndRequiresFreshAcceptance() throws Exception {
+        UUID player = UUID.randomUUID();
+        Path database = databaseDirectory.resolve("admin.db");
+        var repository = new io.github.consentgate.core.storage.SqliteAcceptanceRepository(database);
+        try (var service = new AdmissionService(config(true, true), catalog(), repository)) {
+            assertFalse(service.status(player).getFirst().accepted());
+            var session = new AdmissionSession(service.checkExactLocale(player, "id-ID").orElseThrow());
+            assertTrue(session.accept(session.token(), Map.of("rules", true)));
+            service.grant(player, session, Instant.parse("2026-09-10T00:00:00Z"), "in-game");
+            assertEquals(new AdmissionService.DocumentStatus("rules", "v1", true), service.status(player).getFirst());
+            service.reset(player, Instant.parse("2026-09-10T01:00:00Z"));
+            assertFalse(service.status(player).getFirst().accepted());
+            assertTrue(service.check(player, "en-US").isPresent());
+            try (var connection = java.sql.DriverManager.getConnection("jdbc:sqlite:" + database);
+                 var statement = connection.createStatement();
+                 var rows = statement.executeQuery("SELECT decision, method FROM cg_acceptance_events ORDER BY decided_at")) {
+                assertTrue(rows.next());
+                assertEquals("granted", rows.getString(1));
+                assertTrue(rows.next());
+                assertEquals("withdrawn", rows.getString(1));
+                assertEquals("admin-reset", rows.getString(2));
+                assertFalse(rows.next());
+            }
+            var fresh = new AdmissionSession(service.checkExactLocale(player, "en-US").orElseThrow());
+            assertTrue(fresh.accept(fresh.token(), Map.of("rules", true)));
+            service.grant(player, fresh, Instant.parse("2026-09-10T02:00:00Z"), "in-game");
+            assertTrue(service.status(player).getFirst().accepted());
+        }
+    }
+
     @Test void acceptedTranslationSurvivesClientLanguageChangeButNotWithdrawalOrContentChange() throws Exception {
         UUID player = UUID.randomUUID();
         var repository = new io.github.consentgate.core.storage.SqliteAcceptanceRepository(databaseDirectory.resolve("acceptance.db"));

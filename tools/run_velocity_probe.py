@@ -1,8 +1,10 @@
 """Run the prepared loopback-only proxy and stop it after the wire checks."""
 
 import pathlib
+from contextlib import closing
 import shutil
 import socket
+import sqlite3
 import subprocess
 import sys
 import time
@@ -68,7 +70,40 @@ def main():
             time.sleep(0.2)
         else:
             raise TimeoutError("Proxy startup exceeded 30 seconds")
-        probe_velocity.main(database)
+        def admin_check(backend, name, client_id):
+            with closing(sqlite3.connect(database)) as connection:
+                player_id = connection.execute("SELECT player_uuid FROM cg_acceptance_state").fetchone()[0]
+            log_file = directory / "logs" / "latest.log"
+
+            def command(text, expected):
+                offset = len(log_file.read_text(encoding="utf-8"))
+                process.stdin.write(text + "\n")
+                process.stdin.flush()
+                deadline = time.monotonic() + 8
+                while time.monotonic() < deadline:
+                    if expected in log_file.read_text(encoding="utf-8")[offset:]:
+                        return
+                    time.sleep(0.1)
+                raise AssertionError("Admin command did not return the expected response: " + text)
+
+            command("consentgate status " + player_id, "test-agreement (probe-1): accepted")
+            command("consentgate reset " + player_id, "History was kept.")
+            command("consentgate status " + player_id, "test-agreement (probe-1): acceptance required")
+            with closing(sqlite3.connect(database)) as connection:
+                decisions = connection.execute(
+                    "SELECT decision FROM cg_acceptance_events WHERE player_uuid=? ORDER BY decided_at", (player_id,)
+                ).fetchall()
+                assert decisions == [("granted",), ("withdrawn",)], decisions
+            client = probe_velocity.Client(name, client_id)
+            try:
+                probe_velocity.no_backend(backend, client, 0.5)
+                command("consentgate reset " + player_id, "Disconnect the player first")
+            finally:
+                client.close()
+            time.sleep(0.5)
+            print("PASS: admin status/reset keeps history, requires consent again, and rejects connected targets", flush=True)
+
+        probe_velocity.main(database, admin_check)
     finally:
         if process.poll() is None:
             try:

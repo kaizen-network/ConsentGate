@@ -29,6 +29,31 @@ public final class AdmissionService implements AutoCloseable {
     public ConsentGateConfig config() { return config; }
     public DocumentCatalog catalog() { return catalog; }
 
+    public record DocumentStatus(String id, String version, boolean accepted) { }
+
+    public List<DocumentStatus> status(UUID playerId) throws SQLException {
+        Objects.requireNonNull(playerId, "playerId");
+        var result = new java.util.ArrayList<DocumentStatus>();
+        for (var revision : catalog.required()) {
+            boolean accepted = false;
+            for (String locale : revision.translations().keySet()) {
+                if (repository.isAccepted(playerId, config.scope(),
+                        List.of(ShownDocument.from(revision, locale, config.defaultLocale())))) {
+                    accepted = true;
+                    break;
+                }
+            }
+            result.add(new DocumentStatus(revision.id(), revision.version(), accepted));
+        }
+        return List.copyOf(result);
+    }
+
+    public void reset(UUID playerId, Instant decidedAt) throws SQLException {
+        if (!config.enabled()) throw new IllegalStateException("ConsentGate is disabled");
+        repository.withdraw(playerId, config.scope(), catalog.required().stream().map(revision -> revision.id()).toList(),
+                UUID.randomUUID(), decidedAt, "admin-reset");
+    }
+
     public Optional<AdmissionRequest> check(UUID playerId, String clientLocale) throws SQLException {
         Objects.requireNonNull(playerId, "playerId");
         if (!config.enabled()) return Optional.empty();

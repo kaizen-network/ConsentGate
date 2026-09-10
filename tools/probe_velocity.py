@@ -124,7 +124,7 @@ def disconnected_without_backend(backend, client, seconds):
     raise AssertionError("Client was not disconnected after a failed acceptance save")
 
 
-def main(database=None):
+def main(database=None, admin_check=None):
     with socket.socket() as backend:
         backend.bind(("127.0.0.1", 25591))
         backend.listen()
@@ -186,6 +186,8 @@ def main(database=None):
             print("PASS: accepted reconnect skips the dialog", flush=True)
         finally:
             client.close()
+        if admin_check is not None:
+            admin_check(backend, accepted_name, accepted_id)
         assert database is not None
         locked = sqlite3.connect(database, isolation_level=None)
         try:

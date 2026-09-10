@@ -81,6 +81,8 @@ public final class ConsentGateVelocity {
     private final Map<Player, Pending> sessions = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<User, Pending> sessionsByUser = new java.util.concurrent.ConcurrentHashMap<>();
     private final Set<Player> admitted = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Set<UUID> resetting = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final PlayerOperations playerOperations = new PlayerOperations();
     private final Map<User, Heartbeat> lateHeartbeats = new java.util.concurrent.ConcurrentHashMap<>();
     private final PacketListenerAbstract packets = new PacketListenerAbstract(PacketListenerPriority.HIGHEST) {
         @Override public void onPacketReceive(PacketReceiveEvent event) { receiveSafely(event); }
@@ -130,6 +132,15 @@ public final class ConsentGateVelocity {
         }
         PacketEvents.getAPI().getEventManager().registerListener(packets);
         timer = proxy.getScheduler().buildTask(this, this::tick).repeat(Duration.ofSeconds(1)).schedule();
+        proxy.getCommandManager().register(proxy.getCommandManager().metaBuilder("consentgate").plugin(this).build(),
+                new AdminCommand(name -> proxy.getPlayer(name).map(Player::getUniqueId), new AdminCommand.Operations() {
+                    @Override public void status(UUID playerId, java.util.function.Consumer<String> reply) {
+                        adminOperation(playerId, false, reply);
+                    }
+                    @Override public void reset(UUID playerId, java.util.function.Consumer<String> reply) {
+                        adminOperation(playerId, true, reply);
+                    }
+                }));
     }
 
     @Subscribe public EventTask choose(PlayerChooseInitialServerEvent event) {
@@ -152,7 +163,7 @@ public final class ConsentGateVelocity {
             }
             var pending = new Pending(player, user, held);
             synchronized (sessions) {
-                if (stopping || sessions.size() >= runtime.config().maxPending()
+                if (stopping || resetting.contains(player.getUniqueId()) || sessions.size() >= runtime.config().maxPending()
                         || sessions.putIfAbsent(player, pending) != null || sessionsByUser.putIfAbsent(user, pending) != null) {
                     sessions.remove(player, pending);
                     sessionsByUser.remove(user, pending);
@@ -563,9 +574,59 @@ public final class ConsentGateVelocity {
         try {
             ThreadPoolExecutor executor = databaseExecutor;
             if (executor == null || executor.isShutdown()) throw new RejectedExecutionException();
-            executor.execute(operation);
+            executor.execute(() -> playerOperations.run(pending.player.getUniqueId(), operation));
         } catch (RejectedExecutionException ex) {
             finishDenied(pending, "ConsentGate is busy. Please try again shortly.");
+        }
+    }
+
+    private void adminOperation(UUID playerId, boolean reset, java.util.function.Consumer<String> reply) {
+        if (stopping || startupFailure != null || runtime == null || !runtime.enabled()) {
+            reply.accept("ConsentGate must be enabled and running before using this command.");
+            return;
+        }
+        if (reset) {
+            synchronized (sessions) {
+                if (proxy.getPlayer(playerId).isPresent()
+                        || sessions.keySet().stream().anyMatch(player -> player.getUniqueId().equals(playerId))) {
+                    reply.accept("Disconnect the player first, then reset using their UUID: " + playerId);
+                    return;
+                }
+                if (!resetting.add(playerId)) {
+                    reply.accept("A reset is already pending for " + playerId + ".");
+                    return;
+                }
+            }
+        }
+        try {
+            databaseExecutor.execute(() -> playerOperations.run(playerId, () -> {
+                try {
+                    if (stopping) {
+                        reply.accept("ConsentGate is stopping. The command was not applied.");
+                        return;
+                    }
+                    AdmissionService service = runtime.admissionService().orElseThrow();
+                    if (reset) {
+                        service.reset(playerId, Instant.now());
+                        reply.accept("Consent reset for " + playerId + " in scope " + runtime.config().scope()
+                                + ". History was kept. Acceptance is required on the next connection.");
+                    } else {
+                        reply.accept("Consent status for " + playerId + " in scope " + runtime.config().scope() + ":");
+                        for (var status : service.status(playerId)) {
+                            reply.accept(status.id() + " (" + status.version() + "): "
+                                    + (status.accepted() ? "accepted" : "acceptance required"));
+                        }
+                    }
+                } catch (Exception ex) {
+                    logger.error("Consent admin operation failed for {}", playerId, ex);
+                    reply.accept("Consent records could not be processed. Check the server log before retrying.");
+                } finally {
+                    if (reset) resetting.remove(playerId);
+                }
+            }));
+        } catch (RejectedExecutionException ex) {
+            if (reset) resetting.remove(playerId);
+            reply.accept("ConsentGate is busy. Please try again shortly.");
         }
     }
 

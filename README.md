@@ -35,6 +35,7 @@ Connection handling must pass prototype tests before these guarantees are advert
 - [Platform feasibility](docs/01-feasibility.md)
 - [Player flow and configuration](docs/02-product-and-config.md)
 - [Storage and database upgrades](docs/03-storage-and-migration.md)
+- [Administrator commands](docs/07-admin-commands.md)
 - [Architecture and roadmap](docs/04-implementation-plan.md)
 
 ## License

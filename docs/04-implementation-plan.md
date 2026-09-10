@@ -2,7 +2,7 @@
 
 Status: early implementation. Strict admission still needs real-client proof before support can be advertised.
 
-Implementation status: Velocity uses validated configuration, local documents, multi-page navigation, bounded database work, and transactional SQLite storage before backend admission. Paper remains a connection prototype. Shared tests and the local Velocity wire checks pass. Paper runtime and real Java/Bedrock validation remain open. See [development notes](05-development.md). Milestones 1 and 2 are not complete yet.
+Implementation status: Velocity uses validated configuration, local documents, multi-page navigation, bounded database work, transactional SQLite storage before backend admission, and administrator status/reset commands. Java and native Bedrock flows have real-client testing, with broader compatibility and failure checks still open. Paper remains a connection prototype awaiting runtime validation. Shared tests and the local Velocity wire checks pass. See [development notes](05-development.md). Milestones 1 and 2 are not complete yet.
 
 ## Design decisions
 
@@ -63,7 +63,7 @@ Bound pending sessions, queued database work, document payload sizes, callback f
 | 1. Connection prototypes | Velocity and Paper, including Geyser translation | Dialog, callback, long wait, disconnect, and safe continuation on pinned builds |
 | 2. Core flow | Local documents, navigation, versions, SQLite, basic commands | First join, accepted rejoin, changed version, invalid input, and write failure behave correctly |
 | 3. Shared storage | MySQL/MariaDB, local cache, concurrency, audit transactions | Outage and recovery checks against both actual database products |
-| 4. Bedrock presentation | Evaluate optional Cumulus forms on the admission hooks | Full text and explicit acceptance work before admission; fallback is verified |
+| 4. Bedrock presentation | Native Cumulus implemented on Velocity; extend and validate on Paper | Full text and explicit acceptance work before admission; fallback is verified |
 | 5. Packaging and docs | Platform loading, configuration reference, setup, troubleshooting | Clean install and upgrade from packaged JARs |
 | 6. Release preparation | License text, dependency notices, source package, release notes | Local release artifacts ready |
 | Later platforms | BungeeCord and plain Spigot prototypes | Equivalent admission guarantees before support is advertised |
