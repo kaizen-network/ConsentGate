@@ -67,6 +67,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.UUID;
 
 @Plugin(id = "consentgate", name = "ConsentGate", version = "0.1.0-prototype",
         description = "Configurable pre-admission agreements",
@@ -86,6 +87,7 @@ public final class ConsentGateVelocity {
     };
     private ConsentGateRuntime runtime;
     private SafeTextFormatter formatter;
+    private InterfaceMessages messages;
     private ThreadPoolExecutor databaseExecutor;
     private ScheduledTask timer;
     private volatile String startupFailure;
@@ -102,8 +104,14 @@ public final class ConsentGateVelocity {
             installDefaults();
             runtime = new RuntimeLoader().load(dataDirectory);
             formatter = new SafeTextFormatter(runtime.config().appearance());
+            messages = new InterfaceMessages(dataDirectory.resolve("messages"));
             if (runtime.enabled()) {
                 SafeTextFormatter.validateCatalog(runtime.admissionService().orElseThrow().catalog());
+                if (runtime.config().languageSelector().enabled()) {
+                    SafeTextFormatter.validate(runtime.config().languageSelector().title());
+                    SafeTextFormatter.validate(runtime.config().languageSelector().prompt());
+                    runtime.config().languageSelector().options().values().forEach(SafeTextFormatter::validate);
+                }
                 int queueSize = Math.min(10_000, Math.max(32, runtime.config().maxPending() * 2));
                 databaseExecutor = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS,
                         new ArrayBlockingQueue<>(queueSize), threadFactory(), new ThreadPoolExecutor.AbortPolicy());
@@ -168,15 +176,11 @@ public final class ConsentGateVelocity {
             var request = service.check(pending.player.getUniqueId(), locale);
             if (pending.finished.get()) return;
             if (request.isEmpty()) {
-                if (!pending.finished.get() && !stopping && pending.player.isActive()) {
-                    admitted.add(pending.player);
-                    if (pending.finished.get() || stopping || !pending.player.isActive() || !finish(pending)) {
-                        admitted.remove(pending.player);
-                    }
-                } else finishDenied(pending, "ConsentGate is stopping.");
+                admit(pending);
                 return;
             }
-            beginSession(pending, request.orElseThrow());
+            if (runtime.config().languageSelector().enabled()) showLanguageSelector(pending);
+            else beginSession(pending, request.orElseThrow());
         } catch (Exception ex) {
             logger.error("Consent check failed for {}", pending.player.getUniqueId(), ex);
             finishDenied(pending, "Consent records could not be checked. Please try again later.");
@@ -191,7 +195,7 @@ public final class ConsentGateVelocity {
             if (failure == null && decision == GateSession.Decision.ACCEPTED) {
                 executeDatabase(pending, () -> persistAcceptance(pending));
             } else {
-                finishDenied(pending, "Consent was not accepted.");
+                finishDenied(pending, message(pending, "denied"));
             }
         });
         try { showSummary(pending, false); }
@@ -265,7 +269,7 @@ public final class ConsentGateVelocity {
             }
         } else if (type == PacketType.Configuration.Client.CUSTOM_CLICK_ACTION) {
             var click = new WrapperConfigClientCustomClickAction(event);
-            if (pending.session != null && click.getId().toString().startsWith("consentgate:")) {
+            if (click.getId().toString().startsWith("consentgate:")) {
                 event.setCancelled(true);
                 handleClick(pending, click);
             }
@@ -276,12 +280,23 @@ public final class ConsentGateVelocity {
     }
 
     private void handleClick(Pending pending, WrapperConfigClientCustomClickAction click) {
-        AdmissionSession session = pending.session;
-        if (session == null || pending.finished.get()) return;
+        if (pending.finished.get()) return;
         String id = click.getId().toString();
         String prefix = "consentgate:";
         if (!id.startsWith(prefix)) return;
         String[] parts = id.substring(prefix.length()).split("/");
+        if (parts.length == 3 && parts[0].equals("language")) {
+            selectLanguage(pending, index(parts[1]), parts[2]);
+            return;
+        }
+        if (parts.length == 2 && parts[0].equals("selector-leave")
+                && parts[1].equals(pending.selectorToken)
+                && pending.languageSelection.compareAndSet(true, false)) {
+            finishDenied(pending, message(pending, "denied"));
+            return;
+        }
+        AdmissionSession session = pending.session;
+        if (session == null) return;
         if (parts.length < 2 || !parts[parts.length - 1].equals(session.token())) return;
         switch (parts[0]) {
             case "leave" -> {
@@ -316,6 +331,55 @@ public final class ConsentGateVelocity {
         }
     }
 
+    private void showLanguageSelector(Pending pending) {
+        if (pending.finished.get()) return;
+        var selector = runtime.config().languageSelector();
+        pending.selectorToken = UUID.randomUUID().toString();
+        pending.languageSelection.set(true);
+        var buttons = new ArrayList<ActionButton>();
+        int index = 0;
+        for (String label : selector.options().values()) {
+            buttons.add(rawButton(label, "language/" + index++ + "/" + pending.selectorToken));
+        }
+        pending.user.sendPacket(new WrapperConfigServerShowDialog(new MultiActionDialog(
+                common(formatter.title(selector.title()), formatter.text(selector.prompt()), List.of()),
+                buttons, rawButton(message(pending, "leave"), "selector-leave/" + pending.selectorToken), selector.columns())));
+    }
+
+    private void selectLanguage(Pending pending, int optionIndex, String token) {
+        var options = runtime.config().languageSelector().options();
+        if (optionIndex < 0 || optionIndex >= options.size() || !token.equals(pending.selectorToken)
+                || !pending.languageSelection.compareAndSet(true, false)) return;
+        String locale = options.keySet().stream().skip(optionIndex).findFirst().orElseThrow();
+        pending.selectedLocale = locale;
+        executeDatabase(pending, () -> checkSelectedLanguage(pending, locale));
+    }
+
+    private void checkSelectedLanguage(Pending pending, String locale) {
+        try {
+            if (pending.finished.get() || stopping || !pending.player.isActive()) {
+                finishDenied(pending, "Connection ended before the consent check completed.");
+                return;
+            }
+            var request = runtime.admissionService().orElseThrow().checkExactLocale(pending.player.getUniqueId(), locale);
+            if (request.isEmpty()) admit(pending);
+            else beginSession(pending, request.orElseThrow());
+        } catch (Exception ex) {
+            logger.error("Consent check failed for {}", pending.player.getUniqueId(), ex);
+            finishDenied(pending, "Consent records could not be checked. Please try again later.");
+        }
+    }
+
+    private void admit(Pending pending) {
+        if (!pending.finished.get() && !stopping && pending.player.isActive()) {
+            pending.user.sendPacket(new WrapperConfigServerClearDialog());
+            admitted.add(pending.player);
+            if (pending.finished.get() || stopping || !pending.player.isActive() || !finish(pending)) {
+                admitted.remove(pending.player);
+            }
+        } else finishDenied(pending, "ConsentGate is stopping.");
+    }
+
     private Map<String, Boolean> selections(Pending pending, Object rawPayload) {
         if (!(rawPayload instanceof NBTCompound payload)) return null;
         AdmissionSession session = pending.session;
@@ -339,15 +403,15 @@ public final class ConsentGateVelocity {
         AdmissionSession session = pending.session;
         if (session == null || !session.pending() || pending.finished.get()) return;
         pending.lastDisplay = System.nanoTime();
-        Component body = formatter.text("Please review and accept each required document before continuing.");
+        Component body = formatter.text(message(pending, "prompt"));
         for (AdmissionDocument document : session.request().documents()) {
             body = body.append(Component.text("\n\n"))
                     .append(formatter.accent(document.title()))
-                    .append(formatter.mutedPlain(" (version " + document.version() + ")"))
+                    .append(formatter.mutedPlain(" (" + message(pending, "version") + " " + document.version() + ")"))
                     .append(Component.newline())
                     .append(formatter.text(document.summary()));
         }
-        if (error) body = body.append(Component.text("\n\n")).append(formatter.error("Every checkbox is required."));
+        if (error) body = body.append(Component.text("\n\n")).append(formatter.error(message(pending, "required")));
         Map<String, Boolean> selected = session.selections();
         List<Input> inputs = java.util.stream.IntStream.range(0, session.request().documents().size())
                 .mapToObj(index -> {
@@ -360,10 +424,10 @@ public final class ConsentGateVelocity {
             AdmissionDocument document = session.request().documents().get(index);
             buttons.add(button(document.readButton(), "read/" + index, pending));
         }
-        buttons.add(button("Continue", "accept", pending));
-        buttons.add(button("Leave", "leave", pending));
+        buttons.add(button(message(pending, "continue"), "accept", pending));
         pending.user.sendPacket(new WrapperConfigServerShowDialog(
-                new MultiActionDialog(common(formatter.title("Before you continue"), body, inputs), buttons, null, 1)));
+                new MultiActionDialog(common(formatter.title(message(pending, "title")), body, inputs), buttons,
+                        button(message(pending, "leave"), "leave", pending), 2)));
     }
 
     private void redisplaySummary(Pending pending, boolean error) {
@@ -378,18 +442,23 @@ public final class ConsentGateVelocity {
         if (pageIndex < 0 || pageIndex >= document.pages().size()) return;
         pending.lastDisplay = System.nanoTime();
         var page = document.pages().get(pageIndex);
-        Component title = formatter.accent(document.title()).append(formatter.muted(": ")).append(formatter.accent(page.title()));
-        Component body = formatter.text(page.body()).append(Component.text("\n\n"))
-                .append(formatter.mutedPlain("Page " + (pageIndex + 1) + " of " + document.pages().size()));
-        var buttons = new ArrayList<ActionButton>();
-        if (pageIndex > 0) buttons.add(button("Previous", "previous/" + documentIndex + "/" + pageIndex, pending));
-        buttons.add(button("Back", "back", pending));
-        if (pageIndex + 1 < document.pages().size()) {
-            buttons.add(button("Next", "next/" + documentIndex + "/" + pageIndex, pending));
+        Component title = formatter.accent(document.title());
+        if (document.pages().size() > 1 && !formatter.accent(page.title()).equals(title)) {
+            title = title.append(formatter.muted(": ")).append(formatter.accent(page.title()));
         }
-        buttons.add(button("Leave", "leave", pending));
+        Component body = formatter.text(page.body());
+        if (document.pages().size() > 1) body = body.append(Component.text("\n\n"))
+                .append(formatter.mutedPlain(message(pending, "page").replace("{page}", String.valueOf(pageIndex + 1))
+                        .replace("{pages}", String.valueOf(document.pages().size()))));
+        var buttons = new ArrayList<ActionButton>();
+        if (pageIndex > 0) buttons.add(button(message(pending, "previous"), "previous/" + documentIndex + "/" + pageIndex, pending));
+        if (pageIndex + 1 < document.pages().size()) {
+            buttons.add(button(message(pending, "next"), "next/" + documentIndex + "/" + pageIndex, pending));
+        }
+        if (buttons.isEmpty()) buttons.add(button(message(pending, "back"), "back", pending));
         pending.user.sendPacket(new WrapperConfigServerShowDialog(
-                new MultiActionDialog(common(title, body, List.of()), buttons, null, buttons.size())));
+                new MultiActionDialog(common(title, body, List.of()), buttons,
+                        buttons.size() == 1 && document.pages().size() == 1 ? null : button(message(pending, "back"), "back", pending), 2)));
     }
 
     private CommonDialogData common(Component title, Component body, List<Input> inputs) {
@@ -397,12 +466,24 @@ public final class ConsentGateVelocity {
                 List.of(new PlainMessageDialogBody(new PlainMessage(body, 500))), inputs);
     }
 
+    private String message(Pending pending, String key) {
+        String locale = pending.selectedLocale;
+        if (locale == null && pending.session != null) locale = pending.session.request().documents().getFirst().locale();
+        if (locale == null && runtime.config().useClientLocale() && pending.player.getEffectiveLocale() != null) {
+            locale = pending.player.getEffectiveLocale().toLanguageTag();
+        }
+        return messages.text(locale, runtime.config().defaultLocale(), key);
+    }
+
     private ActionButton button(String label, String action, Pending pending) {
         AdmissionSession session = pending.session;
         if (session == null) throw new IllegalStateException("Admission session is missing");
+        return rawButton(label, action + "/" + session.token());
+    }
+
+    private ActionButton rawButton(String label, String action) {
         return new ActionButton(new CommonButtonData(formatter.button(label), null, 200),
-                new DynamicCustomAction(new ResourceLocation("consentgate", action + "/" + session.token()),
-                        new NBTCompound()));
+                new DynamicCustomAction(new ResourceLocation("consentgate", action), new NBTCompound()));
     }
 
     private static int index(String value) {
@@ -453,9 +534,12 @@ public final class ConsentGateVelocity {
     private void finishDenied(Pending pending, String message) {
         if (!markFinished(pending)) return;
         admitted.remove(pending.player);
-        try { pending.player.disconnect(Component.text(message)); }
-        catch (RuntimeException ex) { logger.warn("Could not disconnect a denied connection", ex); }
-        finally { release(pending); }
+        DenialCompletion.releaseThenDisconnect(() -> release(pending),
+                () -> {
+                    try { pending.user.sendPacket(new WrapperConfigServerClearDialog()); }
+                    finally { pending.player.disconnect(Component.text(message)); }
+                },
+                ex -> logger.warn("Could not disconnect a denied connection", ex));
     }
 
     private void endOrFinish(Pending pending, GateSession.Decision decision, String message) {
@@ -494,6 +578,11 @@ public final class ConsentGateVelocity {
         Files.createDirectories(dataDirectory);
         if (Files.isSymbolicLink(dataDirectory)) throw new IOException("Plugin data directory cannot be a symbolic link");
         copyDefault("config.yml", dataDirectory.resolve("config.yml"));
+        Path messageDirectory = dataDirectory.resolve("messages");
+        if (Files.isSymbolicLink(messageDirectory)) throw new IOException("Message directory cannot be a symbolic link");
+        Files.createDirectories(messageDirectory);
+        copyDefault("messages/en-US.properties", messageDirectory.resolve("en-US.properties"));
+        copyDefault("messages/id-ID.properties", messageDirectory.resolve("id-ID.properties"));
         Path documents = dataDirectory.resolve("documents");
         if (Files.isSymbolicLink(documents)) throw new IOException("Document directory cannot be a symbolic link");
         Files.createDirectories(documents);
@@ -567,6 +656,9 @@ public final class ConsentGateVelocity {
         final User user;
         final HeldConnection held;
         volatile AdmissionSession session;
+        volatile String selectorToken;
+        volatile String selectedLocale;
+        final AtomicBoolean languageSelection = new AtomicBoolean();
         final AtomicBoolean finished = new AtomicBoolean();
         final long started = System.nanoTime();
         volatile long lastDisplay;

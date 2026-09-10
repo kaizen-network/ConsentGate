@@ -7,6 +7,14 @@ gate:
 language:
   default: en-US
   use-client-locale: true
+  selector:
+    enabled: false
+    title: "<gold><bold>Language / Bahasa</bold></gold>"
+    prompt: "<gray>Choose the language used for these documents.</gray>"
+    columns: 2
+    options:
+      en-US: "English"
+      id-ID: "Bahasa Indonesia"
 appearance:
   title-color: gold
   accent-color: gold

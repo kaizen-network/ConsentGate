@@ -205,6 +205,8 @@ def main(database=None):
         try:
             client.click(action="leave")
             packet, _ = client.receive()
+            assert packet == 17, ("Expected clear dialog before disconnect", packet)
+            packet, _ = client.receive()
             assert packet == 2
             assert not select.select([backend], [], [], 0.5)[0]
             print("PASS: leave disconnects without backend contact", flush=True)
@@ -213,6 +215,8 @@ def main(database=None):
         client = Client()
         try:
             client.send(3)
+            packet, _ = client.receive()
+            assert packet == 17, ("Expected clear dialog before disconnect", packet)
             packet, _ = client.receive()
             assert packet == 2
             assert not select.select([backend], [], [], 0.5)[0]
