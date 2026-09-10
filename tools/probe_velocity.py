@@ -77,6 +77,9 @@ class Client:
         for _ in range(20):
             packet, body = self.receive()
             if packet == 18:
+                if action == "accept":
+                    assert b"document_0" in body, "Dialog did not use a protocol-safe input name"
+                    assert b"test-agreement" not in body, "Document ID leaked into the dialog input name"
                 pattern = rb"consentgate:" + action.encode() + rb"/([0-9a-f-]{36})"
                 match = re.search(pattern, body)
                 assert match, "Missing session action in dialog"
@@ -85,7 +88,7 @@ class Client:
         raise AssertionError("No dialog received")
 
     def click(self, action="accept", checked=True, token=None):
-        nbt = b"\x0a\x01\x00\x05agree" + bytes([int(checked)]) + b"\x00"
+        nbt = b"\x0a\x01\x00\x0adocument_0" + bytes([int(checked)]) + b"\x00"
         self.click_nbt(nbt, action, token)
 
     def click_nbt(self, nbt, action="accept", token=None):
@@ -138,11 +141,11 @@ def main(database=None):
             client.click_nbt(b"\x0a\x00")
             assert client.dialog() == client.token
             time.sleep(0.3)
-            wrong_type = b"\x0a\x08\x00\x05agree\x00\x04true\x00"
+            wrong_type = b"\x0a\x08\x00\x0adocument_0\x00\x04true\x00"
             client.click_nbt(wrong_type)
             assert client.dialog() == client.token
             time.sleep(0.3)
-            extra_key = b"\x0a\x01\x00\x05agree\x01\x01\x00\x05other\x01\x00"
+            extra_key = b"\x0a\x01\x00\x0adocument_0\x01\x01\x00\x05other\x01\x00"
             client.click_nbt(extra_key)
             assert client.dialog() == client.token
             no_backend(backend, client, 0.5)

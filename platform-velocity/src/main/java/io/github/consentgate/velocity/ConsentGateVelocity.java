@@ -312,15 +312,17 @@ public final class ConsentGateVelocity {
         if (!(rawPayload instanceof NBTCompound payload)) return null;
         AdmissionSession session = pending.session;
         if (session == null) return null;
-        Set<String> expected = session.request().documents().stream()
-                .map(AdmissionDocument::id).collect(java.util.stream.Collectors.toSet());
+        List<AdmissionDocument> documents = session.request().documents();
+        Set<String> expected = java.util.stream.IntStream.range(0, documents.size())
+                .mapToObj(ConsentGateVelocity::inputKey).collect(java.util.stream.Collectors.toSet());
         if (!payload.getTagNames().equals(expected)) return null;
         var result = new LinkedHashMap<String, Boolean>();
-        for (String id : expected) {
-            if (!(payload.getTagOrNull(id) instanceof NBTByte value) || (value.getAsByte() != 0 && value.getAsByte() != 1)) {
+        for (int index = 0; index < documents.size(); index++) {
+            String key = inputKey(index);
+            if (!(payload.getTagOrNull(key) instanceof NBTByte value) || (value.getAsByte() != 0 && value.getAsByte() != 1)) {
                 return null;
             }
-            result.put(id, value.getAsByte() == 1);
+            result.put(documents.get(index).id(), value.getAsByte() == 1);
         }
         return result;
     }
@@ -336,9 +338,12 @@ public final class ConsentGateVelocity {
         }
         if (error) body.append("\n\nEvery checkbox is required.");
         Map<String, Boolean> selected = session.selections();
-        List<Input> inputs = session.request().documents().stream()
-                .map(document -> new Input(document.id(), new BooleanInputControl(Component.text(document.checkbox()),
-                        selected.getOrDefault(document.id(), false), "true", "false"))).toList();
+        List<Input> inputs = java.util.stream.IntStream.range(0, session.request().documents().size())
+                .mapToObj(index -> {
+                    AdmissionDocument document = session.request().documents().get(index);
+                    return new Input(inputKey(index), new BooleanInputControl(Component.text(document.checkbox()),
+                            selected.getOrDefault(document.id(), false), "true", "false"));
+                }).toList();
         var buttons = new ArrayList<ActionButton>();
         for (int index = 0; index < session.request().documents().size(); index++) {
             AdmissionDocument document = session.request().documents().get(index);
@@ -391,6 +396,10 @@ public final class ConsentGateVelocity {
     private static int index(String value) {
         try { return Integer.parseInt(value); }
         catch (NumberFormatException ex) { return -1; }
+    }
+
+    private static String inputKey(int index) {
+        return "document_" + index;
     }
 
     private void tick() {

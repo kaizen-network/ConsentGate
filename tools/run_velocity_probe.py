@@ -103,7 +103,7 @@ storage:
 
 
 PROBE_DOCUMENT = """\
-id: agree
+id: test-agreement
 version: "probe-1"
 required: true
 order: 10
