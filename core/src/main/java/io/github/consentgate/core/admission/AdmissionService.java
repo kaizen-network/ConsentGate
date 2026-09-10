@@ -29,6 +29,29 @@ public final class AdmissionService implements AutoCloseable {
     public ConsentGateConfig config() { return config; }
     public DocumentCatalog catalog() { return catalog; }
 
+    public AdmissionService reconfigured(ConsentGateConfig candidate, DocumentCatalog documents) throws SQLException {
+        if (config.enabled() != candidate.enabled() || !config.scope().equals(candidate.scope())
+                || !config.sqliteFile().equals(candidate.sqliteFile()) || config.maxPending() != candidate.maxPending()) {
+            throw new IllegalArgumentException("Changes to enabled, scope, storage, or max-pending require a restart");
+        }
+        var revisions = new java.util.ArrayList<ShownDocument>();
+        for (var revision : documents.documents()) {
+            for (String locale : revision.translations().keySet()) {
+                var shown = ShownDocument.from(revision, locale, candidate.defaultLocale());
+                for (var active : catalog.documents()) {
+                    if (active.id().equals(revision.id()) && active.version().equals(revision.version())
+                            && active.translations().containsKey(locale)
+                            && !ShownDocument.from(active, locale, config.defaultLocale()).equals(shown)) {
+                        throw new IllegalArgumentException("Document content changed without a version bump: " + revision.id());
+                    }
+                }
+                revisions.add(shown);
+            }
+        }
+        repository.validateRevisions(config.scope(), revisions);
+        return new AdmissionService(candidate, documents, repository);
+    }
+
     public record DocumentStatus(String id, String version, boolean accepted) { }
 
     public List<DocumentStatus> status(UUID playerId) throws SQLException {

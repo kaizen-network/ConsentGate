@@ -151,6 +151,7 @@ class AdmissionServiceTest {
     }
 
     private static final class RecordingRepository implements AcceptanceRepository {
+        @Override public void validateRevisions(String scope, Collection<ShownDocument> documents) { }
         boolean accepted;
         int checks;
         List<ShownDocument> required;

@@ -44,6 +44,47 @@ class RuntimeLoaderTest {
         assertThrows(DocumentLoadException.class, () -> new RuntimeLoader().load(directory));
     }
 
+    @Test void preparationDoesNotCreateStorage() throws Exception {
+        Files.createDirectory(directory.resolve("documents"));
+        Files.writeString(directory.resolve("documents/rules.yml"), document());
+        Files.writeString(directory.resolve("config.yml"), config(true));
+        assertEquals(1, new RuntimeLoader().prepare(directory).catalog().required().size());
+        assertFalse(Files.exists(directory.resolve("data")));
+    }
+
+    @Test void reloadRejectsUnversionedEditsAndKeepsOldRuntime() throws Exception {
+        Files.createDirectory(directory.resolve("documents"));
+        var documentFile = directory.resolve("documents/rules.yml");
+        Files.writeString(documentFile, document());
+        Files.writeString(directory.resolve("config.yml"), config(true));
+        var loader = new RuntimeLoader();
+        try (var runtime = loader.load(directory)) {
+            Files.writeString(documentFile, document().replace("body: \"Text\"", "body: \"Edited\""));
+            assertThrows(IllegalArgumentException.class, () -> runtime.reconfigured(loader.prepare(directory)));
+            assertEquals("v1", runtime.admissionService().orElseThrow().catalog().required().getFirst().version());
+            Files.writeString(documentFile, document().replace("version: \"v1\"", "version: \"v2\""));
+            var next = runtime.reconfigured(loader.prepare(directory));
+            assertEquals("v2", next.admissionService().orElseThrow().catalog().required().getFirst().version());
+            assertEquals("v1", runtime.admissionService().orElseThrow().catalog().required().getFirst().version());
+        }
+    }
+
+    @Test void reloadRejectsRestartOnlyChangesWithoutCreatingAnotherDatabase() throws Exception {
+        Files.createDirectory(directory.resolve("documents"));
+        Files.writeString(directory.resolve("documents/rules.yml"), document());
+        Files.writeString(directory.resolve("config.yml"), config(true));
+        var loader = new RuntimeLoader();
+        try (var runtime = loader.load(directory)) {
+            for (String edited : java.util.List.of(config(false), config(true).replace("scope: main", "scope: other"),
+                    config(true).replace("max-pending: 128", "max-pending: 64"),
+                    config(true).replace("data/consent.db", "other/consent.db"))) {
+                Files.writeString(directory.resolve("config.yml"), edited);
+                assertThrows(IllegalArgumentException.class, () -> runtime.reconfigured(loader.prepare(directory)));
+            }
+            assertFalse(Files.exists(directory.resolve("other")));
+        }
+    }
+
     private static String config(boolean enabled) {
         return """
                 config-version: 1

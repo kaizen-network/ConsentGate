@@ -82,6 +82,26 @@ public final class SqliteAcceptanceRepository implements AcceptanceRepository {
     }
 
     @Override
+    public void validateRevisions(String scope, Collection<ShownDocument> documents) throws SQLException {
+        validateScope(scope);
+        try (Connection connection = connection(); PreparedStatement query = connection.prepareStatement(
+                "SELECT content_hash, content_snapshot FROM cg_document_revisions WHERE scope=? AND document_id=? AND version=? AND locale=?")) {
+            for (var document : documents) {
+                query.setString(1, scope);
+                query.setString(2, document.documentId());
+                query.setString(3, document.version());
+                query.setString(4, document.locale());
+                try (ResultSet row = query.executeQuery()) {
+                    if (row.next() && (!document.contentHash().equals(row.getString(1))
+                            || !document.contentSnapshot().equals(row.getString(2)))) {
+                        throw new SQLException("Document content changed without a version bump: " + document.documentId());
+                    }
+                }
+            }
+        }
+    }
+
+    @Override
     public void grant(UUID playerId, String scope, List<ShownDocument> shown, UUID requestId,
                       Instant decidedAt, String method) throws SQLException {
         Objects.requireNonNull(playerId, "playerId");

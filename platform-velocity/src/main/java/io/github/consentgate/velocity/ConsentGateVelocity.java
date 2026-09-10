@@ -87,13 +87,15 @@ public final class ConsentGateVelocity {
     private final PacketListenerAbstract packets = new PacketListenerAbstract(PacketListenerPriority.HIGHEST) {
         @Override public void onPacketReceive(PacketReceiveEvent event) { receiveSafely(event); }
     };
-    private ConsentGateRuntime runtime;
+    private volatile ConsentGateRuntime runtime;
     private SafeTextFormatter formatter;
     private InterfaceMessages messages;
     private ThreadPoolExecutor databaseExecutor;
     private ScheduledTask timer;
     private volatile String startupFailure;
     private volatile boolean stopping;
+    private boolean reloading;
+    private int databaseWork;
 
     @Inject public ConsentGateVelocity(ProxyServer proxy, Logger logger, @DataDirectory Path dataDirectory) {
         this.proxy = proxy;
@@ -140,6 +142,9 @@ public final class ConsentGateVelocity {
                     @Override public void reset(UUID playerId, java.util.function.Consumer<String> reply) {
                         adminOperation(playerId, true, reply);
                     }
+                    @Override public void configuration(boolean apply, java.util.function.Consumer<String> reply) {
+                        configure(apply, reply);
+                    }
                 }));
     }
 
@@ -162,14 +167,18 @@ public final class ConsentGateVelocity {
                 return;
             }
             var pending = new Pending(player, user, held);
+            boolean rejected;
             synchronized (sessions) {
-                if (stopping || resetting.contains(player.getUniqueId()) || sessions.size() >= runtime.config().maxPending()
-                        || sessions.putIfAbsent(player, pending) != null || sessionsByUser.putIfAbsent(user, pending) != null) {
+                rejected = stopping || reloading || resetting.contains(player.getUniqueId()) || sessions.size() >= runtime.config().maxPending()
+                        || sessions.putIfAbsent(player, pending) != null || sessionsByUser.putIfAbsent(user, pending) != null;
+                if (rejected) {
                     sessions.remove(player, pending);
                     sessionsByUser.remove(user, pending);
-                    deny(player, "ConsentGate is busy. Please try again shortly.", held);
-                    return;
                 }
+            }
+            if (rejected) {
+                deny(player, "ConsentGate is busy. Please try again shortly.", held);
+                return;
             }
             executeDatabase(pending, () -> checkAcceptance(pending));
         });
@@ -572,11 +581,78 @@ public final class ConsentGateVelocity {
 
     private void executeDatabase(Pending pending, Runnable operation) {
         try {
-            ThreadPoolExecutor executor = databaseExecutor;
-            if (executor == null || executor.isShutdown()) throw new RejectedExecutionException();
-            executor.execute(() -> playerOperations.run(pending.player.getUniqueId(), operation));
+            submitDatabase(() -> playerOperations.run(pending.player.getUniqueId(), operation), false);
         } catch (RejectedExecutionException ex) {
             finishDenied(pending, "ConsentGate is busy. Please try again shortly.");
+        }
+    }
+
+    private void submitDatabase(Runnable operation, boolean maintenance) {
+        synchronized (sessions) {
+            if (stopping || (reloading && !maintenance) || databaseExecutor == null || databaseExecutor.isShutdown()) {
+                throw new RejectedExecutionException();
+            }
+            databaseWork++;
+            try {
+                databaseExecutor.execute(() -> {
+                    try { operation.run(); }
+                    finally { synchronized (sessions) { databaseWork--; } }
+                });
+            } catch (RejectedExecutionException ex) {
+                databaseWork--;
+                throw ex;
+            }
+        }
+    }
+
+    private void configure(boolean apply, java.util.function.Consumer<String> reply) {
+        synchronized (sessions) {
+            if (stopping || startupFailure != null || runtime == null || !runtime.enabled()) {
+                reply.accept("ConsentGate must be enabled and running before using this command.");
+                return;
+            }
+            if (reloading || (apply && (!sessions.isEmpty() || databaseWork != 0 || !resetting.isEmpty()))) {
+                reply.accept("Reload is busy. Wait for consent sessions and database work to finish, then retry.");
+                return;
+            }
+            if (apply) reloading = true;
+            try {
+                submitDatabase(() -> {
+                    try {
+                        var prepared = new RuntimeLoader().prepare(dataDirectory);
+                        SafeTextFormatter.validateCatalog(prepared.catalog());
+                        var selector = prepared.config().languageSelector();
+                        SafeTextFormatter.validate(selector.title());
+                        SafeTextFormatter.validate(selector.prompt());
+                        selector.options().values().forEach(SafeTextFormatter::validate);
+                        var nextMessages = new InterfaceMessages(dataDirectory.resolve("messages"));
+                        var locales = new java.util.HashSet<>(selector.options().keySet());
+                        locales.add(prepared.config().defaultLocale());
+                        prepared.catalog().documents().forEach(document -> locales.addAll(document.translations().keySet()));
+                        nextMessages.validateFor(locales, prepared.config().defaultLocale());
+                        var nextFormatter = new SafeTextFormatter(prepared.config().appearance());
+                        var nextRuntime = runtime.reconfigured(prepared);
+                        synchronized (sessions) {
+                            if (stopping) throw new IllegalStateException("ConsentGate is stopping");
+                            if (apply) {
+                                formatter = nextFormatter;
+                                messages = nextMessages;
+                                runtime = nextRuntime;
+                            }
+                        }
+                        reply.accept(apply ? "ConsentGate reloaded. Changes apply to new connections; existing players are not kicked."
+                                : "Validation passed. Configuration, documents, messages, and saved revisions are compatible. Nothing was applied.");
+                    } catch (Exception ex) {
+                        logger.warn("ConsentGate configuration check failed", ex);
+                        reply.accept("Configuration check failed: " + ex.getMessage() + ". The running configuration was kept.");
+                    } finally {
+                        if (apply) synchronized (sessions) { reloading = false; }
+                    }
+                }, apply);
+            } catch (RejectedExecutionException ex) {
+                if (apply) reloading = false;
+                reply.accept("ConsentGate is busy. Please try again shortly.");
+            }
         }
     }
 
@@ -599,7 +675,7 @@ public final class ConsentGateVelocity {
             }
         }
         try {
-            databaseExecutor.execute(() -> playerOperations.run(playerId, () -> {
+            submitDatabase(() -> playerOperations.run(playerId, () -> {
                 try {
                     if (stopping) {
                         reply.accept("ConsentGate is stopping. The command was not applied.");
@@ -623,7 +699,7 @@ public final class ConsentGateVelocity {
                 } finally {
                     if (reset) resetting.remove(playerId);
                 }
-            }));
+            }), false);
         } catch (RejectedExecutionException ex) {
             if (reset) resetting.remove(playerId);
             reply.accept("ConsentGate is busy. Please try again shortly.");
@@ -719,12 +795,12 @@ public final class ConsentGateVelocity {
     }
 
     @Subscribe public void shutdown(ProxyShutdownEvent event) {
+        List<Pending> ending;
         synchronized (sessions) {
             stopping = true;
-            List.copyOf(sessions.values()).forEach(pending -> {
-                endOrFinish(pending, GateSession.Decision.SHUTDOWN, "ConsentGate is stopping.");
-            });
+            ending = List.copyOf(sessions.values());
         }
+        ending.forEach(pending -> endOrFinish(pending, GateSession.Decision.SHUTDOWN, "ConsentGate is stopping."));
         if (timer != null) timer.cancel();
         PacketEvents.getAPI().getEventManager().unregisterListener(packets);
         if (databaseExecutor != null) {

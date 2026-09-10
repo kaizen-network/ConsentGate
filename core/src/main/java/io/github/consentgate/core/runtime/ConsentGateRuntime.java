@@ -23,6 +23,11 @@ public final class ConsentGateRuntime implements AutoCloseable {
     public boolean enabled() { return config.enabled(); }
     public Optional<AdmissionService> admissionService() { return Optional.ofNullable(admissionService); }
 
+    public ConsentGateRuntime reconfigured(RuntimeLoader.Prepared prepared) throws SQLException {
+        if (admissionService == null) throw new IllegalStateException("Enable ConsentGate and restart before using reload");
+        return new ConsentGateRuntime(prepared.config(), admissionService.reconfigured(prepared.config(), prepared.catalog()));
+    }
+
     @Override public void close() throws SQLException {
         if (admissionService != null) admissionService.close();
     }

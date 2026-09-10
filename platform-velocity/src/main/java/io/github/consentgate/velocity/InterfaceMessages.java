@@ -13,6 +13,7 @@ final class InterfaceMessages {
     private final Map<String, Properties> translations = new HashMap<>();
 
     InterfaceMessages(Path directory) throws IOException {
+        if (Files.isSymbolicLink(directory)) throw new IOException("Message directory cannot be a symbolic link");
         try (var files = Files.list(directory)) {
             for (Path file : files.filter(path -> path.getFileName().toString().endsWith(".properties")).toList()) {
                 if (Files.isSymbolicLink(file) || !Files.isRegularFile(file) || Files.size(file) > 65536) {
@@ -24,6 +25,15 @@ final class InterfaceMessages {
                 try (var reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) { values.load(reader); }
                 values.values().forEach(value -> SafeTextFormatter.validate(value.toString()));
                 if (translations.putIfAbsent(locale, values) != null) throw new IOException("Duplicate message locale: " + locale);
+            }
+        }
+    }
+
+    void validateFor(java.util.Collection<String> locales, String fallback) {
+        for (String locale : locales) {
+            for (String key : java.util.List.of("title", "prompt", "required", "continue", "leave", "back",
+                    "previous", "next", "version", "page", "denied")) {
+                if (text(locale, fallback, key).isBlank()) throw new IllegalArgumentException("Empty interface message: " + key);
             }
         }
     }

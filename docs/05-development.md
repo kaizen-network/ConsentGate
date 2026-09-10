@@ -1,6 +1,6 @@
 # Development
 
-Velocity now uses the shared configuration, document, admission, and SQLite components. It supports summary checkboxes, optional language selection, full multi-page reading, restricted MiniMessage formatting, durable acceptance before backend release, and accepted reconnects. Optional native Cumulus forms are implemented for Geyser on the same proxy. Real-client testing confirmed the native menu, acceptance, formatting, and return from the agreement form. Broader client and failure testing remains open. Paper remains a connection prototype. Velocity has administrator status and offline reset commands; validation/reload, cached acceptance, and remote databases are not implemented. Do not install either artifact on a production server or proxy.
+Velocity now uses the shared configuration, document, admission, and SQLite components. It supports summary checkboxes, optional language selection, full multi-page reading, restricted MiniMessage formatting, durable acceptance before backend release, and accepted reconnects. Optional native Cumulus forms are implemented for Geyser on the same proxy. Real-client testing confirmed the native menu, acceptance, formatting, and return from the agreement form. Broader client and failure testing remains open. Paper remains a connection prototype. Velocity has administrator status, offline reset, validation, and safe reload commands. Cached acceptance and remote databases are not implemented. Do not install either artifact on a production server or proxy.
 
 ## Build
 
@@ -44,6 +44,7 @@ The Python wire probe stages the current shaded JAR with an enabled local test d
 - Valid acceptance releases the initial backend handshake.
 - An accepted reconnect skips the dialog.
 - Console status/reset preserves history, requires acceptance again, and refuses a connected target.
+- Validation leaves active settings unchanged; reload refuses active sessions and invalid changes, then applies a valid new version.
 - A locked SQLite write fails without backend contact.
 - Leave disconnects without backend contact.
 - An unsolicited configuration-completion packet cannot bypass the gate.
@@ -98,17 +99,20 @@ The runner verifies the local proxy configuration, stages the current plugin art
 | Configuration, documents, admission, and SQLite | Automated loading, acceptance, withdrawal, and history checks |
 | Velocity formatting and administration | Automated formatting, command permissions, target parsing, and save/reset ordering checks |
 | Paper 1.21.7 API | Compiles; runtime and real-client checks pending |
-| Velocity 3.4.0 build 563, PacketEvents 2.13.0 | Ten local wire/console checks cover admission and administrator status/reset |
+| Velocity 3.4.0 build 563, PacketEvents 2.13.0 | Local wire/console checks cover admission and administrator status/reset/validation/reload |
 | Velocity 4.1.0 snapshot, PacketEvents 2.13.0, Minecraft 26.2 | Styled two-document acceptance and accepted reconnect reached a backend on 2026-09-10 |
 | Geyser-translated dialogs | Real Bedrock acceptance tested; translated action dropdown prompted native form support |
 | Native Cumulus with local Geyser | Real Bedrock menu, reading, acceptance, close/back behavior, and formatting tested; automated response tests pass |
+| Velocity 4.1.0 snapshot, live proxy bot check | Reload refused an active dialog; a temporary new document version prompted consent, saved acceptance, and bypassed the gate on accepted reconnect; original documents were restored |
 
 PacketEvents test artifact SHA-256: `e797f84abc349c137396e511ce4f0d7b85e385727a2e82e2ffb6bed0d2fe5c05`.
 
 Paper and Velocity API snapshot coordinates are provisional. Pin resolved dependency artifacts before preparing a release.
 
+The live proxy bot used a custom dialog response encoder because the installed bot library's response encoding was rejected by the packet layer. This verifies the admission and reload flow, not stock-client protocol compatibility or visual layout. Unmodified clients at the advertised version boundary still need testing before release.
+
 ## Before expanding the feature set
 
 Finish runtime and visual checks on Paper and Velocity with real Java and Bedrock clients. Confirm text, checkbox responses, closing behavior, timeout, clean world entry, and normal backend routing. Do not mark the connection milestone complete from compilation or a synthetic client alone.
 
-Next, add safe configuration validation and reload, then apply the shared runtime and full navigation flow to Paper, with safer connection-pressure handling. Follow with broader real Java and Bedrock validation and remote storage. See [administrator commands](07-admin-commands.md) for the current status/reset behavior. The roadmap tracks the remaining work.
+Next, validate reload with real clients, then apply the shared runtime and full navigation flow to Paper, with safer connection-pressure handling. Follow with broader real Java and Bedrock validation and remote storage. See [administrator commands](07-admin-commands.md) for current behavior and restart-only settings. The roadmap tracks the remaining work.

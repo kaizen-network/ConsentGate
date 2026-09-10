@@ -21,6 +21,7 @@ class AdminCommandTest {
             name -> name.equals("TestPlayer") ? Optional.of(player) : Optional.empty(), new AdminCommand.Operations() {
                 public void status(UUID id, Consumer<String> reply) { calls.add("status:" + id); }
                 public void reset(UUID id, Consumer<String> reply) { calls.add("reset:" + id); }
+                public void configuration(boolean apply, Consumer<String> reply) { calls.add(apply ? "reload" : "validate"); }
             });
 
     @Test void resolvesOnlineNamesAndCanonicalOfflineUuids() {
@@ -52,6 +53,16 @@ class AdminCommandTest {
         assertEquals(List.of("status"), command.suggest(invocation(Set.of("status"), "")));
         assertEquals(List.of("reset"), command.suggest(invocation(Set.of("reset"), "r")));
         assertTrue(command.suggest(invocation(Set.of("status"), "status", "")).isEmpty());
+    }
+
+    @Test void configurationActionsNeedTheirOwnPermissionAndNoTarget() {
+        command.execute(invocation(Set.of("validate"), "validate"));
+        command.execute(invocation(Set.of("reload"), "reload"));
+        assertEquals(List.of("validate", "reload"), calls);
+        command.execute(invocation(Set.of("status", "reset"), "reload"));
+        command.execute(invocation(Set.of("validate"), "reload"));
+        command.execute(invocation(Set.of("reload"), "reload", "extra"));
+        assertEquals(List.of("validate", "reload"), calls);
     }
 
     private static SimpleCommand.Invocation invocation(Set<String> permissions, String... arguments) {

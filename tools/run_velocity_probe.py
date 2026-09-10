@@ -87,6 +87,24 @@ def main():
                 raise AssertionError("Admin command did not return the expected response: " + text)
 
             command("consentgate status " + player_id, "test-agreement (probe-1): accepted")
+            command("consentgate validate", "Validation passed.")
+            document_file = documents / "agreement.yml"
+            document_file.write_text(PROBE_DOCUMENT.replace("Local automated test content.", "Changed text."), encoding="utf-8")
+            command("consentgate reload", "Document content changed without a version bump")
+            command("consentgate status " + player_id, "test-agreement (probe-1): accepted")
+            document_file.write_text(PROBE_DOCUMENT, encoding="utf-8")
+            config_file = data_directory / "config.yml"
+            config_file.write_text(PROBE_CONFIG.format(fixture=fixture_name).replace("scope: probe", "scope: changed"), encoding="utf-8")
+            command("consentgate reload", "require a restart")
+            config_file.write_text(PROBE_CONFIG.format(fixture=fixture_name), encoding="utf-8")
+            message_file = data_directory / "messages" / "en-US.properties"
+            previous_messages = message_file.read_text(encoding="utf-8")
+            try:
+                message_file.write_text("title=Incomplete\n", encoding="utf-8")
+                command("consentgate reload", "Missing interface message")
+            finally:
+                message_file.write_text(previous_messages, encoding="utf-8")
+            command("consentgate reload", "ConsentGate reloaded.")
             command("consentgate reset " + player_id, "History was kept.")
             command("consentgate status " + player_id, "test-agreement (probe-1): acceptance required")
             with closing(sqlite3.connect(database)) as connection:
@@ -98,10 +116,23 @@ def main():
             try:
                 probe_velocity.no_backend(backend, client, 0.5)
                 command("consentgate reset " + player_id, "Disconnect the player first")
+                command("consentgate reload", "Reload is busy.")
             finally:
                 client.close()
             time.sleep(0.5)
             print("PASS: admin status/reset keeps history, requires consent again, and rejects connected targets", flush=True)
+            document_file.write_text(PROBE_DOCUMENT.replace('version: "probe-1"', 'version: "probe-2"'), encoding="utf-8")
+            command("consentgate validate", "Validation passed.")
+            command("consentgate status " + player_id, "test-agreement (probe-1): acceptance required")
+            command("consentgate reload", "ConsentGate reloaded.")
+            command("consentgate status " + player_id, "test-agreement (probe-2): acceptance required")
+            client = probe_velocity.Client(name, client_id)
+            try:
+                probe_velocity.no_backend(backend, client, 0.5)
+            finally:
+                client.close()
+            time.sleep(0.5)
+            print("PASS: validation is read-only; reload rejects busy/invalid changes and applies a new version", flush=True)
 
         probe_velocity.main(database, admin_check)
     finally:

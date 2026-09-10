@@ -18,6 +18,23 @@ import static org.junit.jupiter.api.Assertions.*;
 class SqliteAcceptanceRepositoryTest {
     @TempDir Path directory;
 
+    @Test void revisionValidationIsReadOnlyAndRejectsHistoricalContentChanges() throws Exception {
+        Path database = directory.resolve("validate.db");
+        var original = shown("rules", "v1", "hash-one", "snapshot-one");
+        try (var repository = new SqliteAcceptanceRepository(database)) {
+            repository.validateRevisions("main", List.of(original));
+            assertEquals(0, count(database, "cg_document_revisions"));
+            repository.grant(UUID.randomUUID(), "main", List.of(original), UUID.randomUUID(), Instant.now(), "in-game");
+            repository.validateRevisions("main", List.of(original));
+            assertThrows(SQLException.class, () -> repository.validateRevisions("main",
+                    List.of(shown("rules", "v1", "hash-two", "snapshot-two"))));
+            repository.validateRevisions("other", List.of(shown("rules", "v1", "hash-two", "snapshot-two")));
+            repository.validateRevisions("main", List.of(shown("rules", "v2", "hash-two", "snapshot-two")));
+            assertEquals(1, count(database, "cg_document_revisions"));
+            assertEquals(1, count(database, "cg_acceptance_events"));
+        }
+    }
+
     @Test void grantIsAtomicCurrentAndIdempotent() throws Exception {
         Path database = directory.resolve("consent.db");
         var player = UUID.randomUUID();
