@@ -431,7 +431,21 @@ public final class ConsentGateVelocity {
     }
 
     private void redisplaySummary(Pending pending, boolean error) {
-        if (System.nanoTime() - pending.lastDisplay > Duration.ofMillis(250).toNanos()) showSummary(pending, error);
+        long displayed = pending.lastDisplay;
+        long delay = Duration.ofMillis(250).toNanos() - (System.nanoTime() - displayed);
+        if (delay <= 0) {
+            showSummary(pending, error);
+        } else if (pending.redisplayQueued.compareAndSet(false, true)) {
+            try {
+                proxy.getScheduler().buildTask(this, () -> {
+                    pending.redisplayQueued.set(false);
+                    if (pending.lastDisplay == displayed) showSummary(pending, error);
+                }).delay(Duration.ofNanos(delay)).schedule();
+            } catch (RuntimeException ex) {
+                pending.redisplayQueued.set(false);
+                endOrFinish(pending, GateSession.Decision.FAILED, "ConsentGate is stopping.");
+            }
+        }
     }
 
     private void showPage(Pending pending, int documentIndex, int pageIndex) {
@@ -457,12 +471,16 @@ public final class ConsentGateVelocity {
         }
         if (buttons.isEmpty()) buttons.add(button(message(pending, "back"), "back", pending));
         pending.user.sendPacket(new WrapperConfigServerShowDialog(
-                new MultiActionDialog(common(title, body, List.of()), buttons,
+                new MultiActionDialog(common(title, body, List.of(), document.pages().size() > 1), buttons,
                         buttons.size() == 1 && document.pages().size() == 1 ? null : button(message(pending, "back"), "back", pending), 2)));
     }
 
     private CommonDialogData common(Component title, Component body, List<Input> inputs) {
-        return new CommonDialogData(title, null, false, false, DialogAction.WAIT_FOR_RESPONSE,
+        return common(title, body, inputs, true);
+    }
+
+    private CommonDialogData common(Component title, Component body, List<Input> inputs, boolean canClose) {
+        return new CommonDialogData(title, null, canClose, false, DialogAction.CLOSE,
                 List.of(new PlainMessageDialogBody(new PlainMessage(body, 500))), inputs);
     }
 
@@ -659,6 +677,7 @@ public final class ConsentGateVelocity {
         volatile String selectorToken;
         volatile String selectedLocale;
         final AtomicBoolean languageSelection = new AtomicBoolean();
+        final AtomicBoolean redisplayQueued = new AtomicBoolean();
         final AtomicBoolean finished = new AtomicBoolean();
         final long started = System.nanoTime();
         volatile long lastDisplay;

@@ -77,6 +77,8 @@ class Client:
         for _ in range(20):
             packet, body = self.receive()
             if packet == 18:
+                assert b"wait_for_response" not in body, "Dialog must not open a waiting overlay"
+                assert b"\x08\x00\x0cafter_action\x00\x04none" not in body, "Dialog must close after an action"
                 if action == "accept":
                     assert b"document_0" in body, "Dialog did not use a protocol-safe input name"
                     assert b"test-agreement" not in body, "Document ID leaked into the dialog input name"
@@ -139,14 +141,11 @@ def main(database=None):
             print("PASS: dialog and keepalives without backend contact for 35 seconds", flush=True)
             client.click(checked=False)
             assert client.dialog() == client.token
-            time.sleep(0.3)
             client.click_nbt(b"\x0a\x00")
             assert client.dialog() == client.token
-            time.sleep(0.3)
             wrong_type = b"\x0a\x08\x00\x0adocument_0\x00\x04true\x00"
             client.click_nbt(wrong_type)
             assert client.dialog() == client.token
-            time.sleep(0.3)
             extra_key = b"\x0a\x01\x00\x0adocument_0\x01\x01\x00\x05other\x01\x00"
             client.click_nbt(extra_key)
             assert client.dialog() == client.token
