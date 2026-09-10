@@ -85,6 +85,7 @@ public final class ConsentGateVelocity {
         @Override public void onPacketReceive(PacketReceiveEvent event) { receiveSafely(event); }
     };
     private ConsentGateRuntime runtime;
+    private SafeTextFormatter formatter;
     private ThreadPoolExecutor databaseExecutor;
     private ScheduledTask timer;
     private volatile String startupFailure;
@@ -100,7 +101,9 @@ public final class ConsentGateVelocity {
         try {
             installDefaults();
             runtime = new RuntimeLoader().load(dataDirectory);
+            formatter = new SafeTextFormatter(runtime.config().appearance());
             if (runtime.enabled()) {
+                SafeTextFormatter.validateCatalog(runtime.admissionService().orElseThrow().catalog());
                 int queueSize = Math.min(10_000, Math.max(32, runtime.config().maxPending() * 2));
                 databaseExecutor = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS,
                         new ArrayBlockingQueue<>(queueSize), threadFactory(), new ThreadPoolExecutor.AbortPolicy());
@@ -109,6 +112,11 @@ public final class ConsentGateVelocity {
                 logger.warn("ConsentGate is disabled. Edit config.yml and add a required document before enabling it.");
             }
         } catch (Exception ex) {
+            if (runtime != null) {
+                try { runtime.close(); }
+                catch (Exception closeFailure) { ex.addSuppressed(closeFailure); }
+                runtime = null;
+            }
             startupFailure = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
             logger.error("ConsentGate could not start. Connections will be denied: {}", startupFailure, ex);
         }
@@ -331,17 +339,20 @@ public final class ConsentGateVelocity {
         AdmissionSession session = pending.session;
         if (session == null || !session.pending() || pending.finished.get()) return;
         pending.lastDisplay = System.nanoTime();
-        var body = new StringBuilder("Please review and accept each required document before continuing.");
+        Component body = formatter.text("Please review and accept each required document before continuing.");
         for (AdmissionDocument document : session.request().documents()) {
-            body.append("\n\n").append(document.title()).append(" (version ").append(document.version()).append(")\n")
-                    .append(document.summary());
+            body = body.append(Component.text("\n\n"))
+                    .append(formatter.accent(document.title()))
+                    .append(formatter.mutedPlain(" (version " + document.version() + ")"))
+                    .append(Component.newline())
+                    .append(formatter.text(document.summary()));
         }
-        if (error) body.append("\n\nEvery checkbox is required.");
+        if (error) body = body.append(Component.text("\n\n")).append(formatter.error("Every checkbox is required."));
         Map<String, Boolean> selected = session.selections();
         List<Input> inputs = java.util.stream.IntStream.range(0, session.request().documents().size())
                 .mapToObj(index -> {
                     AdmissionDocument document = session.request().documents().get(index);
-                    return new Input(inputKey(index), new BooleanInputControl(Component.text(document.checkbox()),
+                    return new Input(inputKey(index), new BooleanInputControl(formatter.text(document.checkbox()),
                             selected.getOrDefault(document.id(), false), "true", "false"));
                 }).toList();
         var buttons = new ArrayList<ActionButton>();
@@ -352,7 +363,7 @@ public final class ConsentGateVelocity {
         buttons.add(button("Continue", "accept", pending));
         buttons.add(button("Leave", "leave", pending));
         pending.user.sendPacket(new WrapperConfigServerShowDialog(
-                new MultiActionDialog(common("Before you continue", body.toString(), inputs), buttons, null, 1)));
+                new MultiActionDialog(common(formatter.title("Before you continue"), body, inputs), buttons, null, 1)));
     }
 
     private void redisplaySummary(Pending pending, boolean error) {
@@ -367,8 +378,9 @@ public final class ConsentGateVelocity {
         if (pageIndex < 0 || pageIndex >= document.pages().size()) return;
         pending.lastDisplay = System.nanoTime();
         var page = document.pages().get(pageIndex);
-        String title = document.title() + ": " + page.title();
-        String body = page.body() + "\n\nPage " + (pageIndex + 1) + " of " + document.pages().size();
+        Component title = formatter.accent(document.title()).append(formatter.muted(": ")).append(formatter.accent(page.title()));
+        Component body = formatter.text(page.body()).append(Component.text("\n\n"))
+                .append(formatter.mutedPlain("Page " + (pageIndex + 1) + " of " + document.pages().size()));
         var buttons = new ArrayList<ActionButton>();
         if (pageIndex > 0) buttons.add(button("Previous", "previous/" + documentIndex + "/" + pageIndex, pending));
         buttons.add(button("Back", "back", pending));
@@ -380,15 +392,15 @@ public final class ConsentGateVelocity {
                 new MultiActionDialog(common(title, body, List.of()), buttons, null, buttons.size())));
     }
 
-    private CommonDialogData common(String title, String body, List<Input> inputs) {
-        return new CommonDialogData(Component.text(title), null, false, false, DialogAction.WAIT_FOR_RESPONSE,
-                List.of(new PlainMessageDialogBody(new PlainMessage(Component.text(body), 500))), inputs);
+    private CommonDialogData common(Component title, Component body, List<Input> inputs) {
+        return new CommonDialogData(title, null, false, false, DialogAction.WAIT_FOR_RESPONSE,
+                List.of(new PlainMessageDialogBody(new PlainMessage(body, 500))), inputs);
     }
 
     private ActionButton button(String label, String action, Pending pending) {
         AdmissionSession session = pending.session;
         if (session == null) throw new IllegalStateException("Admission session is missing");
-        return new ActionButton(new CommonButtonData(Component.text(label), null, 200),
+        return new ActionButton(new CommonButtonData(formatter.button(label), null, 200),
                 new DynamicCustomAction(new ResourceLocation("consentgate", action + "/" + session.token()),
                         new NBTCompound()));
     }

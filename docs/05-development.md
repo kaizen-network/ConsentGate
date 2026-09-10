@@ -1,6 +1,6 @@
 # Development
 
-Velocity now uses the shared configuration, document, admission, and SQLite components. It supports summary checkboxes, full multi-page reading, durable acceptance before backend release, and accepted reconnects. Paper remains a connection prototype. Cached acceptance, remote databases, formatting, native Cumulus forms, and administrator commands are not implemented. Do not install either artifact on a production server or proxy.
+Velocity now uses the shared configuration, document, admission, and SQLite components. It supports summary checkboxes, full multi-page reading, restricted MiniMessage formatting, durable acceptance before backend release, and accepted reconnects. Paper remains a connection prototype. Cached acceptance, remote databases, native Cumulus forms, and administrator commands are not implemented. Do not install either artifact on a production server or proxy.
 
 ## Build
 
@@ -21,7 +21,7 @@ The shaded platform JARs contain the shared core, relocated SnakeYAML, SQLite JD
 
 ## Current behavior
 
-Velocity is disabled on a fresh installation. It creates `config.yml` and an inactive `documents/example.yml.example`. After an administrator supplies at least one required YAML document and sets `enabled: true`, current acceptance bypasses the dialog. Otherwise, players can read every page, return with checkbox state preserved, and continue only after every required box is checked and SQLite commits the acceptance. Leave, invalid input, timeout, storage failure, and shutdown do not admit the player.
+Velocity is disabled on a fresh installation. It creates `config.yml` and a styled, inactive `documents/example.yml.example`. After an administrator supplies at least one required YAML document and sets `enabled: true`, current acceptance bypasses the dialog. Otherwise, players can read every page, return with checkbox state preserved, and continue only after every required box is checked and SQLite commits the acceptance. Leave, invalid input, timeout, storage failure, and shutdown do not admit the player.
 
 Velocity timeout and pending-session limits come from configuration. Database checks and writes use two workers and a bounded queue. Paper still uses fixed five-minute and 128-session prototype limits. Shutdown, disconnect, and errors end pending sessions without admission.
 
@@ -36,6 +36,8 @@ The Python wire probe stages the current shaded JAR with an enabled local test d
 - No backend connection during 35 seconds of dialog waiting and keepalives.
 - The configured pending limit rejects overflow without backend contact.
 - Unchecked, malformed, extra-field, wrong-type, and foreign-token acceptance cannot release the connection.
+- Document IDs containing hyphens are mapped to protocol-safe checkbox input names.
+- Restricted MiniMessage tags render as components instead of leaking markup to the client.
 - Full document navigation returns to the active request.
 - Valid acceptance releases the initial backend handshake.
 - An accepted reconnect skips the dialog.
@@ -90,9 +92,11 @@ The runner verifies the local proxy configuration, stages the current plugin art
 | Environment | Current evidence |
 | --- | --- |
 | Shared session core | Five passing unit tests |
-| Configuration, documents, admission, and SQLite | Thirty-two passing unit tests |
+| Configuration, documents, admission, and SQLite | Thirty-three passing unit tests |
+| Velocity restricted formatting | Three passing unit tests |
 | Paper 1.21.7 API | Compiles; runtime and real-client checks pending |
 | Velocity 3.4.0 build 563, PacketEvents 2.13.0 | All nine local wire checks passed on 2026-09-10 |
+| Velocity 4.1.0 snapshot, PacketEvents 2.13.0, Minecraft 26.2 | Styled two-document acceptance and accepted reconnect reached a backend on 2026-09-10 |
 | Geyser-translated dialogs | Real Bedrock checks pending |
 | Native Cumulus | Not implemented |
 

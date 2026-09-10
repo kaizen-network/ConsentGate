@@ -18,6 +18,7 @@ class ConfigLoaderTest {
         assertEquals("main", config.scope());
         assertEquals(300, config.timeoutSeconds());
         assertEquals(128, config.maxPending());
+        assertEquals(DialogAppearance.defaults(), config.appearance());
         assertEquals(directory.resolve("documents").toAbsolutePath(), config.documentsDirectory());
         assertEquals(directory.resolve("data/consent.db").toAbsolutePath(), config.sqliteFile());
     }
@@ -44,6 +45,24 @@ class ConfigLoaderTest {
     @Test void rejectsDuplicateKeys() throws Exception {
         Path configFile = write(config("documents", "data/consent.db") + "enabled: true\n");
         assertThrows(ConfigLoadException.class, () -> new ConfigLoader().load(directory, configFile));
+    }
+
+    @Test void loadsAppearanceAndRejectsInvalidColors() throws Exception {
+        String appearance = """
+                appearance:
+                  title-color: "#12abef"
+                  accent-color: yellow
+                  text-color: white
+                  muted-color: gray
+                  error-color: red
+                  button-color: aqua
+                """;
+        Path configured = write(config("documents", "data/consent.db").replace("documents:\n", appearance + "documents:\n"));
+        assertEquals("#12abef", new ConfigLoader().load(directory, configured).appearance().titleColor());
+
+        Path invalid = write(config("documents", "data/consent.db").replace("documents:\n",
+                appearance.replace("title-color: \"#12abef\"", "title-color: orange") + "documents:\n"));
+        assertThrows(ConfigLoadException.class, () -> new ConfigLoader().load(directory, invalid));
     }
 
     @Test void rejectsSymlinkedConfiguredDirectory() throws Exception {

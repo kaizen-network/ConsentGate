@@ -44,7 +44,7 @@ public final class ConfigLoader {
     }
 
     private ConsentGateConfig parse(Path root, Map<?, ?> config) throws ConfigLoadException {
-        rejectUnknown(config, "root", "config-version", "enabled", "scope", "gate", "language", "documents", "storage");
+        rejectUnknown(config, "root", "config-version", "enabled", "scope", "gate", "language", "appearance", "documents", "storage");
         integer(config, "config-version", 1, 1);
         boolean enabled = bool(config, "enabled");
         String scope = text(config, "scope", 1, 64);
@@ -62,6 +62,24 @@ public final class ConfigLoader {
         catch (IllegalArgumentException ex) { throw new ConfigLoadException(ex.getMessage(), ex); }
         boolean useClientLocale = bool(language, "use-client-locale");
 
+        DialogAppearance appearance = DialogAppearance.defaults();
+        if (config.containsKey("appearance")) {
+            Map<?, ?> appearanceMap = map(config.get("appearance"), "appearance");
+            rejectUnknown(appearanceMap, "appearance", "title-color", "accent-color", "text-color", "muted-color",
+                    "error-color", "button-color");
+            try {
+                appearance = new DialogAppearance(
+                        text(appearanceMap, "title-color", 1, 32),
+                        text(appearanceMap, "accent-color", 1, 32),
+                        text(appearanceMap, "text-color", 1, 32),
+                        text(appearanceMap, "muted-color", 1, 32),
+                        text(appearanceMap, "error-color", 1, 32),
+                        text(appearanceMap, "button-color", 1, 32));
+            } catch (IllegalArgumentException ex) {
+                throw new ConfigLoadException(ex.getMessage(), ex);
+            }
+        }
+
         Map<?, ?> documents = map(required(config, "documents"), "documents");
         rejectUnknown(documents, "documents", "directory");
         Path documentsDirectory = resolveInside(root, text(documents, "directory", 1, 256), "documents.directory");
@@ -76,7 +94,7 @@ public final class ConfigLoader {
         if (sqliteFile.equals(root)) throw new ConfigLoadException("storage.sqlite.file must name a file");
 
         return new ConsentGateConfig(enabled, scope, timeoutSeconds, maxPending, defaultLocale,
-                useClientLocale, documentsDirectory, sqliteFile);
+                useClientLocale, appearance, documentsDirectory, sqliteFile);
     }
 
     private static Path resolveInside(Path root, String value, String key) throws ConfigLoadException {

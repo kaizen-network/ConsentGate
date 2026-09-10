@@ -1,6 +1,6 @@
 # Player flow and configuration
 
-Status: the initial schema is implemented and used by Velocity. Paper integration, Bedrock, remote storage, configurable messages, formatting, and commands remain proposed.
+Status: the initial schema and restricted MiniMessage formatting are implemented and used by Velocity. Paper integration, Bedrock, remote storage, configurable built-in messages, and commands remain proposed.
 
 ## Player experience
 
@@ -19,7 +19,7 @@ Keep Leave available on every screen. Escape, client disconnect, and timeout nev
 
 - Any document title, summary, button label, checkbox wording, and order.
 - Stable document IDs and independent string versions, such as `2026-09` or `v3`.
-- Full text stored locally with optional pages. Limited MiniMessage formatting can follow after renderer validation.
+- Full text stored locally with optional pages and restricted MiniMessage formatting.
 - Required agreements. Informational documents and separate optional opt-in choices can follow later.
 - Configurable language files, default language, timeouts, and unsupported-client messages.
 - Commands for validation, safe reload, preview, status, document viewing, and withdrawal/reset with clear permissions.
@@ -59,7 +59,7 @@ plugins/ConsentGate/
     remote-cache.db
 ```
 
-`remote-cache.db` is only used with remote primary storage. The following examples describe the proposed design and are not runnable yet.
+The messages directory and `remote-cache.db` belong to later features. The local SQLite configuration below is runnable now.
 
 ```yaml
 config-version: 1
@@ -71,6 +71,13 @@ gate:
 language:
   default: en-US
   use-client-locale: true
+appearance:
+  title-color: gold
+  accent-color: yellow
+  text-color: white
+  muted-color: gray
+  error-color: red
+  button-color: aqua
 documents:
   directory: documents
 storage:
@@ -88,20 +95,24 @@ required: true
 order: 10
 translations:
   en-US:
-    title: "Community Rules"
-    summary: "Please review the rules before joining."
-    checkbox: "I accept the Community Rules"
-    read-button: "Read the full rules"
+    title: "<gold><bold>Community Rules</bold></gold>"
+    summary: "<gray>Please review the rules before joining.</gray>"
+    checkbox: "I accept the <yellow>Community Rules</yellow>"
+    read-button: "<aqua>Read the full rules</aqua>"
     pages:
       - title: "Playing together"
         body: |-
-          <white>Write the full document here.
+          <white>Write the full document here.</white>
 
-          <gray>This is example text for configuration only.
+          <gray>This is example text for configuration only.</gray>
       - title: "Questions and changes"
         body: |-
-          <white>Add another page if needed.
+          <white>Add another page if needed.</white>
 ```
+
+The optional `appearance` section supplies default colors for unformatted text and built-in dialog labels. Colors may use the sixteen named Minecraft colors or a six-digit hex value such as `#12abef`.
+
+Document fields support named and hex colors plus `bold`, `italic`, `underlined`, `strikethrough`, and `obfuscated`. Tags must be properly closed. Interactive, hover, insertion, font, gradient, rainbow, and external-link tags are rejected during startup validation. Use YAML line breaks instead of formatting tags for new lines.
 
 Remote settings should support host, port, database, username, password via an environment-variable reference, and verified TLS. Define that syntax during implementation. Never put passwords inside a logged JDBC URL.
 

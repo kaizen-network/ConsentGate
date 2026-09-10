@@ -7,6 +7,13 @@ gate:
 language:
   default: en-US
   use-client-locale: true
+appearance:
+  title-color: gold
+  accent-color: yellow
+  text-color: white
+  muted-color: gray
+  error-color: red
+  button-color: aqua
 documents:
   directory: documents
 storage:

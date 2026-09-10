@@ -93,6 +93,13 @@ gate:
 language:
   default: en-US
   use-client-locale: true
+appearance:
+  title-color: gold
+  accent-color: yellow
+  text-color: white
+  muted-color: gray
+  error-color: red
+  button-color: aqua
 documents:
   directory: {fixture}/documents
 storage:
@@ -109,13 +116,13 @@ required: true
 order: 10
 translations:
   en-US:
-    title: "Probe Agreement"
-    summary: "Local automated test content."
-    checkbox: "I accept the probe agreement"
-    read-button: "Read the probe agreement"
+    title: "<gold><bold>Probe Agreement</bold></gold>"
+    summary: "<gray>Local automated test content.</gray>"
+    checkbox: "I accept the <yellow>probe agreement</yellow>"
+    read-button: "<aqua>Read the probe agreement</aqua>"
     pages:
       - title: "First page"
-        body: "This content exists only for the local automated test."
+        body: "This content exists only for the <yellow>local automated test</yellow>."
       - title: "Second page"
         body: "Acceptance must be stored before backend admission."
 """

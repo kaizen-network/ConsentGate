@@ -7,6 +7,7 @@ dependencies {
     compileOnly("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
     annotationProcessor("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
     compileOnly("com.github.retrooper:packetevents-api:2.13.0")
+    testImplementation("net.kyori:adventure-text-minimessage:4.26.1")
 }
 tasks.jar {
     enabled = false

@@ -27,6 +27,7 @@ public final class AdmissionService implements AutoCloseable {
     }
 
     public ConsentGateConfig config() { return config; }
+    public DocumentCatalog catalog() { return catalog; }
 
     public Optional<AdmissionRequest> check(UUID playerId, String clientLocale) throws SQLException {
         Objects.requireNonNull(playerId, "playerId");
