@@ -31,6 +31,7 @@ public final class SqliteAcceptanceRepository implements AcceptanceRepository {
     private final String jdbcUrl;
 
     public SqliteAcceptanceRepository(Path databaseFile) throws SQLException {
+        loadDriver();
         Path file = databaseFile.toAbsolutePath().normalize();
         try {
             Path parent = file.getParent();
@@ -40,6 +41,14 @@ public final class SqliteAcceptanceRepository implements AcceptanceRepository {
         }
         jdbcUrl = "jdbc:sqlite:" + file;
         initialize();
+    }
+
+    private static void loadDriver() throws SQLException {
+        try {
+            Class.forName("org.sqlite.JDBC", true, SqliteAcceptanceRepository.class.getClassLoader());
+        } catch (ClassNotFoundException ex) {
+            throw new SQLException("SQLite JDBC driver is unavailable", ex);
+        }
     }
 
     @Override
