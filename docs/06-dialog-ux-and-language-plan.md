@@ -1,8 +1,8 @@
 # Dialog UX and language
 
-Status: implemented in the Velocity development build. Paper integration and Geyser validation remain open.
+Status: implemented in the Velocity development build. Paper integration and broader Geyser compatibility testing remain open.
 
-Bedrock testing confirmed acceptance and summary closure through Geyser's translated forms. A summary containing checkboxes becomes a CustomForm with an action dropdown and Submit. A dedicated native Bedrock flow is still needed for separate menu buttons.
+Bedrock testing confirmed acceptance and summary closure through Geyser's translated forms. A summary containing checkboxes becomes a CustomForm with an action dropdown and Submit. An optional native Bedrock flow now provides separate menu buttons and an acceptance form with toggles. Cumulus response tests pass, and real-client testing confirmed the native menu, acceptance, formatting, and return from the agreement form. Closing the native agreement form returns to the document menu; closing the main menu disconnects.
 
 Closing a summary executes Leave; closing a multi-page reader executes Back. Dialog actions close the screen immediately. Real Java client testing confirmed that Leave displays the disconnect message promptly without a waiting overlay or manual Back click. Rapid invalid submissions schedule a validation redisplay instead of leaving the screen closed.
 
@@ -36,5 +36,5 @@ Interface text comes from editable UTF-8 `messages/<locale>.properties` files. E
 
 - Exercise selector actions, including stale tokens and repeated clicks, in the wire probe.
 - Extend real Java client checks for translated navigation and rapid validation errors.
-- Check the translated Geyser layout, scrolling, and preserved selections.
+- Validate native Bedrock forms before backend admission, including scrolling, closure, preserved selections, reconnects, and storage failures.
 - Apply the shared flow to Paper.

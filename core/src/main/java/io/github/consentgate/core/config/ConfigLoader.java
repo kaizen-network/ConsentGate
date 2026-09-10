@@ -44,7 +44,7 @@ public final class ConfigLoader {
     }
 
     private ConsentGateConfig parse(Path root, Map<?, ?> config) throws ConfigLoadException {
-        rejectUnknown(config, "root", "config-version", "enabled", "scope", "gate", "language", "appearance", "documents", "storage");
+        rejectUnknown(config, "root", "config-version", "enabled", "scope", "gate", "language", "appearance", "bedrock", "documents", "storage");
         integer(config, "config-version", 1, 1);
         boolean enabled = bool(config, "enabled");
         String scope = text(config, "scope", 1, 64);
@@ -100,6 +100,15 @@ public final class ConfigLoader {
             }
         }
 
+        boolean nativeBedrockForms = false;
+        String bedrockButtonColor = "dark_gray";
+        if (config.containsKey("bedrock")) {
+            Map<?, ?> bedrock = map(config.get("bedrock"), "bedrock");
+            rejectUnknown(bedrock, "bedrock", "native-forms", "button-color");
+            nativeBedrockForms = bool(bedrock, "native-forms");
+            if (bedrock.containsKey("button-color")) bedrockButtonColor = text(bedrock, "button-color", 1, 32);
+        }
+
         Map<?, ?> documents = map(required(config, "documents"), "documents");
         rejectUnknown(documents, "documents", "directory");
         Path documentsDirectory = resolveInside(root, text(documents, "directory", 1, 256), "documents.directory");
@@ -114,7 +123,7 @@ public final class ConfigLoader {
         if (sqliteFile.equals(root)) throw new ConfigLoadException("storage.sqlite.file must name a file");
 
         return new ConsentGateConfig(enabled, scope, timeoutSeconds, maxPending, defaultLocale,
-                useClientLocale, selector, appearance, documentsDirectory, sqliteFile);
+                useClientLocale, selector, appearance, nativeBedrockForms, bedrockButtonColor, documentsDirectory, sqliteFile);
     }
 
     private static Path resolveInside(Path root, String value, String key) throws ConfigLoadException {

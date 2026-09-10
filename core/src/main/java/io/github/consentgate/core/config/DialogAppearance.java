@@ -31,7 +31,7 @@ public record DialogAppearance(
         return new DialogAppearance("gold", "gold", "white", "gray", "red", "white");
     }
 
-    private static String validate(String value, String key) {
+    static String validate(String value, String key) {
         String normalized = Objects.requireNonNull(value, key).toLowerCase(Locale.ROOT);
         if (!NAMED.contains(normalized) && !HEX.matcher(normalized).matches()) {
             throw new IllegalArgumentException(key + " must be a named Minecraft color or #rrggbb");

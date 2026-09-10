@@ -93,6 +93,8 @@ gate:
 language:
   default: en-US
   use-client-locale: true
+bedrock:
+  native-forms: true
 appearance:
   title-color: gold
   accent-color: gold

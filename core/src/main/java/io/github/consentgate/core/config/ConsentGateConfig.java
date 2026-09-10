@@ -15,6 +15,8 @@ public record ConsentGateConfig(
         boolean useClientLocale,
         LanguageSelectorConfig languageSelector,
         DialogAppearance appearance,
+        boolean nativeBedrockForms,
+        String bedrockButtonColor,
         Path documentsDirectory,
         Path sqliteFile
 ) {
@@ -25,6 +27,7 @@ public record ConsentGateConfig(
         defaultLocale = Objects.requireNonNull(defaultLocale, "defaultLocale");
         languageSelector = Objects.requireNonNull(languageSelector, "languageSelector");
         appearance = Objects.requireNonNull(appearance, "appearance");
+        bedrockButtonColor = DialogAppearance.validate(bedrockButtonColor, "bedrock.button-color");
         documentsDirectory = Objects.requireNonNull(documentsDirectory, "documentsDirectory").toAbsolutePath().normalize();
         sqliteFile = Objects.requireNonNull(sqliteFile, "sqliteFile").toAbsolutePath().normalize();
         if (!SCOPE.matcher(scope).matches()) throw new IllegalArgumentException("Invalid scope: " + scope);
@@ -36,6 +39,6 @@ public record ConsentGateConfig(
     public ConsentGateConfig(boolean enabled, String scope, int timeoutSeconds, int maxPending, String defaultLocale,
                              boolean useClientLocale, Path documentsDirectory, Path sqliteFile) {
         this(enabled, scope, timeoutSeconds, maxPending, defaultLocale, useClientLocale, LanguageSelectorConfig.disabled(),
-                DialogAppearance.defaults(), documentsDirectory, sqliteFile);
+                DialogAppearance.defaults(), false, "dark_gray", documentsDirectory, sqliteFile);
     }
 }

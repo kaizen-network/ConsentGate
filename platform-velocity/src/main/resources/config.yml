@@ -22,6 +22,9 @@ appearance:
   muted-color: gray
   error-color: red
   button-color: white
+bedrock:
+  native-forms: false
+  button-color: dark_gray
 documents:
   directory: documents
 storage:

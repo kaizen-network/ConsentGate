@@ -1,6 +1,6 @@
 # Development
 
-Velocity now uses the shared configuration, document, admission, and SQLite components. It supports summary checkboxes, optional language selection, full multi-page reading, restricted MiniMessage formatting, durable acceptance before backend release, and accepted reconnects. Paper remains a connection prototype. Cached acceptance, remote databases, native Cumulus forms, and administrator commands are not implemented. Do not install either artifact on a production server or proxy.
+Velocity now uses the shared configuration, document, admission, and SQLite components. It supports summary checkboxes, optional language selection, full multi-page reading, restricted MiniMessage formatting, durable acceptance before backend release, and accepted reconnects. Optional native Cumulus forms are implemented for Geyser on the same proxy. Real-client testing confirmed the native menu, acceptance, formatting, and return from the agreement form. Broader client and failure testing remains open. Paper remains a connection prototype. Cached acceptance, remote databases, and administrator commands are not implemented. Do not install either artifact on a production server or proxy.
 
 ## Build
 
@@ -28,6 +28,8 @@ Velocity timeout and pending-session limits come from configuration. Database ch
 Velocity checks admission again on every backend connection request. It maintains keepalives while held and consumes its own delayed heartbeat responses. Paper holds only its asynchronous configuration event, never the server's main thread.
 
 ## Automated checks
+
+Native Bedrock form tests exercise Cumulus response parsing, menu and page navigation, unchecked defaults, partial selections, malformed payloads, stale responses, close behavior, and failed delivery. The Java wire probe runs without Geyser installed to check that the optional integration does not break Java admission.
 
 `core:test` checks unchecked and foreign actions, timeout, concurrent repeated clicks, shutdown, runtime bootstrap, configuration paths and bounds, document loading and hashing, locale selection, multi-document state, SQLite transactions, repeated requests, changed content under an unchanged version, and withdrawal ordering.
 

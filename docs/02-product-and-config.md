@@ -1,6 +1,6 @@
 # Player flow and configuration
 
-Status: the initial schema and restricted MiniMessage formatting are implemented and used by Velocity. Paper integration, Bedrock, remote storage, configurable built-in messages, and commands remain proposed.
+Status: the initial schema, restricted MiniMessage formatting, editable interface messages, and optional native Bedrock forms are implemented and used by Velocity. Paper integration, remote storage, and commands remain proposed.
 
 ## Player experience
 
@@ -31,6 +31,22 @@ Save a hash and snapshot of the document text shown. Reject changed text under a
 
 ## Bedrock presentation
 
+Velocity offers optional native forms when Geyser is installed on the same proxy:
+
+```yaml
+bedrock:
+  native-forms: true
+  button-color: dark_gray
+```
+
+The default is false, preserving translated Java dialogs. Java players and installations without a local Geyser plugin retain Java dialogs. Native mode uses Geyser's public connection API and the Cumulus supplied by Geyser; neither Geyser nor Cumulus is bundled in ConsentGate. Geyser 2.11.2 build 1235 has the configuration-stage form support reviewed for this implementation. Real Bedrock admission testing is required before production use. A separate Geyser Standalone installation is not supported by this native renderer.
+
+The native summary is a button menu: Read buttons, Continue, and Leave. Reading pages have Previous, Next, and Back buttons. Continue opens a separate form containing agreement toggles and Bedrock's Submit button. Every required toggle must be checked. Closing the summary or language selector disconnects. Closing a reading page or acceptance form returns to the summary without accepting, so players can reread the documents. Malformed responses deny entry, and old form responses are ignored.
+
+Native menu buttons default to dark gray for contrast. Set `bedrock.button-color` to a named Minecraft color or a quoted hex color; explicit formatting in a button label can override it. Hex colors use the nearest supported palette color. This does not change Java buttons or Bedrock's built-in Submit button. Text formatting resets between styled sections so bold titles do not make summaries or policy bodies bold. Underline and strikethrough are omitted because their Java formatting codes select colors on Bedrock.
+
+Documents, versions, interface translations, and acceptance storage are shared with Java. Form-delivery failure does not release the backend gate or switch renderers mid-session.
+
 Use Geyser-translated dialogs as the baseline. Offer optional Cumulus forms for touch and controller layouts. Both renderers share document content, versions, session state, validation, and persistence.
 
 The native flow uses a document menu, reading pages, and an explicit acceptance step. SimpleForm suits reading and navigation, CustomForm supplies unchecked agreement toggles, and ModalForm can provide final confirmation. Choose the exact layout after real-client tests. [Cumulus form types](https://geysermc.org/wiki/geyser/forms/)
@@ -39,7 +55,7 @@ The native flow uses a document menu, reading pages, and an explicit acceptance 
 - Allow Bedrock overrides for short labels and readable colors. Keep policy content shared; any content override must be versioned and recorded as a separate shown variant.
 - Put essential information in visible text, without requiring hover, item tooltips, images, or external URLs.
 - Keep reading and acceptance distinct.
-- Handle closed, invalid, stale, and repeated responses. Closing a pending form disconnects without acceptance; never release the gate or loop forms indefinitely.
+- Handle closed, invalid, stale, and repeated responses. Closing the main menu or language selector disconnects without acceptance. Closing reading or agreement forms returns to the menu. Never release the gate without saved acceptance.
 - Test button and body contrast separately, long translations, scrolling, and preserved selections.
 
 Native forms are optional for installations. They must pass admission-stage tests before selection; installing Geyser or Floodgate alone does not establish readiness.

@@ -71,7 +71,7 @@ import java.util.UUID;
 
 @Plugin(id = "consentgate", name = "ConsentGate", version = "0.1.0-prototype",
         description = "Configurable pre-admission agreements",
-        dependencies = @Dependency(id = "packetevents"))
+        dependencies = {@Dependency(id = "packetevents"), @Dependency(id = "geyser", optional = true)})
 public final class ConsentGateVelocity {
     private static final Duration HEARTBEAT_INTERVAL = Duration.ofSeconds(10);
     private static final Duration HEARTBEAT_TIMEOUT = Duration.ofSeconds(25);
@@ -179,6 +179,17 @@ public final class ConsentGateVelocity {
                 admit(pending);
                 return;
             }
+            if (runtime.config().nativeBedrockForms() && proxy.getPluginManager().getPlugin("geyser").isPresent()) {
+                pending.bedrock = GeyserBedrockBridge.open(pending.player.getUniqueId(), formatter,
+                        runtime.config().bedrockButtonColor(),
+                        key -> message(pending, key),
+                        () -> !pending.finished.get() && !stopping && pending.player.isActive(),
+                        () -> endOrFinish(pending, GateSession.Decision.DISCONNECTED, message(pending, "denied")),
+                        ex -> {
+                            logger.warn("Native Bedrock form failed", ex);
+                            endOrFinish(pending, GateSession.Decision.FAILED, "Consent form could not be shown.");
+                        });
+            }
             if (runtime.config().languageSelector().enabled()) showLanguageSelector(pending);
             else beginSession(pending, request.orElseThrow());
         } catch (Exception ex) {
@@ -219,7 +230,7 @@ public final class ConsentGateVelocity {
                 finishDenied(pending, "Connection ended before admission.");
                 return;
             }
-            pending.user.sendPacket(new WrapperConfigServerClearDialog());
+            clearPresentation(pending);
             admitted.add(pending.player);
             if (pending.finished.get() || stopping || !pending.player.isActive() || !finish(pending)) {
                 admitted.remove(pending.player);
@@ -280,7 +291,7 @@ public final class ConsentGateVelocity {
     }
 
     private void handleClick(Pending pending, WrapperConfigClientCustomClickAction click) {
-        if (pending.finished.get()) return;
+        if (pending.finished.get() || pending.bedrock != null) return;
         String id = click.getId().toString();
         String prefix = "consentgate:";
         if (!id.startsWith(prefix)) return;
@@ -336,6 +347,11 @@ public final class ConsentGateVelocity {
         var selector = runtime.config().languageSelector();
         pending.selectorToken = UUID.randomUUID().toString();
         pending.languageSelection.set(true);
+        if (pending.bedrock != null) {
+            String token = pending.selectorToken;
+            pending.bedrock.language(selector, index -> selectLanguage(pending, index, token));
+            return;
+        }
         var buttons = new ArrayList<ActionButton>();
         int index = 0;
         for (String label : selector.options().values()) {
@@ -372,7 +388,7 @@ public final class ConsentGateVelocity {
 
     private void admit(Pending pending) {
         if (!pending.finished.get() && !stopping && pending.player.isActive()) {
-            pending.user.sendPacket(new WrapperConfigServerClearDialog());
+            clearPresentation(pending);
             admitted.add(pending.player);
             if (pending.finished.get() || stopping || !pending.player.isActive() || !finish(pending)) {
                 admitted.remove(pending.player);
@@ -402,6 +418,10 @@ public final class ConsentGateVelocity {
     private void showSummary(Pending pending, boolean error) {
         AdmissionSession session = pending.session;
         if (session == null || !session.pending() || pending.finished.get()) return;
+        if (pending.bedrock != null) {
+            pending.bedrock.summary(session, error);
+            return;
+        }
         pending.lastDisplay = System.nanoTime();
         Component body = formatter.text(message(pending, "prompt"));
         for (AdmissionDocument document : session.request().documents()) {
@@ -554,7 +574,7 @@ public final class ConsentGateVelocity {
         admitted.remove(pending.player);
         DenialCompletion.releaseThenDisconnect(() -> release(pending),
                 () -> {
-                    try { pending.user.sendPacket(new WrapperConfigServerClearDialog()); }
+                    try { clearPresentation(pending); }
                     finally { pending.player.disconnect(Component.text(message)); }
                 },
                 ex -> logger.warn("Could not disconnect a denied connection", ex));
@@ -583,6 +603,11 @@ public final class ConsentGateVelocity {
         sessions.remove(pending.player, pending);
         sessionsByUser.remove(pending.user, pending);
         pending.held.resume();
+    }
+
+    private void clearPresentation(Pending pending) {
+        if (pending.bedrock != null) pending.bedrock.close();
+        else pending.user.sendPacket(new WrapperConfigServerClearDialog());
     }
 
     private void deny(Player player, String message, HeldConnection held) {
@@ -674,6 +699,7 @@ public final class ConsentGateVelocity {
         final User user;
         final HeldConnection held;
         volatile AdmissionSession session;
+        volatile BedrockView bedrock;
         volatile String selectorToken;
         volatile String selectedLocale;
         final AtomicBoolean languageSelection = new AtomicBoolean();

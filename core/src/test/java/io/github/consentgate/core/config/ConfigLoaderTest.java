@@ -18,6 +18,8 @@ class ConfigLoaderTest {
         assertEquals("main", config.scope());
         assertEquals(300, config.timeoutSeconds());
         assertEquals(128, config.maxPending());
+        assertFalse(config.nativeBedrockForms());
+        assertEquals("dark_gray", config.bedrockButtonColor());
         assertEquals(LanguageSelectorConfig.disabled(), config.languageSelector());
         assertEquals(DialogAppearance.defaults(), config.appearance());
         assertEquals(directory.resolve("documents").toAbsolutePath(), config.documentsDirectory());
@@ -29,10 +31,24 @@ class ConfigLoaderTest {
         assertThrows(ConfigLoadException.class, () -> new ConfigLoader().load(directory, configFile));
     }
 
+    @Test void nativeBedrockFormsAreOptionalAndStrictlyTyped() throws Exception {
+        Path enabled = write(config("documents", "data/consent.db") + "bedrock:\n  native-forms: true\n");
+        assertTrue(new ConfigLoader().load(directory, enabled).nativeBedrockForms());
+        Path invalid = write(config("documents", "data/consent.db") + "bedrock:\n  native-forms: native\n");
+        assertThrows(ConfigLoadException.class, () -> new ConfigLoader().load(directory, invalid));
+    }
+
     @Test void rejectsAbsolutePaths() throws Exception {
         String absolute = directory.resolve("elsewhere.db").toString().replace('\\', '/');
         Path configFile = write(config("documents", absolute));
         assertThrows(ConfigLoadException.class, () -> new ConfigLoader().load(directory, configFile));
+    }
+
+    @Test void validatesBedrockButtonColor() throws Exception {
+        Path valid = write(config("documents", "data/consent.db") + "bedrock:\n  native-forms: true\n  button-color: black\n");
+        assertEquals("black", new ConfigLoader().load(directory, valid).bedrockButtonColor());
+        Path invalid = write(config("documents", "data/consent.db") + "bedrock:\n  native-forms: true\n  button-color: orange\n");
+        assertThrows(ConfigLoadException.class, () -> new ConfigLoader().load(directory, invalid));
     }
 
     @Test void rejectsUnknownStorageAndUnknownKeys() throws Exception {
