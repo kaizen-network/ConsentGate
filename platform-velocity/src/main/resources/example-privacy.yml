@@ -1,41 +1,51 @@
 id: privacy-policy
-version: "draft-1"
+version: "draft-2"
 required: true
 order: 20
 translations:
   en-US:
     title: "<gold><bold>Privacy Policy</bold></gold>"
-    summary: "<gray>How this Minecraft server collects, uses, stores, and shares information.</gray>"
+    summary: "<gray>How this Minecraft server handles player information.</gray>"
     checkbox: "<white>I acknowledge the <gold>Privacy Policy</gold></white>"
-    read-button: "Read the Privacy Policy"
+    read-button: "Read Privacy"
     pages:
-      - title: "Before using this template"
+      - title: "Collection and use"
         body: |-
-          <red><bold>Starter template only.</bold></red>
+          <red><bold>Starter template.</bold></red> Describe your actual practices, replace bracketed values, remove data you do not collect, and have the final text reviewed for your server and jurisdiction.
 
-          <gray>Describe actual practices, replace every bracketed value, remove data categories that are not collected, and review the final text before enabling it.</gray>
-      - title: "Information collected"
+          <gold>[Server Name]</gold> may process Minecraft usernames, UUIDs, IP addresses, login times, client details, gameplay activity, chat, commands, reports, moderation records, support messages, and preferences. If purchases are offered, the server may receive transaction identifiers, purchased items, amounts, currencies, and limited billing details from its payment provider. List any other data used by your installation.
+
+          Information may be used to provide and secure the service, authenticate players, prevent abuse, investigate reports, enforce rules, provide support, process purchases, measure performance, keep records, and meet legal obligations. Add any required legal bases or consent details for <gold>[Jurisdiction]</gold>.
+
+      - title: "Sharing and your rights"
         body: |-
-          <gold>[Server Name]</gold> may process Minecraft usernames, UUIDs, IP addresses, login times, client and protocol details, gameplay activity, chat, commands, reports, moderation records, support messages, and preferences.
+          Information may be shared with hosting, database, analytics, moderation, support, and payment providers only as needed for their services. It may also be disclosed when required by law or reasonably needed to protect users and the service. Name important providers, transfers, and safeguards used by your server.
 
-          If purchases are offered, the server may receive transaction identifiers, purchased items, amounts, currencies, and limited billing details from its payment provider. List any analytics, website cookies, linked accounts, or other data used by this installation.
-      - title: "How information is used"
+          Keep each data category for <gold>[Retention Period]</gold>, or only as long as reasonably needed for its purpose, security, disputes, backups, and legal duties. Use reasonable access controls, updates, backups, and monitoring. Provide incident reports through <gold>[Security Contact]</gold>.
+
+          Depending on their location, users may have rights to access, correct, delete, restrict, object to, or receive a copy of their information. Explain how users can submit and verify requests through <gold>[Privacy Contact]</gold>. Explain practices for children where applicable.
+
+          Material changes should use a new document version and be presented again. Effective date: <gold>[Date]</gold>.
+  id-ID:
+    title: "<gold><bold>Kebijakan Privasi</bold></gold>"
+    summary: "<gray>Cara server Minecraft ini menangani informasi pemain.</gray>"
+    checkbox: "<white>Saya memahami <gold>Kebijakan Privasi</gold></white>"
+    read-button: "Baca Privasi"
+    pages:
+      - title: "Pengumpulan dan penggunaan"
         body: |-
-          Information may be used to provide the service, authenticate players, prevent abuse, investigate reports, enforce rules, provide support, process purchases, measure performance, maintain records, and meet legal obligations.
+          <red><bold>Templat awal.</bold></red> Jelaskan praktik yang benar-benar dilakukan, ganti semua bagian dalam tanda kurung siku, hapus data yang tidak dikumpulkan, dan tinjau teks akhir sesuai server dan hukum di wilayah Anda.
 
-          Document the applicable legal bases or consent requirements for <gold>[Jurisdiction]</gold> where required.
-      - title: "Sharing and service providers"
+          <gold>[Nama Server]</gold> dapat memproses nama pengguna Minecraft, UUID, alamat IP, waktu masuk, rincian klien, aktivitas permainan, chat, perintah, laporan, catatan moderasi, pesan dukungan, dan preferensi. Jika pembelian tersedia, server dapat menerima ID transaksi, item, jumlah, mata uang, serta rincian pembayaran terbatas dari penyedia pembayaran. Cantumkan data lain yang digunakan oleh instalasi Anda.
+
+          Informasi dapat digunakan untuk menyediakan dan mengamankan layanan, mengautentikasi pemain, mencegah penyalahgunaan, menyelidiki laporan, menegakkan aturan, memberi dukungan, memproses pembelian, mengukur kinerja, menyimpan catatan, dan memenuhi kewajiban hukum. Tambahkan dasar hukum atau rincian persetujuan yang diwajibkan untuk <gold>[Wilayah Hukum]</gold>.
+
+      - title: "Berbagi data dan hak Anda"
         body: |-
-          Information may be shared with hosting, database, analytics, moderation, support, and payment providers only as needed for their services. It may also be disclosed when required by law or reasonably necessary to protect users and the service.
+          Informasi dapat dibagikan kepada penyedia hosting, basis data, analitik, moderasi, dukungan, dan pembayaran hanya bila diperlukan untuk layanan mereka. Informasi juga dapat diungkapkan jika diwajibkan hukum atau diperlukan secara wajar untuk melindungi pengguna dan layanan. Cantumkan penyedia penting, pemindahan data, dan perlindungan yang digunakan server Anda.
 
-          Name important providers, international transfers, and safeguards. Do not claim that data is never sold or shared unless that is accurate.
-      - title: "Retention and security"
-        body: |-
-          Keep each category only for <gold>[Retention Period]</gold> or as long as reasonably needed for the stated purpose, security, disputes, backups, and legal duties. State separate periods where they differ.
+          Simpan setiap kategori data selama <gold>[Masa Penyimpanan]</gold>, atau hanya selama diperlukan secara wajar untuk tujuan, keamanan, sengketa, cadangan, dan kewajiban hukum. Gunakan kontrol akses, pembaruan, cadangan, dan pemantauan yang wajar. Sediakan pelaporan insiden melalui <gold>[Kontak Keamanan]</gold>.
 
-          Use reasonable access controls, updates, backups, and monitoring. No system can guarantee complete security, so provide a way to report suspected incidents through <gold>[Security Contact]</gold>.
-      - title: "Choices, rights, and contact"
-        body: |-
-          Depending on location, users may have rights to access, correct, delete, restrict, object to, or receive a copy of their information. Explain how to submit and verify a request through <gold>[Privacy Contact]</gold>.
+          Bergantung pada lokasinya, pengguna mungkin berhak mengakses, memperbaiki, menghapus, membatasi, menolak, atau menerima salinan informasi mereka. Jelaskan cara mengajukan dan memverifikasi permintaan melalui <gold>[Kontak Privasi]</gold>. Jelaskan praktik untuk anak jika berlaku.
 
-          Explain practices for children where applicable. Material changes should use a new document version and be presented again. Effective date: <gold>[Date]</gold>.
+          Perubahan penting sebaiknya memakai versi dokumen baru dan ditampilkan kembali. Tanggal berlaku: <gold>[Tanggal]</gold>.

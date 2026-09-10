@@ -1,5 +1,5 @@
 id: terms-of-service
-version: "draft-1"
+version: "draft-2"
 required: true
 order: 10
 translations:
@@ -7,35 +7,45 @@ translations:
     title: "<gold><bold>Terms of Service</bold></gold>"
     summary: "<gray>The rules and conditions for using this Minecraft server.</gray>"
     checkbox: "<white>I agree to the <gold>Terms of Service</gold></white>"
-    read-button: "Read the Terms of Service"
+    read-button: "Read Terms"
     pages:
-      - title: "Before using this template"
+      - title: "Access and rules"
         body: |-
-          <red><bold>Starter template only.</bold></red>
+          <red><bold>Starter template.</bold></red> Replace bracketed values, remove sections that do not apply, and have the final text reviewed for your server and jurisdiction.
 
-          <gray>Replace every bracketed value, remove sections that do not apply, add local requirements, and review the final text before enabling it.</gray>
-      - title: "Service and eligibility"
+          These Terms govern access to <gold>[Server Name]</gold> and its related Minecraft servers, websites, stores, and community services. You must follow applicable law and be old enough to use the service, or have permission from a parent or guardian. You are responsible for activity through your account.
+
+          Do not cheat, exploit bugs, evade enforcement, disrupt the service, impersonate others, harass players, distribute harmful content, or use the service for unlawful activity. Follow the published server rules and reasonable staff instructions. Report security issues privately through <gold>[Contact Method]</gold>.
+
+      - title: "Service and purchases"
         body: |-
-          These Terms govern access to <gold>[Server Name]</gold>, including its Minecraft servers, websites, stores, and related community services.
+          The operator may investigate activity and restrict, suspend, or terminate access when reasonably needed to enforce these Terms, protect users, or secure the service. Appeals may be submitted through <gold>[Appeal Method]</gold>. Features, worlds, balances, and availability may change or end.
 
-          You must follow applicable law and be old enough to use the service or have permission from a parent or guardian. You are responsible for activity performed through your account.
-      - title: "Rules and acceptable use"
+          Optional purchases are also governed by the terms shown at checkout. Virtual items have no cash value unless applicable law requires otherwise and may depend on continued service availability. Add your refund policy, billing details, and regional consumer rights if purchases are offered.
+
+          Add suitable warranty, liability, governing law, and dispute terms for <gold>[Jurisdiction]</gold>. Do not remove rights that cannot legally be waived. Material changes should use a new document version and request agreement again.
+
+          Contact: <gold>[Contact Method]</gold>. Effective date: <gold>[Date]</gold>.
+  id-ID:
+    title: "<gold><bold>Ketentuan Layanan</bold></gold>"
+    summary: "<gray>Aturan dan ketentuan untuk menggunakan server Minecraft ini.</gray>"
+    checkbox: "<white>Saya menyetujui <gold>Ketentuan Layanan</gold></white>"
+    read-button: "Baca Ketentuan"
+    pages:
+      - title: "Akses dan aturan"
         body: |-
-          Do not cheat, exploit bugs, evade enforcement, disrupt the service, impersonate others, harass players, distribute harmful content, or use the service for unlawful activity.
+          <red><bold>Templat awal.</bold></red> Ganti semua bagian dalam tanda kurung siku, hapus bagian yang tidak berlaku, dan tinjau teks akhir sesuai server dan hukum di wilayah Anda.
 
-          Follow the published server rules and reasonable instructions from authorized staff. Report security issues privately through <gold>[Contact Method]</gold> instead of exploiting or publishing them.
-      - title: "Moderation and availability"
+          Ketentuan ini mengatur akses ke <gold>[Nama Server]</gold> beserta server Minecraft, situs web, toko, dan layanan komunitas terkait. Anda wajib mematuhi hukum yang berlaku dan cukup umur untuk menggunakan layanan, atau memiliki izin orang tua maupun wali. Anda bertanggung jawab atas aktivitas melalui akun Anda.
+
+          Jangan menggunakan cheat, menyalahgunakan bug, menghindari penindakan, mengganggu layanan, menyamar sebagai orang lain, melecehkan pemain, menyebarkan konten berbahaya, atau memakai layanan untuk kegiatan melanggar hukum. Patuhi aturan server dan instruksi wajar dari staf. Laporkan masalah keamanan secara privat melalui <gold>[Metode Kontak]</gold>.
+
+      - title: "Layanan dan pembelian"
         body: |-
-          The operator may investigate activity and restrict, suspend, or terminate access when reasonably needed to enforce these Terms, protect users, or secure the service. Appeals may be submitted through <gold>[Appeal Method]</gold>.
+          Pengelola dapat menyelidiki aktivitas dan membatasi, menangguhkan, atau menghentikan akses bila diperlukan untuk menegakkan ketentuan ini, melindungi pengguna, atau mengamankan layanan. Banding dapat diajukan melalui <gold>[Metode Banding]</gold>. Fitur, dunia, saldo, dan ketersediaan layanan dapat berubah atau dihentikan.
 
-          Features, worlds, balances, and availability may change. Maintenance, technical failures, and shutdowns may interrupt access. Back up anything the server allows you to export.
-      - title: "Purchases and virtual items"
-        body: |-
-          Optional purchases and donations are also governed by the store terms shown at checkout. Virtual items have no cash value unless applicable law requires otherwise and may depend on continued service availability.
+          Pembelian opsional juga tunduk pada ketentuan yang ditampilkan saat pembayaran. Item virtual tidak memiliki nilai tunai kecuali diwajibkan oleh hukum dan dapat bergantung pada keberlanjutan layanan. Tambahkan kebijakan pengembalian dana, rincian pembayaran, dan hak konsumen regional jika server menawarkan pembelian.
 
-          State the refund policy, billing provider, currencies, taxes, and any regional consumer rights here if the server accepts payments.
-      - title: "Liability, changes, and contact"
-        body: |-
-          Add limitations, warranties, governing law, dispute terms, and mandatory consumer protections suitable for <gold>[Jurisdiction]</gold>. Do not remove rights that cannot legally be waived.
+          Tambahkan ketentuan jaminan, tanggung jawab, hukum yang berlaku, dan penyelesaian sengketa yang sesuai untuk <gold>[Wilayah Hukum]</gold>. Jangan menghapus hak yang tidak dapat dikesampingkan secara hukum. Perubahan penting sebaiknya memakai versi dokumen baru dan meminta persetujuan kembali.
 
-          Material changes should use a new document version and request agreement again. Questions may be sent through <gold>[Contact Method]</gold>. Effective date: <gold>[Date]</gold>.
+          Kontak: <gold>[Metode Kontak]</gold>. Tanggal berlaku: <gold>[Tanggal]</gold>.
