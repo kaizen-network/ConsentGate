@@ -28,7 +28,7 @@ public record DialogAppearance(
     }
 
     public static DialogAppearance defaults() {
-        return new DialogAppearance("gold", "yellow", "white", "gray", "red", "aqua");
+        return new DialogAppearance("gold", "gold", "white", "gray", "red", "white");
     }
 
     private static String validate(String value, String key) {

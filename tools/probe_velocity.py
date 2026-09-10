@@ -81,7 +81,7 @@ class Client:
                     assert b"document_0" in body, "Dialog did not use a protocol-safe input name"
                     assert b"test-agreement" not in body, "Document ID leaked into the dialog input name"
                     assert b"<gold>" not in body, "MiniMessage markup leaked into the dialog"
-                    assert b"gold" in body and b"yellow" in body, "Formatted colors were not encoded"
+                    assert b"gold" in body and b"white" in body, "Formatted colors were not encoded"
                 pattern = rb"consentgate:" + action.encode() + rb"/([0-9a-f-]{36})"
                 match = re.search(pattern, body)
                 assert match, "Missing session action in dialog"

@@ -21,7 +21,7 @@ The shaded platform JARs contain the shared core, relocated SnakeYAML, SQLite JD
 
 ## Current behavior
 
-Velocity is disabled on a fresh installation. It creates `config.yml` and a styled, inactive `documents/example.yml.example`. After an administrator supplies at least one required YAML document and sets `enabled: true`, current acceptance bypasses the dialog. Otherwise, players can read every page, return with checkbox state preserved, and continue only after every required box is checked and SQLite commits the acceptance. Leave, invalid input, timeout, storage failure, and shutdown do not admit the player.
+Velocity is disabled on a fresh installation. It creates `config.yml` and styled, inactive `documents/terms.yml.example` and `documents/privacy.yml.example` starter templates. Administrators must replace bracketed values, remove sections that do not apply, review the final text, rename the files to `.yml`, and set `enabled: true`. Current acceptance then bypasses the dialog. Otherwise, players can read every page, return with checkbox state preserved, and continue only after every required box is checked and SQLite commits the acceptance. Leave, invalid input, timeout, storage failure, and shutdown do not admit the player.
 
 Velocity timeout and pending-session limits come from configuration. Database checks and writes use two workers and a bounded queue. Paper still uses fixed five-minute and 128-session prototype limits. Shutdown, disconnect, and errors end pending sessions without admission.
 

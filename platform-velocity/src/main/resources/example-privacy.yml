@@ -1,0 +1,41 @@
+id: privacy-policy
+version: "draft-1"
+required: true
+order: 20
+translations:
+  en-US:
+    title: "<gold><bold>Privacy Policy</bold></gold>"
+    summary: "<gray>How this Minecraft server collects, uses, stores, and shares information.</gray>"
+    checkbox: "<white>I acknowledge the <gold>Privacy Policy</gold></white>"
+    read-button: "Read the Privacy Policy"
+    pages:
+      - title: "Before using this template"
+        body: |-
+          <red><bold>Starter template only.</bold></red>
+
+          <gray>Describe actual practices, replace every bracketed value, remove data categories that are not collected, and review the final text before enabling it.</gray>
+      - title: "Information collected"
+        body: |-
+          <gold>[Server Name]</gold> may process Minecraft usernames, UUIDs, IP addresses, login times, client and protocol details, gameplay activity, chat, commands, reports, moderation records, support messages, and preferences.
+
+          If purchases are offered, the server may receive transaction identifiers, purchased items, amounts, currencies, and limited billing details from its payment provider. List any analytics, website cookies, linked accounts, or other data used by this installation.
+      - title: "How information is used"
+        body: |-
+          Information may be used to provide the service, authenticate players, prevent abuse, investigate reports, enforce rules, provide support, process purchases, measure performance, maintain records, and meet legal obligations.
+
+          Document the applicable legal bases or consent requirements for <gold>[Jurisdiction]</gold> where required.
+      - title: "Sharing and service providers"
+        body: |-
+          Information may be shared with hosting, database, analytics, moderation, support, and payment providers only as needed for their services. It may also be disclosed when required by law or reasonably necessary to protect users and the service.
+
+          Name important providers, international transfers, and safeguards. Do not claim that data is never sold or shared unless that is accurate.
+      - title: "Retention and security"
+        body: |-
+          Keep each category only for <gold>[Retention Period]</gold> or as long as reasonably needed for the stated purpose, security, disputes, backups, and legal duties. State separate periods where they differ.
+
+          Use reasonable access controls, updates, backups, and monitoring. No system can guarantee complete security, so provide a way to report suspected incidents through <gold>[Security Contact]</gold>.
+      - title: "Choices, rights, and contact"
+        body: |-
+          Depending on location, users may have rights to access, correct, delete, restrict, object to, or receive a copy of their information. Explain how to submit and verify a request through <gold>[Privacy Contact]</gold>.
+
+          Explain practices for children where applicable. Material changes should use a new document version and be presented again. Effective date: <gold>[Date]</gold>.

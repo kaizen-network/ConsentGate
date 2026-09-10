@@ -1,0 +1,41 @@
+id: terms-of-service
+version: "draft-1"
+required: true
+order: 10
+translations:
+  en-US:
+    title: "<gold><bold>Terms of Service</bold></gold>"
+    summary: "<gray>The rules and conditions for using this Minecraft server.</gray>"
+    checkbox: "<white>I agree to the <gold>Terms of Service</gold></white>"
+    read-button: "Read the Terms of Service"
+    pages:
+      - title: "Before using this template"
+        body: |-
+          <red><bold>Starter template only.</bold></red>
+
+          <gray>Replace every bracketed value, remove sections that do not apply, add local requirements, and review the final text before enabling it.</gray>
+      - title: "Service and eligibility"
+        body: |-
+          These Terms govern access to <gold>[Server Name]</gold>, including its Minecraft servers, websites, stores, and related community services.
+
+          You must follow applicable law and be old enough to use the service or have permission from a parent or guardian. You are responsible for activity performed through your account.
+      - title: "Rules and acceptable use"
+        body: |-
+          Do not cheat, exploit bugs, evade enforcement, disrupt the service, impersonate others, harass players, distribute harmful content, or use the service for unlawful activity.
+
+          Follow the published server rules and reasonable instructions from authorized staff. Report security issues privately through <gold>[Contact Method]</gold> instead of exploiting or publishing them.
+      - title: "Moderation and availability"
+        body: |-
+          The operator may investigate activity and restrict, suspend, or terminate access when reasonably needed to enforce these Terms, protect users, or secure the service. Appeals may be submitted through <gold>[Appeal Method]</gold>.
+
+          Features, worlds, balances, and availability may change. Maintenance, technical failures, and shutdowns may interrupt access. Back up anything the server allows you to export.
+      - title: "Purchases and virtual items"
+        body: |-
+          Optional purchases and donations are also governed by the store terms shown at checkout. Virtual items have no cash value unless applicable law requires otherwise and may depend on continued service availability.
+
+          State the refund policy, billing provider, currencies, taxes, and any regional consumer rights here if the server accepts payments.
+      - title: "Liability, changes, and contact"
+        body: |-
+          Add limitations, warranties, governing law, dispute terms, and mandatory consumer protections suitable for <gold>[Jurisdiction]</gold>. Do not remove rights that cannot legally be waived.
+
+          Material changes should use a new document version and request agreement again. Questions may be sent through <gold>[Contact Method]</gold>. Effective date: <gold>[Date]</gold>.

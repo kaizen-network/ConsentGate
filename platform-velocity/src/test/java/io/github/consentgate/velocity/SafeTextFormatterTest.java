@@ -21,11 +21,13 @@ class SafeTextFormatterTest {
         assertEquals(NamedTextColor.GOLD, formatter.title("Title").color());
     }
 
-    @Test void acceptsColorsDecorationsAndBundledExample() throws Exception {
+    @Test void acceptsColorsDecorationsAndBundledExamples() throws Exception {
         SafeTextFormatter.validate("<yellow>Notice</yellow> <bold>Important</bold> <#12abef>Custom</#12abef>");
-        Path example = Path.of(Objects.requireNonNull(getClass().getResource("/example-document.yml")).toURI());
+        Path terms = resource("/example-terms.yml");
+        Path privacy = resource("/example-privacy.yml");
         SafeTextFormatter.validateCatalog(new DocumentCatalog(List.of(
-                new DocumentLoader().loadFile(example.getParent(), example))));
+                new DocumentLoader().loadFile(terms.getParent(), terms),
+                new DocumentLoader().loadFile(privacy.getParent(), privacy))));
     }
 
     @Test void rejectsInteractiveAndExpandingTags() {
@@ -37,5 +39,9 @@ class SafeTextFormatterTest {
                 () -> SafeTextFormatter.validate("<gradient:red:blue>Large</gradient>"));
         assertThrows(IllegalArgumentException.class,
                 () -> SafeTextFormatter.validate("<bold>Unclosed"));
+    }
+
+    private Path resource(String name) throws Exception {
+        return Path.of(Objects.requireNonNull(getClass().getResource(name)).toURI());
     }
 }

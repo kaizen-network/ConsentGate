@@ -497,7 +497,8 @@ public final class ConsentGateVelocity {
         Path documents = dataDirectory.resolve("documents");
         if (Files.isSymbolicLink(documents)) throw new IOException("Document directory cannot be a symbolic link");
         Files.createDirectories(documents);
-        copyDefault("example-document.yml", documents.resolve("example.yml.example"));
+        copyDefault("example-terms.yml", documents.resolve("terms.yml.example"));
+        copyDefault("example-privacy.yml", documents.resolve("privacy.yml.example"));
     }
 
     private void copyDefault(String resource, Path target) throws IOException {

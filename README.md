@@ -4,6 +4,8 @@ Configurable in-game agreements for Minecraft servers and networks.
 
 ConsentGate lets administrators present rules, policies, and other documents before players are admitted. Documents live in local files with custom titles, full text, and independent versions. No website or additional hosting is required.
 
+Fresh installations include inactive Terms of Service and Privacy Policy starter templates. Administrators must review and adapt them before use.
+
 ## Status
 
 Early development. Velocity now loads styled local documents, checks and stores SQLite acceptance before backend admission, and supports full document navigation. Paper remains a connection prototype. Neither artifact is a production release. Features below describe the planned complete plugin.

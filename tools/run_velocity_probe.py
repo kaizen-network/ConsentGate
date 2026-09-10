@@ -95,11 +95,11 @@ language:
   use-client-locale: true
 appearance:
   title-color: gold
-  accent-color: yellow
+  accent-color: gold
   text-color: white
   muted-color: gray
   error-color: red
-  button-color: aqua
+  button-color: white
 documents:
   directory: {fixture}/documents
 storage:
@@ -118,8 +118,8 @@ translations:
   en-US:
     title: "<gold><bold>Probe Agreement</bold></gold>"
     summary: "<gray>Local automated test content.</gray>"
-    checkbox: "I accept the <yellow>probe agreement</yellow>"
-    read-button: "<aqua>Read the probe agreement</aqua>"
+    checkbox: "I accept the <gold>probe agreement</gold>"
+    read-button: "Read the probe agreement"
     pages:
       - title: "First page"
         body: "This content exists only for the <yellow>local automated test</yellow>."

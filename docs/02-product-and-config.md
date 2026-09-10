@@ -73,11 +73,11 @@ language:
   use-client-locale: true
 appearance:
   title-color: gold
-  accent-color: yellow
+  accent-color: gold
   text-color: white
   muted-color: gray
   error-color: red
-  button-color: aqua
+  button-color: white
 documents:
   directory: documents
 storage:
@@ -97,8 +97,8 @@ translations:
   en-US:
     title: "<gold><bold>Community Rules</bold></gold>"
     summary: "<gray>Please review the rules before joining.</gray>"
-    checkbox: "I accept the <yellow>Community Rules</yellow>"
-    read-button: "<aqua>Read the full rules</aqua>"
+    checkbox: "I accept the <gold>Community Rules</gold>"
+    read-button: "Read the full rules"
     pages:
       - title: "Playing together"
         body: |-
