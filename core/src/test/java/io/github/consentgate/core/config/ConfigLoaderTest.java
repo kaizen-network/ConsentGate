@@ -18,6 +18,7 @@ class ConfigLoaderTest {
         assertEquals("main", config.scope());
         assertEquals(300, config.timeoutSeconds());
         assertEquals(128, config.maxPending());
+        assertEquals(LanguageSelectorConfig.disabled(), config.languageSelector());
         assertEquals(DialogAppearance.defaults(), config.appearance());
         assertEquals(directory.resolve("documents").toAbsolutePath(), config.documentsDirectory());
         assertEquals(directory.resolve("data/consent.db").toAbsolutePath(), config.sqliteFile());
@@ -77,6 +78,28 @@ class ConfigLoaderTest {
         Path configFile = pluginDirectory.resolve("config.yml");
         Files.writeString(configFile, config("documents", "data/consent.db"));
         assertThrows(ConfigLoadException.class, () -> new ConfigLoader().load(pluginDirectory, configFile));
+    }
+
+    @Test void loadsLanguageSelectorAndRejectsInvalidColumns() throws Exception {
+        String selector = """
+                  selector:
+                    enabled: true
+                    title: "Choose language"
+                    prompt: "Select a language."
+                    columns: 2
+                    options:
+                      en-US: "English"
+                      id-ID: "Bahasa Indonesia"
+                """;
+        Path configured = write(config("documents", "data/consent.db")
+                .replace("  use-client-locale: true\n", "  use-client-locale: true\n" + selector));
+        LanguageSelectorConfig loaded = new ConfigLoader().load(directory, configured).languageSelector();
+        assertTrue(loaded.enabled());
+        assertEquals(java.util.List.of("en-US", "id-ID"), java.util.List.copyOf(loaded.options().keySet()));
+
+        Path invalid = write(config("documents", "data/consent.db")
+                .replace("  use-client-locale: true\n", "  use-client-locale: true\n" + selector.replace("columns: 2", "columns: 3")));
+        assertThrows(ConfigLoadException.class, () -> new ConfigLoader().load(directory, invalid));
     }
 
     private Path write(String value) throws Exception {

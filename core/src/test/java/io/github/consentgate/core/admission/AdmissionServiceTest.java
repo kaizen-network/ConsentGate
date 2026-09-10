@@ -20,6 +20,28 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AdmissionServiceTest {
+    @org.junit.jupiter.api.io.TempDir Path databaseDirectory;
+
+    @Test void acceptedTranslationSurvivesClientLanguageChangeButNotWithdrawalOrContentChange() throws Exception {
+        UUID player = UUID.randomUUID();
+        var repository = new io.github.consentgate.core.storage.SqliteAcceptanceRepository(databaseDirectory.resolve("acceptance.db"));
+        try (var service = new AdmissionService(config(true, true), catalog(), repository)) {
+            var session = new AdmissionSession(service.checkExactLocale(player, "id-ID").orElseThrow());
+            assertTrue(session.accept(session.token(), Map.of("rules", true)));
+            service.grant(player, session, Instant.now(), "in-game");
+            assertTrue(service.check(player, "en-US").isEmpty());
+            assertTrue(service.check(player, null).isEmpty());
+            var changed = new DocumentCatalog(List.of(new DocumentRevision("rules", "v2", true, 10,
+                    Map.of("en-US", translation("Rules", "c"), "id-ID", translation("Peraturan", "d")))));
+            var changedService = new AdmissionService(config(true, true), changed, repository);
+            assertTrue(changedService.check(player, "en-US").isPresent());
+            var edited = new DocumentCatalog(List.of(new DocumentRevision("rules", "v1", true, 10,
+                    Map.of("en-US", translation("Rules", "c"), "id-ID", translation("Peraturan", "d")))));
+            assertTrue(new AdmissionService(config(true, true), edited, repository).check(player, "en-US").isPresent());
+            repository.withdraw(player, "main", List.of("rules"), UUID.randomUUID(), Instant.now(), "test");
+            assertTrue(service.check(player, "en-US").isPresent());
+        }
+    }
     @Test void disabledGateAdmitsWithoutStorageAccess() throws Exception {
         var repository = new RecordingRepository();
         try (var service = new AdmissionService(config(false, true), catalog(), repository)) {
@@ -70,6 +92,14 @@ class AdmissionServiceTest {
         try (var service = new AdmissionService(config(true, false), catalog(), repository)) {
             AdmissionRequest request = service.check(UUID.randomUUID(), "id-ID").orElseThrow();
             assertEquals("en-US", request.documents().getFirst().locale());
+        }
+    }
+
+    @Test void exactLocaleCheckIgnoresClientLocaleSetting() throws Exception {
+        var repository = new RecordingRepository();
+        try (var service = new AdmissionService(config(true, false), catalog(), repository)) {
+            AdmissionRequest request = service.checkExactLocale(UUID.randomUUID(), "id-ID").orElseThrow();
+            assertEquals("id-ID", request.documents().getFirst().locale());
         }
     }
 

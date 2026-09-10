@@ -17,6 +17,15 @@ public final class RuntimeLoader {
         if (!config.enabled()) return new ConsentGateRuntime(config, null);
         var catalog = new DocumentLoader().loadDirectory(config.documentsDirectory());
         if (catalog.required().isEmpty()) throw new IllegalArgumentException("An enabled gate needs at least one required document");
+        if (config.languageSelector().enabled()) {
+            for (var document : catalog.required()) {
+                for (String locale : config.languageSelector().options().keySet()) {
+                    if (!document.translations().containsKey(locale)) {
+                        throw new IllegalArgumentException("Language selector locale " + locale + " is missing from " + document.id());
+                    }
+                }
+            }
+        }
         var repository = new SqliteAcceptanceRepository(config.sqliteFile());
         try {
             return new ConsentGateRuntime(config, new AdmissionService(config, catalog, repository));

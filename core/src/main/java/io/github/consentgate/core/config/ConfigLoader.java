@@ -56,11 +56,31 @@ public final class ConfigLoader {
         int maxPending = integer(gate, "max-pending", 1, 10_000);
 
         Map<?, ?> language = map(required(config, "language"), "language");
-        rejectUnknown(language, "language", "default", "use-client-locale");
+        rejectUnknown(language, "language", "default", "use-client-locale", "selector");
         String defaultLocale;
         try { defaultLocale = LocaleTag.normalize(text(language, "default", 2, 64)); }
         catch (IllegalArgumentException ex) { throw new ConfigLoadException(ex.getMessage(), ex); }
         boolean useClientLocale = bool(language, "use-client-locale");
+        LanguageSelectorConfig selector = LanguageSelectorConfig.disabled();
+        if (language.containsKey("selector")) {
+            Map<?, ?> selectorMap = map(language.get("selector"), "language.selector");
+            rejectUnknown(selectorMap, "language.selector", "enabled", "title", "prompt", "columns", "options");
+            boolean selectorEnabled = bool(selectorMap, "enabled");
+            String title = text(selectorMap, "title", 1, 128);
+            String prompt = text(selectorMap, "prompt", 1, 512);
+            int columns = integer(selectorMap, "columns", 1, 2);
+            Map<?, ?> rawOptions = map(required(selectorMap, "options"), "language.selector.options");
+            var options = new java.util.LinkedHashMap<String, String>();
+            for (var entry : rawOptions.entrySet()) {
+                if (!(entry.getKey() instanceof String locale)) throw new ConfigLoadException("Invalid language selector locale");
+                if (!(entry.getValue() instanceof String label)) {
+                    throw new ConfigLoadException("Language selector labels must be text");
+                }
+                options.put(locale, label);
+            }
+            try { selector = new LanguageSelectorConfig(selectorEnabled, title, prompt, columns, options); }
+            catch (IllegalArgumentException ex) { throw new ConfigLoadException(ex.getMessage(), ex); }
+        }
 
         DialogAppearance appearance = DialogAppearance.defaults();
         if (config.containsKey("appearance")) {
@@ -94,7 +114,7 @@ public final class ConfigLoader {
         if (sqliteFile.equals(root)) throw new ConfigLoadException("storage.sqlite.file must name a file");
 
         return new ConsentGateConfig(enabled, scope, timeoutSeconds, maxPending, defaultLocale,
-                useClientLocale, appearance, documentsDirectory, sqliteFile);
+                useClientLocale, selector, appearance, documentsDirectory, sqliteFile);
     }
 
     private static Path resolveInside(Path root, String value, String key) throws ConfigLoadException {

@@ -13,6 +13,7 @@ public record ConsentGateConfig(
         int maxPending,
         String defaultLocale,
         boolean useClientLocale,
+        LanguageSelectorConfig languageSelector,
         DialogAppearance appearance,
         Path documentsDirectory,
         Path sqliteFile
@@ -22,6 +23,7 @@ public record ConsentGateConfig(
     public ConsentGateConfig {
         scope = Objects.requireNonNull(scope, "scope");
         defaultLocale = Objects.requireNonNull(defaultLocale, "defaultLocale");
+        languageSelector = Objects.requireNonNull(languageSelector, "languageSelector");
         appearance = Objects.requireNonNull(appearance, "appearance");
         documentsDirectory = Objects.requireNonNull(documentsDirectory, "documentsDirectory").toAbsolutePath().normalize();
         sqliteFile = Objects.requireNonNull(sqliteFile, "sqliteFile").toAbsolutePath().normalize();
@@ -33,7 +35,7 @@ public record ConsentGateConfig(
 
     public ConsentGateConfig(boolean enabled, String scope, int timeoutSeconds, int maxPending, String defaultLocale,
                              boolean useClientLocale, Path documentsDirectory, Path sqliteFile) {
-        this(enabled, scope, timeoutSeconds, maxPending, defaultLocale, useClientLocale, DialogAppearance.defaults(),
-                documentsDirectory, sqliteFile);
+        this(enabled, scope, timeoutSeconds, maxPending, defaultLocale, useClientLocale, LanguageSelectorConfig.disabled(),
+                DialogAppearance.defaults(), documentsDirectory, sqliteFile);
     }
 }

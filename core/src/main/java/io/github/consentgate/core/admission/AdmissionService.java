@@ -34,6 +34,29 @@ public final class AdmissionService implements AutoCloseable {
         if (!config.enabled()) return Optional.empty();
         String requestedLocale = config.useClientLocale() && clientLocale != null && !clientLocale.isBlank()
                 ? clientLocale : config.defaultLocale();
+        var request = checkSelectedLocale(playerId, requestedLocale);
+        if (request.isEmpty()) return request;
+        // A previously accepted translation remains valid regardless of the client language.
+        for (var revision : catalog.required()) {
+            boolean accepted = false;
+            for (String locale : revision.translations().keySet()) {
+                if (repository.isAccepted(playerId, config.scope(),
+                        List.of(ShownDocument.from(revision, locale, config.defaultLocale())))) {
+                    accepted = true;
+                    break;
+                }
+            }
+            if (!accepted) return request;
+        }
+        return Optional.empty();
+    }
+
+    public Optional<AdmissionRequest> checkExactLocale(UUID playerId, String locale) throws SQLException {
+        Objects.requireNonNull(playerId, "playerId");
+        return checkSelectedLocale(playerId, io.github.consentgate.core.document.LocaleTag.normalize(locale));
+    }
+
+    private Optional<AdmissionRequest> checkSelectedLocale(UUID playerId, String requestedLocale) throws SQLException {
         List<AdmissionDocument> documents = catalog.required().stream().map(revision -> {
             var selected = revision.selectTranslation(requestedLocale, config.defaultLocale());
             var translation = selected.translation();
