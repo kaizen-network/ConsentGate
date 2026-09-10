@@ -7,6 +7,7 @@ and its initial backend set to 127.0.0.1:25591. No real account is used.
 import re
 import select
 import socket
+import sqlite3
 import struct
 import time
 import uuid
@@ -47,14 +48,16 @@ def read_varint(sock):
 
 
 class Client:
-    def __init__(self):
+    def __init__(self, name=None, player_id=None, expect_dialog=True):
+        self.name = name or "Probe_" + uuid.uuid4().hex[:8]
+        self.player_id = player_id or uuid.uuid4()
         self.socket = socket.create_connection(("127.0.0.1", 25590), timeout=5)
         self.send(0, varint(772) + string("localhost") + struct.pack(">H", 25590) + varint(2))
-        self.send(0, string("Probe_" + uuid.uuid4().hex[:8]) + uuid.uuid4().bytes)
+        self.send(0, string(self.name) + self.player_id.bytes)
         packet, data = self.receive()
         assert packet == 2, ("Expected login success", packet, data)
         self.send(3)
-        self.token = self.dialog()
+        self.token = self.dialog() if expect_dialog else None
 
     def send(self, packet, payload=b""):
         body = varint(packet) + payload
@@ -70,11 +73,12 @@ class Client:
             self.send(4, body[1:])
         return body[0], body[1:]
 
-    def dialog(self):
+    def dialog(self, action="accept"):
         for _ in range(20):
             packet, body = self.receive()
             if packet == 18:
-                match = re.search(rb"consentgate:accept/([0-9a-f-]{36})", body)
+                pattern = rb"consentgate:" + action.encode() + rb"/([0-9a-f-]{36})"
+                match = re.search(pattern, body)
                 assert match, "Missing session action in dialog"
                 return match.group(1).decode()
             assert packet != 2, ("Disconnected before dialog", body)
@@ -82,6 +86,9 @@ class Client:
 
     def click(self, action="accept", checked=True, token=None):
         nbt = b"\x0a\x01\x00\x05agree" + bytes([int(checked)]) + b"\x00"
+        self.click_nbt(nbt, action, token)
+
+    def click_nbt(self, nbt, action="accept", token=None):
         self.send(8, string("consentgate:" + action + "/" + (token or self.token)) + varint(len(nbt)) + nbt)
 
     def close(self):
@@ -98,21 +105,59 @@ def no_backend(backend, client, seconds):
             assert packet != 2, ("Unexpected disconnect", body)
 
 
-def main():
+def disconnected_without_backend(backend, client, seconds):
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        ready, _, _ = select.select([backend, client.socket], [], [], min(0.2, deadline - time.monotonic()))
+        assert backend not in ready, "Backend contacted after a failed acceptance save"
+        if client.socket in ready:
+            packet, _ = client.receive()
+            if packet == 2:
+                return
+    raise AssertionError("Client was not disconnected after a failed acceptance save")
+
+
+def main(database=None):
     with socket.socket() as backend:
         backend.bind(("127.0.0.1", 25591))
         backend.listen()
         backend.settimeout(5)
         client = Client()
         try:
+            overflow = Client(expect_dialog=False)
+            try:
+                disconnected_without_backend(backend, overflow, 5)
+                print("PASS: configured pending capacity rejects overflow", flush=True)
+            finally:
+                overflow.close()
             no_backend(backend, client, 35)
             print("PASS: dialog and keepalives without backend contact for 35 seconds", flush=True)
             client.click(checked=False)
             assert client.dialog() == client.token
+            time.sleep(0.3)
+            client.click_nbt(b"\x0a\x00")
+            assert client.dialog() == client.token
+            time.sleep(0.3)
+            wrong_type = b"\x0a\x08\x00\x05agree\x00\x04true\x00"
+            client.click_nbt(wrong_type)
+            assert client.dialog() == client.token
+            time.sleep(0.3)
+            extra_key = b"\x0a\x01\x00\x05agree\x01\x01\x00\x05other\x01\x00"
+            client.click_nbt(extra_key)
+            assert client.dialog() == client.token
             no_backend(backend, client, 0.5)
             client.click(token=str(uuid.uuid4()))
             no_backend(backend, client, 0.5)
-            print("PASS: unchecked and forged acceptance remain blocked", flush=True)
+            print("PASS: unchecked, malformed, and forged acceptance remain blocked", flush=True)
+            client.click(action="read/0", checked=True)
+            assert client.dialog("next/0/0") == client.token
+            client.click(action="next/0/0")
+            assert client.dialog("previous/0/1") == client.token
+            client.click(action="previous/0/1")
+            assert client.dialog("back") == client.token
+            client.click(action="back")
+            assert client.dialog() == client.token
+            print("PASS: full document navigation returns to the active request", flush=True)
             client.click()
             connection, _ = backend.accept()
             with connection:
@@ -121,8 +166,36 @@ def main():
                 handshake = exact(connection, size)
                 assert handshake[0] == 0, "Expected backend handshake"
             print("PASS: valid acceptance releases initial backend handshake", flush=True)
+            accepted_name = client.name
+            accepted_id = client.player_id
         finally:
             client.close()
+        time.sleep(0.5)
+        client = Client(accepted_name, accepted_id, expect_dialog=False)
+        try:
+            connection, _ = backend.accept()
+            with connection:
+                connection.settimeout(5)
+                size = read_varint(connection)
+                handshake = exact(connection, size)
+                assert handshake[0] == 0, "Expected backend handshake for accepted reconnect"
+            print("PASS: accepted reconnect skips the dialog", flush=True)
+        finally:
+            client.close()
+        assert database is not None
+        locked = sqlite3.connect(database, isolation_level=None)
+        try:
+            locked.execute("BEGIN IMMEDIATE")
+            client = Client()
+            try:
+                client.click()
+                disconnected_without_backend(backend, client, 10)
+                print("PASS: failed SQLite save does not release the backend connection", flush=True)
+            finally:
+                client.close()
+                locked.execute("ROLLBACK")
+        finally:
+            locked.close()
         client = Client()
         try:
             client.click(action="leave")

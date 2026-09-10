@@ -1,0 +1,16 @@
+id: server-rules
+version: "1"
+required: true
+order: 10
+translations:
+  en-US:
+    title: "Server Rules"
+    summary: "Replace this example with the rules for your server."
+    checkbox: "I agree to follow the Server Rules"
+    read-button: "Read the Server Rules"
+    pages:
+      - title: "Server Rules"
+        body: |-
+          This file is an example and is not active by default.
+
+          Edit the text and version before enabling ConsentGate.

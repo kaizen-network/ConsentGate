@@ -4,18 +4,26 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketListenerAbstract;
 import com.github.retrooper.packetevents.event.PacketListenerPriority;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
-import com.github.retrooper.packetevents.protocol.dialog.*;
+import com.github.retrooper.packetevents.protocol.dialog.CommonDialogData;
+import com.github.retrooper.packetevents.protocol.dialog.DialogAction;
+import com.github.retrooper.packetevents.protocol.dialog.MultiActionDialog;
 import com.github.retrooper.packetevents.protocol.dialog.action.DynamicCustomAction;
-import com.github.retrooper.packetevents.protocol.dialog.body.*;
-import com.github.retrooper.packetevents.protocol.dialog.button.*;
-import com.github.retrooper.packetevents.protocol.dialog.input.*;
+import com.github.retrooper.packetevents.protocol.dialog.body.PlainMessage;
+import com.github.retrooper.packetevents.protocol.dialog.body.PlainMessageDialogBody;
+import com.github.retrooper.packetevents.protocol.dialog.button.ActionButton;
+import com.github.retrooper.packetevents.protocol.dialog.button.CommonButtonData;
+import com.github.retrooper.packetevents.protocol.dialog.input.BooleanInputControl;
+import com.github.retrooper.packetevents.protocol.dialog.input.Input;
 import com.github.retrooper.packetevents.protocol.nbt.NBTByte;
 import com.github.retrooper.packetevents.protocol.nbt.NBTCompound;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.User;
 import com.github.retrooper.packetevents.resources.ResourceLocation;
-import com.github.retrooper.packetevents.wrapper.configuration.client.*;
-import com.github.retrooper.packetevents.wrapper.configuration.server.*;
+import com.github.retrooper.packetevents.wrapper.configuration.client.WrapperConfigClientCustomClickAction;
+import com.github.retrooper.packetevents.wrapper.configuration.client.WrapperConfigClientKeepAlive;
+import com.github.retrooper.packetevents.wrapper.configuration.server.WrapperConfigServerClearDialog;
+import com.github.retrooper.packetevents.wrapper.configuration.server.WrapperConfigServerKeepAlive;
+import com.github.retrooper.packetevents.wrapper.configuration.server.WrapperConfigServerShowDialog;
 import com.google.inject.Inject;
 import com.velocitypowered.api.event.EventTask;
 import com.velocitypowered.api.event.Subscribe;
@@ -26,93 +34,204 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Dependency;
 import com.velocitypowered.api.plugin.Plugin;
+import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.scheduler.ScheduledTask;
 import io.github.consentgate.core.GateSession;
-import io.github.consentgate.core.PrototypeText;
+import io.github.consentgate.core.admission.AdmissionDocument;
+import io.github.consentgate.core.admission.AdmissionRequest;
+import io.github.consentgate.core.admission.AdmissionService;
+import io.github.consentgate.core.admission.AdmissionSession;
+import io.github.consentgate.core.runtime.ConsentGateRuntime;
+import io.github.consentgate.core.runtime.RuntimeLoader;
 import net.kyori.adventure.text.Component;
 import org.slf4j.Logger;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Plugin(id = "consentgate", name = "ConsentGate", version = "0.1.0-prototype",
-        description = "Experimental pre-admission dialog prototype",
+        description = "Configurable pre-admission agreements",
         dependencies = @Dependency(id = "packetevents"))
 public final class ConsentGateVelocity {
+    private static final Duration HEARTBEAT_INTERVAL = Duration.ofSeconds(10);
+    private static final Duration HEARTBEAT_TIMEOUT = Duration.ofSeconds(25);
     private final ProxyServer proxy;
     private final Logger logger;
-    private final Map<Player, Pending> sessions = new ConcurrentHashMap<>();
-    private final Set<Player> admitted = ConcurrentHashMap.newKeySet();
-    private final Map<User, Heartbeat> lateHeartbeats = new ConcurrentHashMap<>();
+    private final Path dataDirectory;
+    private final Map<Player, Pending> sessions = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<User, Pending> sessionsByUser = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Set<Player> admitted = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Map<User, Heartbeat> lateHeartbeats = new java.util.concurrent.ConcurrentHashMap<>();
     private final PacketListenerAbstract packets = new PacketListenerAbstract(PacketListenerPriority.HIGHEST) {
-        @Override public void onPacketReceive(PacketReceiveEvent event) { receive(event); }
+        @Override public void onPacketReceive(PacketReceiveEvent event) { receiveSafely(event); }
     };
+    private ConsentGateRuntime runtime;
+    private ThreadPoolExecutor databaseExecutor;
     private ScheduledTask timer;
+    private volatile String startupFailure;
     private volatile boolean stopping;
 
-    @Inject public ConsentGateVelocity(ProxyServer proxy, Logger logger) {
+    @Inject public ConsentGateVelocity(ProxyServer proxy, Logger logger, @DataDirectory Path dataDirectory) {
         this.proxy = proxy;
         this.logger = logger;
+        this.dataDirectory = dataDirectory;
     }
 
     @Subscribe(priority = Short.MIN_VALUE) public void initialize(ProxyInitializeEvent event) {
+        try {
+            installDefaults();
+            runtime = new RuntimeLoader().load(dataDirectory);
+            if (runtime.enabled()) {
+                int queueSize = Math.min(10_000, Math.max(32, runtime.config().maxPending() * 2));
+                databaseExecutor = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS,
+                        new ArrayBlockingQueue<>(queueSize), threadFactory(), new ThreadPoolExecutor.AbortPolicy());
+                logger.info("ConsentGate is enabled with SQLite storage.");
+            } else {
+                logger.warn("ConsentGate is disabled. Edit config.yml and add a required document before enabling it.");
+            }
+        } catch (Exception ex) {
+            startupFailure = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
+            logger.error("ConsentGate could not start. Connections will be denied: {}", startupFailure, ex);
+        }
         PacketEvents.getAPI().getEventManager().registerListener(packets);
         timer = proxy.getScheduler().buildTask(this, this::tick).repeat(Duration.ofSeconds(1)).schedule();
-        logger.warn("Connection prototype only. Do not install on a production proxy.");
     }
 
     @Subscribe public EventTask choose(PlayerChooseInitialServerEvent event) {
         return EventTask.withContinuation(continuation -> {
+            var held = new HeldConnection(continuation);
             Player player = event.getPlayer();
-            User user = PacketEvents.getAPI().getPlayerManager().getUser(player);
-            if (stopping || player.getProtocolVersion().getProtocol() < 771 || user == null) {
-                player.disconnect(Component.text("This prototype requires a supported Java 1.21.6+ connection."));
-                continuation.resume();
+            if (stopping || startupFailure != null || runtime == null) {
+                deny(player, startupFailure == null ? "ConsentGate is unavailable." : "ConsentGate configuration is invalid.", held);
                 return;
             }
-            var pending = new Pending(player, user);
+            if (!runtime.enabled()) {
+                admitted.add(player);
+                held.resume();
+                return;
+            }
+            User user = PacketEvents.getAPI().getPlayerManager().getUser(player);
+            if (player.getProtocolVersion().getProtocol() < 771 || user == null) {
+                deny(player, "ConsentGate requires a Java 1.21.6 or newer connection.", held);
+                return;
+            }
+            var pending = new Pending(player, user, held);
             synchronized (sessions) {
-                if (stopping || sessions.size() >= 128 || sessions.putIfAbsent(player, pending) != null) {
-                    player.disconnect(Component.text("ConsentGate is unavailable."));
-                    continuation.resume();
+                if (stopping || sessions.size() >= runtime.config().maxPending()
+                        || sessions.putIfAbsent(player, pending) != null || sessionsByUser.putIfAbsent(user, pending) != null) {
+                    sessions.remove(player, pending);
+                    sessionsByUser.remove(user, pending);
+                    deny(player, "ConsentGate is busy. Please try again shortly.", held);
                     return;
                 }
             }
-            pending.session.result().whenComplete((decision, failure) -> {
-                try {
-                    synchronized (pending) {
-                        if (pending.heartbeat != null) lateHeartbeats.put(user, pending.heartbeat);
+            executeDatabase(pending, () -> checkAcceptance(pending));
+        });
+    }
+
+    private void checkAcceptance(Pending pending) {
+        try {
+            if (pending.finished.get() || stopping || !pending.player.isActive()) {
+                finishDenied(pending, "Connection ended before the consent check completed.");
+                return;
+            }
+            AdmissionService service = runtime.admissionService().orElseThrow();
+            String locale = pending.player.getEffectiveLocale() == null
+                    ? null : pending.player.getEffectiveLocale().toLanguageTag();
+            var request = service.check(pending.player.getUniqueId(), locale);
+            if (pending.finished.get()) return;
+            if (request.isEmpty()) {
+                if (!pending.finished.get() && !stopping && pending.player.isActive()) {
+                    admitted.add(pending.player);
+                    if (pending.finished.get() || stopping || !pending.player.isActive() || !finish(pending)) {
+                        admitted.remove(pending.player);
                     }
-                    if (failure == null && decision == GateSession.Decision.ACCEPTED && !stopping && player.isActive()) {
-                        user.sendPacket(new WrapperConfigServerClearDialog());
-                        admitted.add(player);
-                    } else {
-                        player.disconnect(Component.text("Connection test ended."));
-                    }
-                } catch (RuntimeException ex) {
-                    admitted.remove(player);
-                    player.disconnect(Component.text("Connection test failed."));
-                } finally {
-                    sessions.remove(player, pending);
-                    continuation.resume();
-                }
-            });
-            try { show(pending, false); }
-            catch (RuntimeException ex) {
-                logger.error("Unable to show connection test", ex);
-                pending.session.end(GateSession.Decision.FAILED);
+                } else finishDenied(pending, "ConsentGate is stopping.");
+                return;
+            }
+            beginSession(pending, request.orElseThrow());
+        } catch (Exception ex) {
+            logger.error("Consent check failed for {}", pending.player.getUniqueId(), ex);
+            finishDenied(pending, "Consent records could not be checked. Please try again later.");
+        }
+    }
+
+    private void beginSession(Pending pending, AdmissionRequest request) {
+        if (pending.finished.get()) return;
+        AdmissionSession session = new AdmissionSession(request);
+        pending.session = session;
+        session.result().whenComplete((decision, failure) -> {
+            if (failure == null && decision == GateSession.Decision.ACCEPTED) {
+                executeDatabase(pending, () -> persistAcceptance(pending));
+            } else {
+                finishDenied(pending, "Consent was not accepted.");
             }
         });
+        try { showSummary(pending, false); }
+        catch (RuntimeException ex) {
+            logger.error("Unable to show the consent dialog", ex);
+            session.end(GateSession.Decision.FAILED);
+        }
+    }
+
+    private void persistAcceptance(Pending pending) {
+        try {
+            if (pending.finished.get() || stopping || !pending.player.isActive()) {
+                finishDenied(pending, "Connection ended before consent was saved.");
+                return;
+            }
+            AdmissionSession session = pending.session;
+            if (session == null) throw new IllegalStateException("Admission session is missing");
+            runtime.admissionService().orElseThrow().grant(pending.player.getUniqueId(), session,
+                    Instant.now(), "in-game");
+            if (pending.finished.get() || stopping || !pending.player.isActive()) {
+                finishDenied(pending, "Connection ended before admission.");
+                return;
+            }
+            pending.user.sendPacket(new WrapperConfigServerClearDialog());
+            admitted.add(pending.player);
+            if (pending.finished.get() || stopping || !pending.player.isActive() || !finish(pending)) {
+                admitted.remove(pending.player);
+                finishDenied(pending, "Connection ended before admission.");
+                return;
+            }
+        } catch (Exception ex) {
+            logger.error("Consent save failed for {}", pending.player.getUniqueId(), ex);
+            finishDenied(pending, "Consent could not be saved. Please try again later.");
+        }
     }
 
     @Subscribe(priority = Short.MIN_VALUE) public void connecting(ServerPreConnectEvent event) {
         if (stopping || !admitted.contains(event.getPlayer())) {
             event.setResult(ServerPreConnectEvent.ServerResult.denied());
+        }
+    }
+
+    private void receiveSafely(PacketReceiveEvent event) {
+        try { receive(event); }
+        catch (RuntimeException ex) {
+            Pending pending = sessionsByUser.get(event.getUser());
+            if (pending != null) endOrFinish(pending, GateSession.Decision.FAILED, "Invalid consent response.");
+            logger.warn("Invalid consent dialog packet", ex);
         }
     }
 
@@ -125,46 +244,153 @@ public final class ConsentGateVelocity {
                 return;
             }
         }
-        Pending pending = sessions.values().stream().filter(p -> p.user == event.getUser()).findFirst().orElse(null);
+        Pending pending = sessionsByUser.get(event.getUser());
         if (pending == null) return;
         var type = event.getPacketType();
         if (type == PacketType.Configuration.Client.KEEP_ALIVE) {
-            event.setCancelled(true);
             synchronized (pending) {
                 long id = new WrapperConfigClientKeepAlive(event).getId();
-                if (pending.heartbeat != null && pending.heartbeat.id() == id) pending.heartbeat = null;
+                if (pending.heartbeat != null && pending.heartbeat.id() == id) {
+                    event.setCancelled(true);
+                    pending.heartbeat = null;
+                }
             }
         } else if (type == PacketType.Configuration.Client.CUSTOM_CLICK_ACTION) {
-            event.setCancelled(true);
             var click = new WrapperConfigClientCustomClickAction(event);
-            String id = click.getId().toString();
-            if (id.equals("consentgate:leave/" + pending.session.token())) pending.session.decline(pending.session.token());
-            else if (id.equals("consentgate:accept/" + pending.session.token()) && pending.session.pending()) {
-                boolean checked = click.getPayload() instanceof NBTCompound payload
-                        && payload.getTagOrNull("agree") instanceof NBTByte value && value.getAsByte() == 1;
-                if (checked) pending.session.accept(pending.session.token(), true);
-                else if (System.nanoTime() - pending.lastDisplay > Duration.ofMillis(250).toNanos()) show(pending, true);
+            if (pending.session != null && click.getId().toString().startsWith("consentgate:")) {
+                event.setCancelled(true);
+                handleClick(pending, click);
             }
         } else if (type == PacketType.Configuration.Client.CONFIGURATION_END_ACK) {
             event.setCancelled(true);
-            pending.session.end(GateSession.Decision.FAILED);
+            endOrFinish(pending, GateSession.Decision.FAILED, "Connection configuration ended unexpectedly.");
         }
     }
 
-    private void show(Pending pending, boolean error) {
+    private void handleClick(Pending pending, WrapperConfigClientCustomClickAction click) {
+        AdmissionSession session = pending.session;
+        if (session == null || pending.finished.get()) return;
+        String id = click.getId().toString();
+        String prefix = "consentgate:";
+        if (!id.startsWith(prefix)) return;
+        String[] parts = id.substring(prefix.length()).split("/");
+        if (parts.length < 2 || !parts[parts.length - 1].equals(session.token())) return;
+        switch (parts[0]) {
+            case "leave" -> {
+                if (parts.length == 2) session.decline(session.token());
+            }
+            case "accept" -> {
+                if (parts.length != 2) return;
+                Map<String, Boolean> selections = selections(pending, click.getPayload());
+                if (selections == null || !session.accept(session.token(), selections)) {
+                    redisplaySummary(pending, true);
+                }
+            }
+            case "read" -> {
+                if (parts.length != 3) return;
+                Map<String, Boolean> selections = selections(pending, click.getPayload());
+                if (selections == null || !session.updateSelections(session.token(), selections)) {
+                    redisplaySummary(pending, true);
+                    return;
+                }
+                showPage(pending, index(parts[1]), 0);
+            }
+            case "back" -> {
+                if (parts.length == 2) showSummary(pending, false);
+            }
+            case "previous" -> {
+                if (parts.length == 4) showPage(pending, index(parts[1]), index(parts[2]) - 1);
+            }
+            case "next" -> {
+                if (parts.length == 4) showPage(pending, index(parts[1]), index(parts[2]) + 1);
+            }
+            default -> { }
+        }
+    }
+
+    private Map<String, Boolean> selections(Pending pending, Object rawPayload) {
+        if (!(rawPayload instanceof NBTCompound payload)) return null;
+        AdmissionSession session = pending.session;
+        if (session == null) return null;
+        Set<String> expected = session.request().documents().stream()
+                .map(AdmissionDocument::id).collect(java.util.stream.Collectors.toSet());
+        if (!payload.getTagNames().equals(expected)) return null;
+        var result = new LinkedHashMap<String, Boolean>();
+        for (String id : expected) {
+            if (!(payload.getTagOrNull(id) instanceof NBTByte value) || (value.getAsByte() != 0 && value.getAsByte() != 1)) {
+                return null;
+            }
+            result.put(id, value.getAsByte() == 1);
+        }
+        return result;
+    }
+
+    private void showSummary(Pending pending, boolean error) {
+        AdmissionSession session = pending.session;
+        if (session == null || !session.pending() || pending.finished.get()) return;
         pending.lastDisplay = System.nanoTime();
-        String body = PrototypeText.BODY + (error ? "\n\n" + PrototypeText.REQUIRED : "");
-        var common = new CommonDialogData(Component.text(PrototypeText.TITLE), null, false, false,
-                DialogAction.WAIT_FOR_RESPONSE,
-                List.of(new PlainMessageDialogBody(new PlainMessage(Component.text(body), 350))),
-                List.of(new Input("agree", new BooleanInputControl(Component.text(PrototypeText.CHECKBOX), false, "true", "false"))));
-        pending.user.sendPacket(new WrapperConfigServerShowDialog(new MultiActionDialog(common,
-                List.of(button("Continue", "accept", pending), button("Leave", "leave", pending)), null, 1)));
+        var body = new StringBuilder("Please review and accept each required document before continuing.");
+        for (AdmissionDocument document : session.request().documents()) {
+            body.append("\n\n").append(document.title()).append(" (version ").append(document.version()).append(")\n")
+                    .append(document.summary());
+        }
+        if (error) body.append("\n\nEvery checkbox is required.");
+        Map<String, Boolean> selected = session.selections();
+        List<Input> inputs = session.request().documents().stream()
+                .map(document -> new Input(document.id(), new BooleanInputControl(Component.text(document.checkbox()),
+                        selected.getOrDefault(document.id(), false), "true", "false"))).toList();
+        var buttons = new ArrayList<ActionButton>();
+        for (int index = 0; index < session.request().documents().size(); index++) {
+            AdmissionDocument document = session.request().documents().get(index);
+            buttons.add(button(document.readButton(), "read/" + index, pending));
+        }
+        buttons.add(button("Continue", "accept", pending));
+        buttons.add(button("Leave", "leave", pending));
+        pending.user.sendPacket(new WrapperConfigServerShowDialog(
+                new MultiActionDialog(common("Before you continue", body.toString(), inputs), buttons, null, 1)));
+    }
+
+    private void redisplaySummary(Pending pending, boolean error) {
+        if (System.nanoTime() - pending.lastDisplay > Duration.ofMillis(250).toNanos()) showSummary(pending, error);
+    }
+
+    private void showPage(Pending pending, int documentIndex, int pageIndex) {
+        AdmissionSession session = pending.session;
+        if (session == null || !session.pending() || pending.finished.get() || documentIndex < 0
+                || documentIndex >= session.request().documents().size()) return;
+        AdmissionDocument document = session.request().documents().get(documentIndex);
+        if (pageIndex < 0 || pageIndex >= document.pages().size()) return;
+        pending.lastDisplay = System.nanoTime();
+        var page = document.pages().get(pageIndex);
+        String title = document.title() + ": " + page.title();
+        String body = page.body() + "\n\nPage " + (pageIndex + 1) + " of " + document.pages().size();
+        var buttons = new ArrayList<ActionButton>();
+        if (pageIndex > 0) buttons.add(button("Previous", "previous/" + documentIndex + "/" + pageIndex, pending));
+        buttons.add(button("Back", "back", pending));
+        if (pageIndex + 1 < document.pages().size()) {
+            buttons.add(button("Next", "next/" + documentIndex + "/" + pageIndex, pending));
+        }
+        buttons.add(button("Leave", "leave", pending));
+        pending.user.sendPacket(new WrapperConfigServerShowDialog(
+                new MultiActionDialog(common(title, body, List.of()), buttons, null, buttons.size())));
+    }
+
+    private CommonDialogData common(String title, String body, List<Input> inputs) {
+        return new CommonDialogData(Component.text(title), null, false, false, DialogAction.WAIT_FOR_RESPONSE,
+                List.of(new PlainMessageDialogBody(new PlainMessage(Component.text(body), 500))), inputs);
     }
 
     private ActionButton button(String label, String action, Pending pending) {
+        AdmissionSession session = pending.session;
+        if (session == null) throw new IllegalStateException("Admission session is missing");
         return new ActionButton(new CommonButtonData(Component.text(label), null, 200),
-                new DynamicCustomAction(new ResourceLocation("consentgate", action + "/" + pending.session.token()), new NBTCompound()));
+                new DynamicCustomAction(new ResourceLocation("consentgate", action + "/" + session.token()),
+                        new NBTCompound()));
+    }
+
+    private static int index(String value) {
+        try { return Integer.parseInt(value); }
+        catch (NumberFormatException ex) { return -1; }
     }
 
     private void tick() {
@@ -172,13 +398,15 @@ public final class ConsentGateVelocity {
         lateHeartbeats.entrySet().removeIf(entry -> now - entry.getValue().sent() > Duration.ofSeconds(30).toNanos());
         for (var pending : sessions.values()) {
             try {
-                if (!pending.player.isActive()) pending.session.end(GateSession.Decision.DISCONNECTED);
-                else if (now - pending.started > Duration.ofMinutes(5).toNanos()) pending.session.end(GateSession.Decision.TIMED_OUT);
-                else synchronized (pending) {
-                    if (!pending.session.pending()) continue;
-                    if (pending.heartbeat != null && now - pending.heartbeat.sent() > Duration.ofSeconds(25).toNanos()) {
-                        pending.session.end(GateSession.Decision.TIMED_OUT);
-                    } else if (pending.heartbeat == null && now - pending.lastHeartbeat > Duration.ofSeconds(10).toNanos()) {
+                synchronized (pending) {
+                    if (pending.finished.get()) continue;
+                    if (!pending.player.isActive()) {
+                        endOrFinish(pending, GateSession.Decision.DISCONNECTED, "Connection ended.");
+                    } else if (now - pending.started > Duration.ofSeconds(runtime.config().timeoutSeconds()).toNanos()) {
+                        endOrFinish(pending, GateSession.Decision.TIMED_OUT, "Consent request timed out.");
+                    } else if (pending.heartbeat != null && now - pending.heartbeat.sent() > HEARTBEAT_TIMEOUT.toNanos()) {
+                        endOrFinish(pending, GateSession.Decision.TIMED_OUT, "Consent connection timed out.");
+                    } else if (pending.heartbeat == null && now - pending.lastHeartbeat > HEARTBEAT_INTERVAL.toNanos()) {
                         pending.heartbeat = new Heartbeat(ThreadLocalRandom.current().nextLong(), now);
                         pending.lastHeartbeat = now;
                         pending.user.sendPacket(new WrapperConfigServerKeepAlive(pending.heartbeat.id()));
@@ -186,38 +414,146 @@ public final class ConsentGateVelocity {
                 }
             } catch (RuntimeException ex) {
                 logger.warn("Connection heartbeat failed", ex);
-                pending.session.end(GateSession.Decision.FAILED);
+                endOrFinish(pending, GateSession.Decision.FAILED, "ConsentGate connection handling failed.");
             }
         }
+    }
+
+    private void executeDatabase(Pending pending, Runnable operation) {
+        try {
+            ThreadPoolExecutor executor = databaseExecutor;
+            if (executor == null || executor.isShutdown()) throw new RejectedExecutionException();
+            executor.execute(operation);
+        } catch (RejectedExecutionException ex) {
+            finishDenied(pending, "ConsentGate is busy. Please try again shortly.");
+        }
+    }
+
+    private void finishDenied(Pending pending, String message) {
+        if (!markFinished(pending)) return;
+        admitted.remove(pending.player);
+        try { pending.player.disconnect(Component.text(message)); }
+        catch (RuntimeException ex) { logger.warn("Could not disconnect a denied connection", ex); }
+        finally { release(pending); }
+    }
+
+    private void endOrFinish(Pending pending, GateSession.Decision decision, String message) {
+        AdmissionSession session = pending.session;
+        if (session == null || !session.end(decision)) finishDenied(pending, message);
+    }
+
+    private boolean finish(Pending pending) {
+        if (!markFinished(pending)) return false;
+        release(pending);
+        return true;
+    }
+
+    private boolean markFinished(Pending pending) {
+        synchronized (pending) {
+            if (!pending.finished.compareAndSet(false, true)) return false;
+            if (pending.heartbeat != null) lateHeartbeats.put(pending.user, pending.heartbeat);
+        }
+        return true;
+    }
+
+    private void release(Pending pending) {
+        sessions.remove(pending.player, pending);
+        sessionsByUser.remove(pending.user, pending);
+        pending.held.resume();
+    }
+
+    private void deny(Player player, String message, HeldConnection held) {
+        admitted.remove(player);
+        try { player.disconnect(Component.text(message)); }
+        catch (RuntimeException ex) { logger.warn("Could not disconnect a denied connection", ex); }
+        finally { held.resume(); }
+    }
+
+    private void installDefaults() throws IOException {
+        Files.createDirectories(dataDirectory);
+        if (Files.isSymbolicLink(dataDirectory)) throw new IOException("Plugin data directory cannot be a symbolic link");
+        copyDefault("config.yml", dataDirectory.resolve("config.yml"));
+        Path documents = dataDirectory.resolve("documents");
+        if (Files.isSymbolicLink(documents)) throw new IOException("Document directory cannot be a symbolic link");
+        Files.createDirectories(documents);
+        copyDefault("example-document.yml", documents.resolve("example.yml.example"));
+    }
+
+    private void copyDefault(String resource, Path target) throws IOException {
+        if (Files.isSymbolicLink(target)) throw new IOException("Default target cannot be a symbolic link: " + target.getFileName());
+        if (Files.exists(target)) return;
+        try (InputStream input = getClass().getClassLoader().getResourceAsStream(resource)) {
+            if (input == null) throw new IOException("Missing bundled resource: " + resource);
+            Files.copy(input, target);
+        }
+    }
+
+    private static ThreadFactory threadFactory() {
+        AtomicInteger sequence = new AtomicInteger();
+        return task -> {
+            Thread thread = new Thread(task, "consentgate-database-" + sequence.incrementAndGet());
+            thread.setDaemon(true);
+            return thread;
+        };
     }
 
     @Subscribe public void disconnect(DisconnectEvent event) {
         admitted.remove(event.getPlayer());
         var pending = sessions.get(event.getPlayer());
-        if (pending != null) pending.session.end(GateSession.Decision.DISCONNECTED);
+        if (pending != null) endOrFinish(pending, GateSession.Decision.DISCONNECTED, "Connection ended.");
     }
 
     @Subscribe public void shutdown(ProxyShutdownEvent event) {
         synchronized (sessions) {
             stopping = true;
-            sessions.values().forEach(p -> p.session.end(GateSession.Decision.SHUTDOWN));
+            List.copyOf(sessions.values()).forEach(pending -> {
+                endOrFinish(pending, GateSession.Decision.SHUTDOWN, "ConsentGate is stopping.");
+            });
         }
         if (timer != null) timer.cancel();
         PacketEvents.getAPI().getEventManager().unregisterListener(packets);
+        if (databaseExecutor != null) {
+            databaseExecutor.shutdownNow();
+            try {
+                if (!databaseExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                    logger.warn("ConsentGate database workers did not stop within five seconds.");
+                }
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                logger.warn("Interrupted while stopping ConsentGate database workers.");
+            }
+        }
+        if (runtime != null) {
+            try { runtime.close(); }
+            catch (Exception ex) { logger.warn("ConsentGate storage did not close cleanly", ex); }
+        }
         lateHeartbeats.clear();
         admitted.clear();
     }
 
     private record Heartbeat(long id, long sent) { }
 
+    private static final class HeldConnection {
+        private final com.velocitypowered.api.event.Continuation continuation;
+        private final AtomicBoolean resumed = new AtomicBoolean();
+        HeldConnection(com.velocitypowered.api.event.Continuation continuation) { this.continuation = continuation; }
+        void resume() { if (resumed.compareAndSet(false, true)) continuation.resume(); }
+    }
+
     private static final class Pending {
         final Player player;
         final User user;
-        final GateSession session = new GateSession();
+        final HeldConnection held;
+        volatile AdmissionSession session;
+        final AtomicBoolean finished = new AtomicBoolean();
         final long started = System.nanoTime();
         volatile long lastDisplay;
         long lastHeartbeat = started;
         Heartbeat heartbeat;
-        Pending(Player player, User user) { this.player = player; this.user = user; }
+        Pending(Player player, User user, HeldConnection held) {
+            this.player = player;
+            this.user = user;
+            this.held = held;
+        }
     }
 }

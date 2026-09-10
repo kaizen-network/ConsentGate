@@ -1,0 +1,15 @@
+config-version: 1
+enabled: false
+scope: main
+gate:
+  timeout-seconds: 300
+  max-pending: 128
+language:
+  default: en-US
+  use-client-locale: true
+documents:
+  directory: documents
+storage:
+  type: sqlite
+  sqlite:
+    file: data/consent.db
