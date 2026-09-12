@@ -76,7 +76,7 @@ plugins/ConsentGate/
     remote-cache.db
 ```
 
-Velocity loads editable UTF-8 interface text from `messages/en-US.properties` and `messages/id-ID.properties`. Add another `<locale>.properties` file for another interface language. Missing entries fall back to the configured default language, then English. Current files use Java properties syntax. `remote-cache.db` belongs to a later feature.
+Velocity loads editable UTF-8 interface text from `messages/en-US.properties` and `messages/id-ID.properties`. Add another `<locale>.properties` file for another interface language. Missing entries fall back to the configured default language, then English. Current files use Java properties syntax. `remote-cache.db` stores short-lived confirmed checks when optional remote storage is enabled; see [remote configuration](15-remote-storage.md).
 
 The language selector title, prompt, labels, and order are configurable under `language.selector`. It accepts two to eight choices. Document files support up to 32 translations. A valid acceptance in any current translation skips the selector on reconnect, even when the client's language differs. Changed versions, changed accepted content, and withdrawals still require consent.
 

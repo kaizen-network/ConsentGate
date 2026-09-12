@@ -6,6 +6,8 @@ Implementation status: Velocity uses validated configuration, local documents, m
 
 ## Design decisions
 
+Remote SQL and a local SQLite cache are now implemented. Dedicated MariaDB repository checks pass; MySQL, live remote-storage admission, TLS deployment, and load tests remain open. Shared-storage milestone 3 is not complete. See [remote storage progress](14-remote-storage-progress.md).
+
 | Area | Decision |
 | --- | --- |
 | Initial platforms | Velocity and Paper |

@@ -18,7 +18,7 @@ Use the complete server/proxy distribution of a dependency, not a thin Maven API
 
 ConsentGate does not require GrimAC, a separate Cumulus plugin, a website, or an external database service. Cumulus is accessed through the optional Geyser integration. Floodgate is not a direct ConsentGate dependency; whether it is needed depends on your Geyser authentication setup. Follow [Geyser's setup guide](https://geysermc.org/wiki/geyser/setup/) for that configuration.
 
-MySQL/MariaDB, remote-storage caching, BungeeCord, and plain Spigot are planned, not available. Native Cumulus forms on Paper are also not implemented. Do not enable unavailable storage or presentation options.
+Optional MySQL/MariaDB storage and a local SQLite cache are implemented. MariaDB 11.8.6 has repository integration tests; MySQL server verification and live remote-storage admission remain open. Both artifacts bundle MariaDB Connector/J, so no separate driver plugin is needed. Follow the [remote storage guide](15-remote-storage.md) before selecting that provider. BungeeCord, plain Spigot, and native Cumulus forms on Paper are not implemented.
 
 ## Choose the admission point
 
@@ -35,7 +35,7 @@ Do not copy Velocity's PacketEvents JAR into Paper or the Paper ConsentGate JAR 
 4. Open the generated folder: `plugins/consentgate/` on Velocity, or `plugins/ConsentGate/` on Paper. Paths and capitalization matter on Linux.
 5. Edit the example documents in `documents/`. Replace every bracketed placeholder, remove sections that do not apply, and review each translation. Set your own document IDs, titles, versions, and content before first use. Rename each selected `.yml.example` file to `.yml`; inactive examples are not loaded as agreements.
 6. In the existing `config.yml`, set `enabled: true`. Keep `storage.type: sqlite`. Choose a stable `scope` and allow enough reading time through `gate.timeout-seconds`. Keep `bedrock.native-forms: false` for the initial Java check, and always on Paper for now.
-7. Start the proxy/server. Confirm the log says ConsentGate is enabled with SQLite storage. In the console, run `consentgate validate` without a leading slash. A failed or disabled startup must be corrected in the files and restarted; admin validation is not available on a disabled gate.
+7. Start the proxy/server. Confirm the log says ConsentGate is enabled with `sqlite` storage. In the console, run `consentgate validate` without a leading slash. A failed or disabled startup must be corrected in the files and restarted; admin validation is not available on a disabled gate.
 8. Connect with a supported test client and no previous acceptance. Read each document and test both Leave and acceptance. Accepted rejoin should skip the dialog. On Velocity, also confirm the player reaches the intended backend only after acceptance.
 
 The bundled examples use `draft-2` as a placeholder version. It is not a plugin release number. You can choose any valid document version before activating it. After a revision has been registered, changing its text or translation requires a new version. Do not edit a saved revision under the same version to avoid re-consent.
@@ -52,7 +52,7 @@ On Paper, leave native forms disabled. Geyser-translated dialogs still need sepa
 
 Use `consentgate status <online-player|uuid>` to inspect current acceptance. For another test, disconnect the player and use `consentgate reset <uuid>`. Reset preserves history. Do not delete the database to request consent again.
 
-Use `consentgate validate` followed by `consentgate reload` for supported edits. Reload refuses while sessions or database work are active. Changing `enabled`, `scope`, the SQLite path, or the pending-session limit requires a restart. See [commands and permissions](07-admin-commands.md).
+Use `consentgate validate` followed by `consentgate reload` for supported edits. Reload refuses while sessions or database work are active. Changing `enabled`, `scope`, any storage/cache setting, or the pending-session limit requires a restart. See [commands and permissions](07-admin-commands.md).
 
 Stop the proxy/server before making a file-based backup. Preserve the entire ConsentGate data folder, including documents, messages, configuration, and the SQLite database at the configured path. Do not copy only the main SQLite file while it is being written. Keep backups private because acceptance records contain player identifiers and decisions.
 

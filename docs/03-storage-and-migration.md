@@ -1,10 +1,10 @@
 # Storage and database upgrades
 
-Status: storage choices are decided; schema details and operational defaults remain proposals.
+Status: SQLite and remote SQL/cache implementations are available in the prototype. MariaDB 11.8.6 has repository integration tests. MySQL verification, live remote-storage admission, and load testing remain open. See [setup and exact behavior](15-remote-storage.md).
 
 ## Database choices
 
-| Choice | Proposed use | Tradeoff |
+| Choice | Use | Tradeoff |
 | --- | --- | --- |
 | SQLite | Default local store and remote cache file | Simple installation; one process owns each file. |
 | MySQL / MariaDB | Shared primary store for multiple proxies or servers | Needs credentials, migrations, and outage handling. Test both products. |
@@ -16,7 +16,7 @@ Use prepared statements, bounded background database work, and transactions. For
 
 ## Document-based schema
 
-Design around independent documents and versions from the first release. Proposed tables follow, with SQL types and indexes finalized during implementation:
+Both implementations use independent documents and versions. Remote SQL types and indexes are defined in [mysql-v1.sql](../core/src/main/resources/db/mysql-v1.sql); SQLite keeps its existing version-1 schema. Remote and SQLite schema versions are independent.
 
 | Table | Purpose |
 | --- | --- |
@@ -25,6 +25,7 @@ Design around independent documents and versions from the first release. Propose
 | `cg_acceptance_events` | Grant/withdrawal events, player UUID, revision, timestamp, method, request ID |
 | `cg_acceptance_state` | Current decision per scope, player, and document; updated transactionally with events |
 | `cg_audit_events` | Administrative changes and acceptance actions, linked by request ID |
+| `cg_player_locks` | Remote-only serialization of decision writes for each UUID and scope |
 
 Use a canonical UUID representation, UTC timestamps, and database uniqueness constraints. Store IP addresses only when enabled. Do not require player names. An admin reset invalidates acceptance, while deleting records is a distinct operation.
 
@@ -32,7 +33,7 @@ Multiple installations share acceptance only when they use the same scope, docum
 
 ## Remote cache behavior
 
-The primary remote database remains authoritative. A separate local SQLite file stores only confirmed decisions. It is enabled by default, with these proposed rules:
+The primary remote database remains authoritative. A separate local SQLite file stores only confirmed positive checks. It is enabled by default in remote mode, with these rules:
 
 | Situation | Behavior |
 | --- | --- |
@@ -40,10 +41,10 @@ The primary remote database remains authoritative. A separate local SQLite file 
 | Missing or expired entry | Query the primary database |
 | Primary unavailable and no fresh entry | Keep blocked, then show retry/disconnect guidance |
 | New acceptance | Require a primary database commit before allowing entry |
-| Primary saved but cache write failed | Allow based on the confirmed commit, report degraded caching |
+| Primary saved but cache invalidation failed | Allow based on the confirmed commit, disable caching until restart, and warn |
 | Local cache corrupt | Discard its authority and use the primary; never infer acceptance |
 
-Freshness is measured from the last successful primary verification, not the last player join. A 30-day cleanup policy controls file size, not permission to trust old data. Include a capacity limit and invalidate mismatched revisions immediately.
+Freshness starts before the successful primary query, not the last player join. Cache hits do not renew it. A 30-day cleanup policy and entry limit control retained records, not permission to trust old data. Cleanup happens on cache writes. Mismatched revisions cannot use a cached check. Grants invalidate cache entries but do not seed new ones without a separate primary check.
 
 The 60-second default permits up to 60 seconds of stale acceptance after a withdrawal elsewhere. Administrators requiring a primary check on every admission can set freshness to zero. There is no immediate cross-proxy revocation guarantee with a local cache alone.
 
@@ -53,7 +54,7 @@ Defer offline write queues: they would allow admission without a primary commit 
 
 ## Database upgrades and portability
 
-Version the plugin's own schema with ordered migrations. Validate it at startup and refuse unsupported newer schemas. Keep pending players blocked if storage cannot initialize safely.
+Validate the plugin's schema at startup and refuse unsupported newer schemas. Remote version 1 requires manual installation in an empty dedicated database. There are no remote upgrade scripts yet. A primary outage or invalid schema blocks startup, even when a cache file exists.
 
 Provide documented SQL migrations for administrators using a separate setup account. Runtime credentials should only need permissions for normal plugin operations. Database administrator credentials do not belong in plugin configuration.
 

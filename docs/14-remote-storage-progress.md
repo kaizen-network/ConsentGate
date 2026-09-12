@@ -1,0 +1,53 @@
+# Remote storage implementation
+
+Status: first implementation and MariaDB repository tests complete. SQLite remains the default. MySQL needs its own database tests; MariaDB results must not be presented as MySQL coverage. Setup is documented in [the remote storage guide](15-remote-storage.md).
+
+## This slice
+
+1. Add strict remote connection and cache settings without breaking existing SQLite configuration.
+2. Bundle MariaDB Connector/J for both database products. Use a single primary endpoint, verified TLS by default, bounded connection/socket waits, and no automatic transaction replay.
+3. Add a separate versioned InnoDB schema and transactional repository. Keep schema installation separate from ordinary runtime credentials. Serialize decisions for each player and scope, validate immutable revisions, and reject reused request IDs with different data.
+4. Cache only confirmed positive checks in a separate local SQLite file. Default freshness is 60 seconds, never refreshed by a cache hit. Missing, expired, corrupt, or invalidated entries cannot grant admission during an outage. New grants always require a confirmed primary commit.
+5. Test repository transactions, replay, concurrent instances, cache expiry, reset, clock changes, failures, and recovery. Use only the dedicated test database and client-side fault injection; never stop a shared database for an outage test.
+6. Update configuration, installation, dependency notices, and the tested matrix. Keep platform deployment and MySQL verification as separate checks.
+
+## Safety decisions
+
+- Remote schema versioning is independent of SQLite. No automatic data import or destructive upgrades.
+- Runtime startup requires a reachable primary and a valid schema even when a cache file exists.
+- Administrator status reads the primary, not cached admission decisions.
+- All storage and cache setting changes require restart.
+- A cache may delay visibility of a reset on another instance by its freshness window. Set freshness to zero to check the primary every time.
+- Cache failure must not undo a confirmed primary commit or hide a primary failure. Failed local invalidation disables cache use for the process.
+- Remote decisions are serialized per UUID/scope, then ordered by UTC decision timestamp. Withdrawal wins a tie. A reset records a withdrawal even without prior acceptance. Old/replayed grants cannot bypass a current withdrawal. Host clocks must remain synchronized; this is not a global logical clock.
+
+## Test evidence
+
+Date: 2026-09-12. Dedicated MariaDB 11.8.6 database, accessed through a loopback SSH tunnel with a database-limited test account. No shared database restart, firewall change, plugin deployment, or existing player-data mutation. Synthetic records use unique test scopes and remain in the dedicated database. The schema-version test temporarily changes and restores only that database's version marker.
+
+Repository checks cover atomic multi-document grants, shared acceptance, exact request replay, conflicting request data, immutable revisions, rollback, absent-state withdrawal, stale grants, equal timestamps, concurrent instances, cache expiry during an outage, recovery, and a lost commit acknowledgement. The normal local suite checks corrupt cache files, persistence, original verification times, capacity, failed invalidation, local reset races, clock changes, strict configuration, and shaded-driver isolation.
+
+Outages and lost replies are injected on the client connection boundary. They do not prove every real network interruption or TLS setup. The primary service remained online throughout. Cache tests use disposable local SQLite files, not the server's production data.
+
+| Final check | Result |
+| --- | --- |
+| Local JVM suite | 112 passed, no failures or skips |
+| Dedicated MariaDB suite | 10 passed, including real connections from both isolated platform JARs |
+| Local Velocity protocol 772 wire suite | All 14 checks passed using SQLite; this is a packaging regression check, not remote admission proof |
+| Python framing and Node probe helpers | 4 and 7 passed |
+| Packaging and documentation | Both JARs built; schema and LGPL notices included; relative document links and whitespace checks passed |
+
+Review added a clean-shutdown marker to the cache lock file. A crash or failed invalidation discards persisted positives on the next start. A clock-regression test caught an initial issue in the monotonic-time safeguard; it was corrected and both the local and MariaDB suites passed again. No graphical client was opened. The temporary tunnel and loopback proxy were stopped after testing.
+
+Tested artifact SHA-256 values: Paper `d3c6187342be8e3b26be4786325d5b1394ba811b1a136319e4e31fee6798ef0f`; Velocity `d27ed0d92fa2db9665ac8df917cd6f22399be8f572a7f571928aa85a6dda1b48`.
+
+## Still open
+
+- Run the same suite against MySQL, including its authentication and TLS paths.
+- Exercise remote storage through live Paper and Velocity admission and administrator flows.
+- Test certificate trust/hostname failures and real socket interruption around commit.
+- Measure sustained connection load and decide whether a small pool is justified.
+- Broader review of multi-instance reset timing and clock-skew handling before release.
+- Prepare corresponding dependency source materials before any binary publication.
+
+References: [MariaDB Connector/J](https://mariadb.com/docs/connectors/mariadb-connector-j/about-mariadb-connector-j), [InnoDB locking reads](https://dev.mysql.com/doc/refman/8.4/en/innodb-locking-reads.html).

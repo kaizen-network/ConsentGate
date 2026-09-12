@@ -1,6 +1,6 @@
 # Development
 
-Velocity now uses the shared configuration, document, admission, and SQLite components. It supports summary checkboxes, optional language selection, full multi-page reading, restricted MiniMessage formatting, durable acceptance before backend release, and accepted reconnects. Optional native Cumulus forms are implemented for Geyser on the same proxy. Real-client testing confirmed the native menu, acceptance, formatting, and return from the agreement form. Broader client and failure testing remains open. Paper has an initial shared Java consent flow and administrator commands with console and synthetic-client checks. Both platforms implement status, offline reset, validation, and safe reload. Native Bedrock support remains pending on Paper. Cached acceptance and remote databases are not implemented. Do not install either artifact on a production server or proxy.
+Velocity uses the shared configuration, documents, admission, and storage components. It supports summary checkboxes, language selection, full reading pages, safe formatting, durable acceptance before backend release, and accepted reconnects. Optional native Cumulus forms have real-client checks through local Geyser. Paper has an initial Java flow and administrator commands with console and synthetic-client checks; native Bedrock remains pending there. Remote SQL and a local cache are implemented with MariaDB repository tests. MySQL verification and live remote-storage admission remain open. Do not install either artifact on a production server or proxy.
 
 ## Build
 
@@ -17,7 +17,7 @@ Outputs:
 - `platform-paper/build/libs/ConsentGate-Paper-0.1.0-prototype.jar`
 - `platform-velocity/build/libs/ConsentGate-Velocity-0.1.0-prototype.jar`
 
-The shaded platform JARs contain the shared core, relocated SnakeYAML, SQLite JDBC, and its native libraries. Paper uses its native API. Velocity currently requires PacketEvents 2.13.0 installed separately. Separate artifacts keep platform dependencies clear; combined packaging remains a later decision.
+The shaded platform JARs contain the shared core, relocated SnakeYAML and MariaDB Connector/J, SQLite JDBC, and SQLite native libraries. The remote schema and driver license notices are bundled. Paper uses its native API. Velocity currently requires PacketEvents 2.13.0 installed separately. Separate artifacts keep platform dependencies clear; combined packaging remains a later decision.
 
 ## Current behavior
 
@@ -28,6 +28,8 @@ Both platforms use configured timeout and pending-session limits. Database check
 Velocity checks admission again on every backend connection request. It maintains keepalives while held and consumes its own delayed heartbeat responses. Paper holds only its asynchronous configuration event, never the server's main thread.
 
 ## Automated checks
+
+`build` never contacts a remote database. The opt-in `:core:remoteDatabaseTest` task requires a dedicated test database and explicit environment settings; see [integration instructions](15-remote-storage.md#integration-tests). MySQL and MariaDB require separate runs. Local tests cover cache expiry, persistence, reset, capacity, corrupt files, failed invalidation, clock movement, and bounded stalled connection setup.
 
 Native Bedrock form tests exercise Cumulus response parsing, menu and page navigation, unchecked defaults, partial selections, malformed payloads, stale responses, close behavior, and failed delivery. The Java wire probe runs without Geyser installed to check that the optional integration does not break Java admission.
 
@@ -102,6 +104,7 @@ The runner verifies the local proxy configuration, stages the current plugin art
 | --- | --- |
 | Shared session core | Automated session lifecycle checks |
 | Configuration, documents, admission, and SQLite | Automated loading, acceptance, withdrawal, and history checks |
+| MariaDB 11.8.6, Connector/J 3.5.10 | Dedicated transactional repository, concurrency, cache outage/recovery, replay, and schema-version checks pass; MySQL and live remote-storage admission remain unverified |
 | Velocity formatting and administration | Automated formatting, command permissions, target parsing, and save/reset ordering checks |
 | Paper 1.21.7 API | Compiles; strict response parsing, startup/reload presentation, and isolated shaded-JAR tests pass |
 | Paper-compatible 26.2 server with Java 26.1 bot | Language, navigation, acceptance, reconnect, Leave, and administrator checks pass; official Grim `2.3.74-8eb5f28` passes initial-login long-wait and timeout checks; see the [Grim test report](12-paper-anticheat-compatibility.md) |
