@@ -8,7 +8,30 @@ Fresh installations include inactive Terms of Service and Privacy Policy starter
 
 ## Status
 
-Early development. Velocity now loads styled local documents, supports automatic locale matching and an optional language selector, checks and stores SQLite acceptance before backend admission, and supports full document navigation. Paper has an initial shared Java consent flow and administrator commands. Paper administrator commands have console and synthetic-client checks. Native Bedrock forms, broader failure testing, and verification of an existing upstream GrimAC timeout fix remain open. Neither artifact is a production release. Features below describe the planned complete plugin.
+Early development. Velocity supports local documents, translations, SQLite acceptance before backend admission, and optional native Bedrock forms. Paper has an initial Java consent flow and administrator commands with console and synthetic-client checks. Native Paper Bedrock forms, broader failure testing, and real-client version coverage remain open. Neither artifact is a production release. Features below describe the planned complete plugin.
+
+## Requirements
+
+Test installations only. Use Java 21 or newer, or the newer Java version required by your server/proxy. Building from source requires JDK 25. Java dialogs require a 1.21.6-or-newer client; this is a feature minimum, not a guarantee for every newer version. See the [tested version matrix](docs/05-development.md#validation-matrix).
+
+| Installation | Plugin JAR | Additional requirement |
+| --- | --- | --- |
+| Velocity | `ConsentGate-Velocity-0.1.0-prototype.jar` | PacketEvents 2.13.0 for Velocity, installed on the same proxy |
+| Paper | `ConsentGate-Paper-0.1.0-prototype.jar` | No separate plugin dependency for Java dialogs; Paper API 1.21.7 is the current compile target |
+| Native Bedrock forms | Velocity JAR | Geyser on the same Velocity proxy; optional and disabled by default |
+
+SQLite and its driver are bundled. No database server, website, or GrimAC is required. MySQL/MariaDB, remote caching, native Paper Bedrock forms, BungeeCord, and plain Spigot are not implemented yet. [Dependency details and compatibility notes](docs/13-installation.md#requirements-and-dependencies).
+
+## Quick start
+
+1. [Build the prototype](docs/05-development.md#build) and choose the JAR for your platform. No public release is available yet.
+2. Stop the test proxy/server. Put that JAR in `plugins/`, along with its required dependency above. Install the gate on the proxy or the standalone server, not both for the same requirement.
+3. Start once to generate files, then stop again. The gate starts disabled. Its folder is `plugins/consentgate/` on Velocity or `plugins/ConsentGate/` on Paper.
+4. Adapt `documents/terms.yml.example` and `documents/privacy.yml.example`, including all translations and bracketed placeholders. Choose document versions and rename the selected files to end in `.yml`.
+5. Set `enabled: true` in the generated `config.yml`, then start. Confirm ConsentGate enabled successfully. On Paper, keep `bedrock.native-forms: false`.
+6. In the console, run `consentgate validate`, then test first acceptance, Leave, and accepted rejoin. Use [offline reset](docs/07-admin-commands.md#reset-for-testing-or-administration) to repeat testing without deleting the database.
+
+See the [installation guide](docs/13-installation.md) for platform setup, Bedrock, backups, and troubleshooting. The starter documents need administrator review; they are not a guarantee of legal compliance.
 
 ## Planned features
 
@@ -31,6 +54,7 @@ Connection handling must pass prototype tests before these guarantees are advert
 
 ## Documentation
 
+- [Installation and dependencies](docs/13-installation.md)
 - [Build and test the prototypes](docs/05-development.md)
 - [Platform feasibility](docs/01-feasibility.md)
 - [Player flow and configuration](docs/02-product-and-config.md)
