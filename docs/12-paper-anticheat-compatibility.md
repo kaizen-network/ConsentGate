@@ -49,7 +49,25 @@ Read-only SQLite inspection after shutdown found one granted event for each clie
 
 All 93 ConsentGate JVM tests were rerun successfully. The four Python framing tests and seven new Node.js helper tests passed. Grim's common suite passed its three existing checks and five new timeout checks. The exported patch passed `git apply --check` against a clean checkout of the pinned revision.
 
-The local server was stopped after testing. Logs, synthetic acceptance history, and baseline/candidate artifacts were retained locally. Remote servers were not changed.
+The local server was stopped after testing. Logs, synthetic acceptance history, and baseline/candidate artifacts were retained locally. The local investigation did not change remote servers; a subsequent test deployment is recorded below.
+
+## Full-stack test deployment
+
+A later deployment on 2026-09-12 used a Paper-compatible 26.2 server with its existing plugin stack. Only the Grim JAR and ConsentGate's top-level enabled flag changed. ConsentGate's JAR, documents, database, and timeout settings were retained. The candidate was uploaded under an inactive suffix, downloaded to verify its SHA-256 against the local artifact, then activated while the server was offline. The original Grim JAR and both plugins' settings/data directories were backed up first.
+
+| Check | Observed result |
+| --- | --- |
+| Read for 75 seconds, then accept | Play entry at 80.1 seconds from connection start; remained connected for another 70 seconds; answered 959 play pings |
+| Accept immediately, withhold play ping replies | Grim logged `disconnect.timeout` at 61.5 seconds from connection start, about 60 seconds after play entry |
+| Do not accept | ConsentGate disconnected at 120.8 seconds without acceptance submission or play entry |
+| Accepted reconnect | Play entry without another dialog or acceptance submission |
+| Console validation and status | Validation passed; accepted identities reported accepted, timed-out identity still required acceptance |
+
+The deployment probe used the same packet encoder and assertions as the local probe. It connected to the test endpoint using the server's permitted handshake hostname. The checked-in probe remains loopback-only.
+
+Grim and ConsentGate both enabled successfully. The synthetic client also reported partial `entity_teleport` packet decoding warnings after play entry. These did not prevent the recorded connection checks, but their cause remains unverified and broader gameplay compatibility is not established.
+
+The test server was left running with the candidate and consent gate enabled. Rollback files and acceptance history were retained. No player permissions, other anticheat settings, or unrelated plugins were changed. No graphical client was opened or controlled.
 
 ## Candidate upstream patch
 
