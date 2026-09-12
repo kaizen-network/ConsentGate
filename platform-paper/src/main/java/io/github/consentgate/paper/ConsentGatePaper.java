@@ -72,7 +72,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
                 getLogger().info("ConsentGate is enabled with SQLite storage.");
             } else getLogger().warning("ConsentGate is disabled. Configure documents before enabling it.");
             ready = true;
-        } catch (Exception ex) {
+        } catch (Exception | LinkageError ex) {
             getLogger().log(java.util.logging.Level.SEVERE, "ConsentGate could not start. Connections will be denied.", ex);
         }
     }
@@ -174,7 +174,10 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
                     }
                     default -> { }
                 }
-            } catch (Exception ex) { finish(pending, "Invalid consent response."); }
+            } catch (Exception | LinkageError ex) {
+                getLogger().log(java.util.logging.Level.WARNING, "Consent response failed for " + pending.id, ex);
+                finish(pending, "Consent response could not be processed.");
+            }
         }
     }
 
@@ -211,7 +214,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
             submitDatabase(() -> playerOperations.run(pending.id, () -> {
                 if (pending.finished.get() || stopping) { finish(pending, "ConsentGate is stopping."); return; }
                 try { operation.run(); }
-                catch (Exception ex) {
+                catch (Exception | LinkageError ex) {
                     getLogger().log(java.util.logging.Level.WARNING, "Consent operation failed for " + pending.id, ex);
                     finish(pending, "Consent records could not be processed. Please try again later.");
                 }

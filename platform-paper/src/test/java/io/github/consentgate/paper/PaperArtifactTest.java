@@ -22,6 +22,11 @@ class PaperArtifactTest {
         try (var jar = new JarFile(artifact.toFile())) {
             assertNotNull(jar.getEntry("META-INF/licenses/Examination.txt"));
             assertNotNull(jar.getEntry("META-INF/licenses/Adventure-NBT.txt"));
+            try (var input = jar.getInputStream(jar.getEntry("io/github/consentgate/paper/PaperDialogs.class"))) {
+                String bytecode = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.ISO_8859_1);
+                assertTrue(bytecode.contains("net/kyori/adventure/nbt/api/BinaryTagHolder"));
+                assertFalse(bytecode.contains("internal/adventurenbt/api"), "Paper API parameter types must not be relocated");
+            }
         }
     }
 }

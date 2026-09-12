@@ -21,7 +21,9 @@ tasks.shadowJar {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
     mergeServiceFiles()
     relocate("org.yaml.snakeyaml", "io.github.consentgate.internal.snakeyaml")
-    relocate("net.kyori.adventure.nbt", "io.github.consentgate.internal.adventurenbt")
+    relocate("net.kyori.adventure.nbt", "io.github.consentgate.internal.adventurenbt") {
+        exclude("net.kyori.adventure.nbt.api.**")
+    }
     relocate("net.kyori.examination", "io.github.consentgate.internal.examination")
     exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
 }
