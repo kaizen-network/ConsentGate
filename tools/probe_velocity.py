@@ -1,16 +1,20 @@
-"""Local-only wire checks for the prototype using Minecraft Java protocol 772.
+"""Local-only wire checks for the prototype using Minecraft Java protocol 771 or 772.
 
 Requires a running offline test proxy on 127.0.0.1:25590 with compression off
 and its initial backend set to 127.0.0.1:25591. No real account is used.
 """
 
 import re
+import hashlib
+from contextlib import closing
 import select
 import socket
 import sqlite3
 import struct
 import time
 import uuid
+
+PROTOCOL = 772
 
 
 def varint(value):
@@ -48,11 +52,11 @@ def read_varint(sock):
 
 
 class Client:
-    def __init__(self, name=None, player_id=None, expect_dialog=True):
+    def __init__(self, name=None, player_id=None, expect_dialog=True, protocol=None):
         self.name = name or "Probe_" + uuid.uuid4().hex[:8]
         self.player_id = player_id or uuid.uuid4()
         self.socket = socket.create_connection(("127.0.0.1", 25590), timeout=5)
-        self.send(0, varint(772) + string("localhost") + struct.pack(">H", 25590) + varint(2))
+        self.send(0, varint(PROTOCOL if protocol is None else protocol) + string("localhost") + struct.pack(">H", 25590) + varint(2))
         self.send(0, string(self.name) + self.player_id.bytes)
         packet, data = self.receive()
         assert packet == 2, ("Expected login success", packet, data)
@@ -96,6 +100,8 @@ class Client:
         self.click_nbt(nbt, action, token)
 
     def click_nbt(self, nbt, action="accept", token=None):
+        # Mojang 1.21.6/1.21.8: VarInt byte length + anonymous optional NBT, not a presence boolean.
+        # Reference hashes and bytecode trace: docs/09-protocol-compatibility-findings.md.
         self.send(8, string("consentgate:" + action + "/" + (token or self.token)) + varint(len(nbt)) + nbt)
 
     def close(self):
@@ -174,6 +180,27 @@ def main(database=None, admin_check=None):
             accepted_id = client.player_id
         finally:
             client.close()
+
+        for label, payload in (
+            ("bot presence flag", b"\x01\x0a\x01\x00\x0adocument_0\x01\x00"),
+            ("truncated payload", b"\x10\x0a"),
+            ("oversized length", varint(65537) + b"\x00"),
+        ):
+            client = Client()
+            try:
+                client.send(8, string("consentgate:accept/" + client.token) + payload)
+                disconnected_without_backend(backend, client, 5)
+                with closing(sqlite3.connect(database)) as connection:
+                    # The proxy is offline-mode; login UUIDs are derived from the test name.
+                    offline = bytearray(hashlib.md5(("OfflinePlayer:" + client.name).encode()).digest())
+                    offline[6] = (offline[6] & 15) | 48
+                    offline[8] = (offline[8] & 63) | 128
+                    player = str(uuid.UUID(bytes=bytes(offline)))
+                    assert connection.execute("SELECT COUNT(*) FROM cg_acceptance_events WHERE player_uuid=?", (player,)).fetchone()[0] == 0
+            finally:
+                client.close()
+            time.sleep(0.2)
+            print("PASS: " + label + " is rejected without acceptance or backend contact", flush=True)
         time.sleep(0.5)
         client = Client(accepted_name, accepted_id, expect_dialog=False)
         try:

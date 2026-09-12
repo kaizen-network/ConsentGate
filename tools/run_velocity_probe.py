@@ -1,6 +1,7 @@
 """Run the prepared loopback-only proxy and stop it after the wire checks."""
 
 import pathlib
+import argparse
 from contextlib import closing
 import shutil
 import socket
@@ -31,6 +32,11 @@ def clean_database(database, required=True):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--protocol", type=int, choices=(771, 772), default=772)
+    args = parser.parse_args()
+    probe_velocity.PROTOCOL = args.protocol
+    print(f"Testing Java protocol {args.protocol}", flush=True)
     project = pathlib.Path(__file__).resolve().parents[1]
     directory = project / ".run" / "velocity"
     artifact = project / "platform-velocity" / "build" / "libs" / "ConsentGate-Velocity-0.1.0-prototype.jar"

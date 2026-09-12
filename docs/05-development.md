@@ -31,13 +31,16 @@ Velocity checks admission again on every backend connection request. It maintain
 
 Native Bedrock form tests exercise Cumulus response parsing, menu and page navigation, unchecked defaults, partial selections, malformed payloads, stale responses, close behavior, and failed delivery. The Java wire probe runs without Geyser installed to check that the optional integration does not break Java admission.
 
+Run `python -m unittest discover -s tools -p "test_*.py"` for the dialog payload framing fixtures. These use fixed expected bytes backed by the official client codec inspection, including absent tags, empty compounds, checkbox data, and multi-byte lengths.
+
 `core:test` checks unchecked and foreign actions, timeout, concurrent repeated clicks, shutdown, runtime bootstrap, configuration paths and bounds, document loading and hashing, locale selection, multi-document state, SQLite transactions, repeated requests, changed content under an unchanged version, and withdrawal ordering.
 
-The Python wire probe stages the current shaded JAR with an enabled local test document and exercises Java protocol 772 (1.21.8) against a real local Velocity process. It opens an instrumented backend listener and checks:
+The Python wire probe stages the current shaded JAR with an enabled local test document and exercises Java protocol 771 (1.21.6) or 772 (1.21.8) against a real local Velocity process. Select one with `python tools/run_velocity_probe.py --protocol 771` or `--protocol 772`; the default is 772. It opens an instrumented backend listener and checks:
 
 - No backend connection during 35 seconds of dialog waiting and keepalives.
 - The configured pending limit rejects overflow without backend contact.
 - Unchecked, malformed, extra-field, wrong-type, and foreign-token acceptance cannot release the connection.
+- Incorrect bot presence-flag framing, truncated NBT, and oversized payload lengths disconnect without acceptance records or backend contact.
 - Document IDs containing hyphens are mapped to protocol-safe checkbox input names.
 - Restricted MiniMessage tags render as components instead of leaking markup to the client.
 - Full document navigation returns to the active request.
@@ -100,6 +103,7 @@ The runner verifies the local proxy configuration, stages the current plugin art
 | Velocity formatting and administration | Automated formatting, command permissions, target parsing, and save/reset ordering checks |
 | Paper 1.21.7 API | Compiles; runtime and real-client checks pending |
 | Velocity 3.4.0 build 563, PacketEvents 2.13.0 | Local wire/console checks cover admission and administrator status/reset/validation/reload |
+| Java protocols 771 and 772 | All 14 wire/console checks passed separately for each protocol on 2026-09-12; four golden framing tests also passed |
 | Velocity 4.1.0 snapshot, PacketEvents 2.13.0, Minecraft 26.2 | Styled two-document acceptance and accepted reconnect reached a backend on 2026-09-10 |
 | Geyser-translated dialogs | Real Bedrock acceptance tested; translated action dropdown prompted native form support |
 | Native Cumulus with local Geyser | Real Bedrock menu, reading, acceptance, close/back behavior, and formatting tested; automated response tests pass |
@@ -109,10 +113,10 @@ PacketEvents test artifact SHA-256: `e797f84abc349c137396e511ce4f0d7b85e385727a2
 
 Paper and Velocity API snapshot coordinates are provisional. Pin resolved dependency artifacts before preparing a release.
 
-The live proxy bot used a custom dialog response encoder because the installed bot library's response encoding was rejected by the packet layer. This verifies the admission and reload flow, not stock-client protocol compatibility or visual layout. Unmodified clients at the advertised version boundary still need testing before release.
+The live proxy bot used a custom dialog response encoder because the installed bot library's response encoding was rejected by the packet layer. [Independent official-client bytecode inspection](09-protocol-compatibility-findings.md) confirmed the length-prefixed format and identified the installed bot definition as incorrect. This resolves the reproduced framing mismatch, not visual layout or all client compatibility. Unmodified clients at the advertised version boundary still need testing before release.
 
 ## Before expanding the feature set
 
 Finish runtime and visual checks on Paper and Velocity with real Java and Bedrock clients. Confirm text, checkbox responses, closing behavior, timeout, clean world entry, and normal backend routing. Do not mark the connection milestone complete from compilation or a synthetic client alone.
 
-Next, validate reload with real clients, then apply the shared runtime and full navigation flow to Paper, with safer connection-pressure handling. Follow with broader real Java and Bedrock validation and remote storage. See [administrator commands](07-admin-commands.md) for current behavior and restart-only settings. The roadmap tracks the remaining work.
+The [response encoding mismatch is resolved](09-protocol-compatibility-findings.md) as a bot-library defect. Next, apply the shared runtime and full navigation flow to Paper, with safer connection-pressure handling. Keep unmodified Java client boundary checks and broader Java/Bedrock validation on the release checklist, then proceed to remote storage. See [administrator commands](07-admin-commands.md) for current behavior and restart-only settings. The roadmap tracks the remaining work.

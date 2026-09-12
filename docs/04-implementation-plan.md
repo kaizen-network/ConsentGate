@@ -58,6 +58,8 @@ Bound pending sessions, queued database work, document payload sizes, callback f
 
 ## Milestones
 
+The [dialog compatibility investigation](08-protocol-compatibility-plan.md) identified an incorrect bot-library definition. [Official client bytecode and two protocol test runs](09-protocol-compatibility-findings.md) support the existing plugin decoder. Next is Paper parity work. Unmodified-client checks at the advertised version boundary remain a release requirement, not something synthetic tests can replace.
+
 | Milestone | Work | Completion evidence |
 | --- | --- | --- |
 | 1. Connection prototypes | Velocity and Paper, including Geyser translation | Dialog, callback, long wait, disconnect, and safe continuation on pinned builds |
