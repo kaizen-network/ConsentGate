@@ -2,6 +2,18 @@
 
 Date: 2026-09-12. Local prototype investigation, not a production compatibility claim.
 
+## Current status: an upstream fix already exists
+
+An upstream check on 2026-09-12 found [issue #2844](https://github.com/GrimAnticheat/Grim/issues/2844), which reports the same initial configuration timeout during required resource-pack loading. It was closed on 2026-08-26. The matching [upstream fix, `29d8fb4`](https://github.com/GrimAnticheat/Grim/commit/29d8fb4fd0ca6c9d69b7a2a4f6a733669d3be0e3), keeps the transaction clock current until the first transaction is sent and refreshes it at that first send.
+
+The tested revision `63a684d` predates that fix. The inspected `2.0` branch head, `8eb5f2809591c891deb4958bb2927844871e0600`, includes it. This is source verification, not a runtime test of the newer build. Do not infer inclusion from the `2.3.74` version label alone; verify the exact revision.
+
+The upstream check happened after the temporary patch had been built and tested. The patch and results below are retained as evidence for the older revision, not as a proposed replacement for upstream's solution. ConsentGate itself needed no production code change. The test deployment still uses the temporary candidate; this documentation update did not replace it.
+
+Next, test an upstream build containing `29d8fb4` with the same long-wait, play-timeout, consent-timeout, and reconnect checks. If it passes, replace the temporary build through a separately approved test deployment and retire the local workaround. Reconfiguration after a previous PLAY session still needs a separate runtime check; neither these initial-login results nor source inspection proves that case.
+
+Do not open a duplicate issue or submit the old patch as a new fix. If the problem reproduces on a current upstream build, provide the new evidence on #2844 where possible, or open a follow-up referencing it. Any PR should address only the remaining reproduced behavior and follow the [contribution requirements](https://github.com/GrimAnticheat/Grim/blob/2.0/CONTRIBUTING.md), including Java 17 runtime compatibility and supported platforms. No upstream issue, comment, or PR was submitted during this work.
+
 ## Cause
 
 GrimAC revision `63a684dcc7f43e0cf140691d88a319d7b815d2a2` creates its player tracking at login success. Its transaction sender returns outside PLAY, but its timeout poller still checks the transaction clock during configuration. A player reading a consent dialog can therefore reach Grim's default 60-second timeout before any transaction ping is sent. See the upstream [login listener](https://github.com/GrimAnticheat/Grim/blob/63a684d/common/src/main/java/ac/grim/grimac/events/packets/PacketPlayerJoinQuit.java) and [transaction handling](https://github.com/GrimAnticheat/Grim/blob/63a684d/common/src/main/java/ac/grim/grimac/player/GrimPlayer.java).
@@ -69,7 +81,9 @@ Grim and ConsentGate both enabled successfully. The synthetic client also report
 
 The test server was left running with the candidate and consent gate enabled. Rollback files and acceptance history were retained. No player permissions, other anticheat settings, or unrelated plugins were changed. No graphical client was opened or controlled.
 
-## Candidate upstream patch
+## Historical local patch
+
+Historical candidate for `63a684d` only. Prefer verifying the existing upstream fix described above. Do not apply this patch on top of a newer Grim build without a separate review.
 
 The [review patch](../tools/compat/grim-63a684d-configuration-timeout.patch) changes Grim, not ConsentGate. It suspends transaction timeout checks outside PLAY and starts a bounded response window on the first PLAY poll. Acknowledgments must still remain current after that window. It does not change the transaction clock used by movement checks, send fake responses, grant exemptions, or increase the configured timeout.
 
@@ -83,7 +97,7 @@ git apply C:/path/to/ConsentGate/tools/compat/grim-63a684d-configuration-timeout
 .\gradlew.bat :common:test :bukkit:shadowJar -PshadePE=true --configure-on-demand --console=plain
 ```
 
-Use upstream's license and dependency requirements when handling a derived build. Do not distribute it as an official Grim release. No upstream issue, pull request, or binary upload is part of this investigation.
+Use upstream's license and dependency requirements when handling a derived build. Do not distribute it as an official Grim release. No upstream issue, comment, pull request, or public binary upload was made. The private test deployment is recorded above.
 
 ## Headless reproduction
 

@@ -33,7 +33,7 @@ The full stack reproduced a GrimAC `disconnect.timeout` about 60 seconds after l
 
 1. Expand Paper command testing to admission races, queue rejection, and storage failures. Console status/reset/reload and in-game permission/reply checks now pass.
 2. Validate native Bedrock integration at Paper's configuration connection, then share the compatible presentation code.
-3. Resolve the long-wait anticheat compatibility issue, then expand automated lifecycle coverage: disconnect/save races, shutdown, full queue, locked SQLite, timeouts, and connection limits.
+3. Verify the existing upstream Grim timeout fix and retire the temporary test patch, then expand automated lifecycle coverage: disconnect/save races, shutdown, full queue, locked SQLite, timeouts, and connection limits.
 4. Measure world-entry timing with native Paper events and real clients, including protocol translation and reconnects.
 5. Verify the oldest supported Paper build and client versions. Compilation against the 1.21.7 API is not a complete compatibility claim.
 
@@ -52,6 +52,6 @@ Keep the following checklist for regression testing; the race and failure cases 
 
 ## Long-wait investigation
 
-GrimAC revision `63a684d` starts player tracking at login success and checks its transaction timeout during configuration, although transaction sends return outside PLAY. The [same-build investigation](12-paper-anticheat-compatibility.md) records the reproduction, a candidate upstream patch, and its limits. ConsentGate does not bundle that patch or bypass anticheat checks.
+GrimAC revision `63a684d` starts player tracking at login success and checks its transaction timeout during configuration, although transaction sends return outside PLAY. The [same-build investigation](12-paper-anticheat-compatibility.md) records the reproduction and a temporary patch. A later check found an existing upstream fix in `29d8fb4`; testing that newer code is the next step. ConsentGate does not bundle either fix or bypass anticheat checks.
 
 The synthetic client was updated to reply to pings and log connection state. No pings arrived during the failed configuration hold; keepalives continued until disconnect. Pings arrived and were answered after play login. Anticheat settings were not changed. Do not shorten reading time or disable anticheat globally as a workaround.
