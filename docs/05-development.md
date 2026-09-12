@@ -54,6 +54,8 @@ The Python wire probe stages the current shaded JAR with an enabled local test d
 
 This is a protocol test, not visual verification or proof of complete gameplay routing.
 
+The loopback-only [Paper probe](12-paper-anticheat-compatibility.md#headless-reproduction) checks prolonged configuration holds, acceptance, and play-stage timeout behavior on a separately prepared server. Run its dependency-free helper tests with `node --test tools/test_paper_probe.cjs`. It does not open a graphical client or produce rendered screenshots. Paper visual checks remain manual.
+
 ## Local Velocity test setup
 
 Use a disposable `.run/velocity` directory, excluded from version control. Put Velocity at `velocity.jar` and PacketEvents in `plugins/packetevents.jar`. Build the Velocity artifact before running the probe; the runner copies it and writes the enabled consent fixture.

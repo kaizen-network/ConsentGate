@@ -8,7 +8,7 @@ Date: 2026-09-12. These are prototype checks, not a production support claim.
 - Minimal loopback server: Paper-compatible 26.2 server with only ConsentGate and the same protocol translation plugins.
 - Synthetic Java 26.1 client with corrected custom-click framing, automatic keepalive replies, and explicit ping replies. It did not move, build, or run gameplay commands.
 
-The two server builds differ, so this was not a controlled same-build anticheat A/B test. Console evidence and source inspection narrow the long-wait problem, but do not establish compatibility with every plugin stack.
+The two server builds in this initial administration run differ. A later [same-build anticheat comparison](12-paper-anticheat-compatibility.md) reproduced the configuration timeout with Grim present and successful prolonged waiting without it. Neither run establishes compatibility with every plugin stack.
 
 ## Results
 
@@ -41,7 +41,7 @@ The isolated artifact test loads the shaded parser with only the Java platform c
 
 ## Remaining checks
 
-- Full same-build comparison with and without GrimAC, followed by an upstream-compatible configuration-stage fix. Do not disable anticheat globally or reduce reading time to conceal the problem.
+- Review and validate the [candidate Grim configuration-stage fix](12-paper-anticheat-compatibility.md). The same-build comparison is complete. Do not disable anticheat globally or reduce reading time to conceal the problem.
 - Paper-specific full-queue, locked-storage, and save/reset/disconnect race tests, including the interval between configuration completion and world join.
 - Native Bedrock forms on Paper and unmodified Java client checks at the supported version boundaries.
 

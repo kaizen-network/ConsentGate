@@ -37,6 +37,7 @@ Connection handling must pass prototype tests before these guarantees are advert
 - [Storage and database upgrades](docs/03-storage-and-migration.md)
 - [Administrator commands](docs/07-admin-commands.md)
 - [Paper implementation progress](docs/10-paper-progress.md)
+- [Paper anticheat compatibility](docs/12-paper-anticheat-compatibility.md)
 - [Architecture and roadmap](docs/04-implementation-plan.md)
 
 ## License
