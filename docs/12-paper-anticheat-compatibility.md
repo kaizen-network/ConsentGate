@@ -2,17 +2,54 @@
 
 Date: 2026-09-12. Local prototype investigation, not a production compatibility claim.
 
-## Current status: an upstream fix already exists
+## Current status: official upstream build tested
 
 An upstream check on 2026-09-12 found [issue #2844](https://github.com/GrimAnticheat/Grim/issues/2844), which reports the same initial configuration timeout during required resource-pack loading. It was closed on 2026-08-26. The matching [upstream fix, `29d8fb4`](https://github.com/GrimAnticheat/Grim/commit/29d8fb4fd0ca6c9d69b7a2a4f6a733669d3be0e3), keeps the transaction clock current until the first transaction is sent and refreshes it at that first send.
 
-The tested revision `63a684d` predates that fix. The inspected `2.0` branch head, `8eb5f2809591c891deb4958bb2927844871e0600`, includes it. This is source verification, not a runtime test of the newer build. Do not infer inclusion from the `2.3.74` version label alone; verify the exact revision.
+The older tested revision `63a684d` predates that fix. The inspected `2.0` branch head, `8eb5f2809591c891deb4958bb2927844871e0600`, includes it. Its official published Bukkit artifact passed the local and full-stack runtime checks below and replaced the temporary test deployment. Do not infer inclusion from the `2.3.74` version label alone; verify the exact revision.
 
-The upstream check happened after the temporary patch had been built and tested. The patch and results below are retained as evidence for the older revision, not as a proposed replacement for upstream's solution. ConsentGate itself needed no production code change. The test deployment still uses the temporary candidate; this documentation update did not replace it.
+The upstream check happened after the temporary patch had been built and tested. The patch and results below are retained as evidence for the older revision, not as a proposed replacement for upstream's solution. ConsentGate itself needed no production code change.
 
-Next, test an upstream build containing `29d8fb4` with the same long-wait, play-timeout, consent-timeout, and reconnect checks. If it passes, replace the temporary build through a separately approved test deployment and retire the local workaround. Reconfiguration after a previous PLAY session still needs a separate runtime check; neither these initial-login results nor source inspection proves that case.
+Reconfiguration after a previous PLAY session still needs a separate runtime check; these initial-login results do not prove that case.
 
 Do not open a duplicate issue or submit the old patch as a new fix. If the problem reproduces on a current upstream build, provide the new evidence on #2844 where possible, or open a follow-up referencing it. Any PR should address only the remaining reproduced behavior and follow the [contribution requirements](https://github.com/GrimAnticheat/Grim/blob/2.0/CONTRIBUTING.md), including Java 17 runtime compatibility and supported platforms. No upstream issue, comment, or PR was submitted during this work.
+
+## Official upstream runtime results
+
+The [published Bukkit build `2.3.74-8eb5f28`](https://modrinth.com/plugin/grimac/version/Gd6BG1HA) was downloaded directly and checked against the SHA-512 supplied by the version API. No local patch was applied. Its SHA-256 is `91c06e7ae7da53636bc5e500d5af3d36a6180247e155fa5b4340da5a72f9eeb7`. It bundles PacketEvents `2.13.1+4d40422-SNAPSHOT`.
+
+The local fixture retained the same server, ConsentGate JAR, separate PacketEvents plugin, documents, and timeout settings used for the comparison below. Startup logs confirmed Grim and ConsentGate enabled successfully before each probe used a fresh synthetic identity.
+
+| Local check | Observed result |
+| --- | --- |
+| Read for 75 seconds, then accept | Play entry at 77.4 seconds; remained connected for another 70 seconds; answered 919 play pings |
+| Accept immediately, withhold play ping replies | Grim logged `disconnect.timeout` at 64.5 seconds, about 60 seconds after play entry |
+| Do not accept | ConsentGate disconnected at 121.3 seconds without acceptance submission, play entry, or play pings |
+| Accepted reconnect | Play entry without another dialog or acceptance submission |
+
+These checks support using the official build for the tested initial-login flow. They do not establish full gameplay compatibility. The idle clients were killed by mobs without disconnecting, and Grim's existing ViaBackwards vehicle warning remains relevant.
+
+### Official full-stack deployment
+
+After the local checks passed, the same official JAR replaced the temporary candidate on the Paper-compatible 26.2 test server. The upload used an inactive filename and was downloaded again to verify its SHA-256. The server had no online players before shutdown. Both plugin data folders were backed up while offline, and the candidate and original older JARs were retained under inactive filenames.
+
+Only the active Grim JAR changed. ConsentGate's JAR, documents, database, and settings were retained, including the enabled gate and 120-second timeout. A downloaded copy confirmed the ConsentGate configuration was byte-for-byte unchanged. Grim and ConsentGate both enabled successfully before the probes started.
+
+| Full-stack check | Observed result |
+| --- | --- |
+| Read for 75 seconds, then accept | Play entry at 79.7 seconds; remained connected for another 70 seconds; answered 846 play pings |
+| Accept immediately, withhold play ping replies | Grim logged `disconnect.timeout` at 61.6 seconds, about 60 seconds after play entry |
+| Do not accept | ConsentGate disconnected at 120.8 seconds without acceptance submission, play entry, or play pings |
+| Accepted reconnect | Play entry without another dialog or acceptance submission |
+| Console validation and status | Validation passed; accepted identities reported accepted, while the gate-timeout identity still required acceptance |
+
+Two simultaneous initial connections hit the server's existing connection throttle before authentication or any dialog. Those attempts failed the probe and are not counted as consent tests. Staggered retries completed the checks above without changing throttling settings.
+
+The bot's partial `entity_teleport` decoding warnings still occurred. They were not fixed by this Grim update. These results cover admission and timeout handling, not full plugin-stack or gameplay compatibility.
+
+All 93 ConsentGate JVM tests were rerun successfully, with no skipped tests. The seven Node.js helper tests and four Python framing tests passed. Documentation file links and whitespace checks passed. No ConsentGate production code changed.
+
+The test server remains running with official Grim `2.3.74-8eb5f28` and ConsentGate enabled. The temporary workaround is retired from the active deployment. Rollback files and acceptance history remain intact. The local fixture was stopped, and local and remote logs were saved privately. No graphical client was opened or controlled.
 
 ## Cause
 
@@ -47,7 +84,7 @@ Grim warns that ViaBackwards on this server generation is unsupported for older 
 
 These hashes identify local test artifacts, not published downloads. Baseline and candidate Grim builds display the same upstream version string, so use hashes to distinguish them.
 
-## Candidate runtime results
+## Historical candidate runtime results
 
 | Check | Observed result |
 | --- | --- |
@@ -63,7 +100,7 @@ All 93 ConsentGate JVM tests were rerun successfully. The four Python framing te
 
 The local server was stopped after testing. Logs, synthetic acceptance history, and baseline/candidate artifacts were retained locally. The local investigation did not change remote servers; a subsequent test deployment is recorded below.
 
-## Full-stack test deployment
+## Historical candidate full-stack deployment
 
 A later deployment on 2026-09-12 used a Paper-compatible 26.2 server with its existing plugin stack. Only the Grim JAR and ConsentGate's top-level enabled flag changed. ConsentGate's JAR, documents, database, and timeout settings were retained. The candidate was uploaded under an inactive suffix, downloaded to verify its SHA-256 against the local artifact, then activated while the server was offline. The original Grim JAR and both plugins' settings/data directories were backed up first.
 
@@ -79,11 +116,11 @@ The deployment probe used the same packet encoder and assertions as the local pr
 
 Grim and ConsentGate both enabled successfully. The synthetic client also reported partial `entity_teleport` packet decoding warnings after play entry. These did not prevent the recorded connection checks, but their cause remains unverified and broader gameplay compatibility is not established.
 
-The test server was left running with the candidate and consent gate enabled. Rollback files and acceptance history were retained. No player permissions, other anticheat settings, or unrelated plugins were changed. No graphical client was opened or controlled.
+At the end of that deployment, the test server was left running with the candidate and consent gate enabled. Rollback files and acceptance history were retained. No player permissions, other anticheat settings, or unrelated plugins were changed. No graphical client was opened or controlled.
 
 ## Historical local patch
 
-Historical candidate for `63a684d` only. Prefer verifying the existing upstream fix described above. Do not apply this patch on top of a newer Grim build without a separate review.
+Historical candidate for `63a684d` only. The official upstream build described above passes the initial-login checks without this patch. Do not apply it on top of a newer Grim build without a separate review.
 
 The [review patch](../tools/compat/grim-63a684d-configuration-timeout.patch) changes Grim, not ConsentGate. It suspends transaction timeout checks outside PLAY and starts a bounded response window on the first PLAY poll. Acknowledgments must still remain current after that window. It does not change the transaction clock used by movement checks, send fake responses, grant exemptions, or increase the configured timeout.
 
@@ -114,7 +151,7 @@ node tools/probe_paper.cjs --modules C:/path/to/node_modules --name ConsentProbe
 
 The third command checks the gate's own timeout with a 120-second fixture. It must disconnect without acceptance or play entry even when Grim's configuration timeout is suspended.
 
-For an unpatched configuration-timeout reproduction, use a new name with `--hold 75 --expect denied`. Stop the local server before replacing only its Grim JAR, then restart and repeat with another fresh name. Preserve logs and JAR hashes from each run. Use the administrator's offline reset command if reusing an identity, rather than deleting the database.
+To reproduce the old configuration timeout, use revision `63a684d` and a new name with `--hold 75 --expect denied`. Stop the local server before replacing only its Grim JAR, then restart and repeat with another fresh name. Preserve logs and JAR hashes from each run. Use the administrator's offline reset command if reusing an identity, rather than deleting the database.
 
 The probe selects the first language and checks every required agreement after the requested wait. It intentionally records acceptance for its synthetic identity. It does not prove that documents were read. It responds to keepalives, optionally answers play pings, and confirms teleports without issuing movement, build, or administrator commands.
 

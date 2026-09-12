@@ -41,7 +41,7 @@ The isolated artifact test loads the shaded parser with only the Java platform c
 
 ## Remaining checks
 
-- Test the [existing upstream Grim configuration-timeout fix](12-paper-anticheat-compatibility.md) and retire the temporary candidate if those checks pass. The older revision's same-build comparison is complete. Do not disable anticheat globally or reduce reading time to conceal the problem.
+- Broader Grim gameplay and reconfiguration checks. The [later official-build tests](12-paper-anticheat-compatibility.md) pass the initial-login long-wait and timeout cases. Do not disable anticheat globally or reduce reading time to conceal compatibility problems.
 - Paper-specific full-queue, locked-storage, and save/reset/disconnect race tests, including the interval between configuration completion and world join.
 - Native Bedrock forms on Paper and unmodified Java client checks at the supported version boundaries.
 

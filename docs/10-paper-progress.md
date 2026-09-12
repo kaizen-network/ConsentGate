@@ -29,11 +29,11 @@ Do not install the gate on both a proxy and its backend for the same admission r
 
 Live testing on 2026-09-12 used a Paper-compatible 26.2 server with protocol translation and a Java 26.1 synthetic client. It verified Indonesian selection, unchecked submission rejection, stale-token rejection, two-page reading, Back, acceptance followed by play login, accepted reconnect without a dialog, and immediate Leave disconnection. SQLite inspection confirmed one granted event for the shown version and `id-ID` locale. The bot used the documented corrected custom-click encoding, not an unmodified client.
 
-The full stack reproduced a GrimAC `disconnect.timeout` about 60 seconds after login success despite continuing keepalive replies. A later same-build comparison confirmed the timeout with Grim present and successful acceptance after a 75-second hold without it. Do not claim prolonged-wait compatibility with the unpatched stack. See [administration results](11-paper-administration-test-results.md) and the [controlled anticheat investigation](12-paper-anticheat-compatibility.md).
+The older GrimAC revision `63a684d` caused a configuration timeout around 60 seconds. Official build `2.3.74-8eb5f28` includes upstream's fix and passes the initial-login long-wait, play-timeout, consent-timeout, and reconnect checks. Use the exact tested revision, not the broad `2.3.74` label. See [administration results](11-paper-administration-test-results.md) and the [controlled anticheat investigation](12-paper-anticheat-compatibility.md).
 
 1. Expand Paper command testing to admission races, queue rejection, and storage failures. Console status/reset/reload and in-game permission/reply checks now pass.
 2. Validate native Bedrock integration at Paper's configuration connection, then share the compatible presentation code.
-3. Verify the existing upstream Grim timeout fix and retire the temporary test patch, then expand automated lifecycle coverage: disconnect/save races, shutdown, full queue, locked SQLite, timeouts, and connection limits.
+3. Expand automated lifecycle coverage: disconnect/save races, shutdown, full queue, locked SQLite, timeouts, and connection limits. Reconfiguration after a previous PLAY session needs a separate Grim compatibility check.
 4. Measure world-entry timing with native Paper events and real clients, including protocol translation and reconnects.
 5. Verify the oldest supported Paper build and client versions. Compilation against the 1.21.7 API is not a complete compatibility claim.
 
@@ -52,6 +52,6 @@ Keep the following checklist for regression testing; the race and failure cases 
 
 ## Long-wait investigation
 
-GrimAC revision `63a684d` starts player tracking at login success and checks its transaction timeout during configuration, although transaction sends return outside PLAY. The [same-build investigation](12-paper-anticheat-compatibility.md) records the reproduction and a temporary patch. A later check found an existing upstream fix in `29d8fb4`; testing that newer code is the next step. ConsentGate does not bundle either fix or bypass anticheat checks.
+GrimAC revision `63a684d` starts player tracking at login success and checks its transaction timeout during configuration, although transaction sends return outside PLAY. The [same-build investigation](12-paper-anticheat-compatibility.md) records the reproduction, historical patch, and passing official upstream build `8eb5f28`, which includes fix `29d8fb4`. ConsentGate does not bundle Grim or bypass anticheat checks.
 
 The synthetic client was updated to reply to pings and log connection state. No pings arrived during the failed configuration hold; keepalives continued until disconnect. Pings arrived and were answered after play login. Anticheat settings were not changed. Do not shorten reading time or disable anticheat globally as a workaround.
