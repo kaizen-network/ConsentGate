@@ -2,5 +2,7 @@
 *.java text eol=lf
 *.kts text eol=lf
 *.md text eol=lf
+# Unified patch context can contain a single space on an otherwise empty line.
+*.patch text eol=lf whitespace=-blank-at-eol
 gradlew text eol=lf
 *.bat text eol=crlf
