@@ -2,7 +2,7 @@
 
 Status: early implementation. Strict admission still needs real-client proof before support can be advertised.
 
-Implementation status: Velocity uses validated configuration, local documents, multi-page navigation, bounded database work, transactional SQLite storage before backend admission, and administrator status/reset/validation/reload commands. Java and native Bedrock flows have real-client testing, with broader compatibility and failure checks still open. Paper has an initial shared Java flow with live bot checks and newly implemented administrator commands; live command checks, native Bedrock, and prolonged-wait validation remain open. Shared tests and the local Velocity wire checks pass. See [development notes](05-development.md). Milestones 1 and 2 are not complete yet.
+Implementation status: Velocity uses validated configuration, local documents, multi-page navigation, bounded database work, transactional SQLite storage before backend admission, and administrator status/reset/validation/reload commands. Java and native Bedrock flows have real-client testing, with broader compatibility and failure checks still open. Paper has an initial shared Java flow with live bot checks and newly implemented administrator commands; command checks now pass, while native Bedrock, broader failure checks, and long-wait compatibility with GrimAC remain open. Shared tests and the local Velocity wire checks pass. See [development notes](05-development.md). Milestones 1 and 2 are not complete yet.
 
 ## Design decisions
 

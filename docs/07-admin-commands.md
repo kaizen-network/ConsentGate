@@ -1,6 +1,6 @@
 # Administrator commands
 
-These commands are implemented on Velocity and Paper. ConsentGate must be enabled and storage must be available. Velocity commands have wire and console testing. Paper shares the tested command rules, but its command delivery and admission coordination still need live integration testing.
+These commands are implemented on Velocity and Paper. ConsentGate must be enabled and storage must be available. Velocity commands have wire and console testing. Paper has console and in-game checks on test servers; see the [Paper test results](11-paper-administration-test-results.md) for coverage and remaining race tests.
 
 | Command | Permission | Result |
 | --- | --- | --- |

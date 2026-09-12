@@ -15,7 +15,7 @@ Status: first Java admission slice. Not a production release or full platform pa
 - Reset preserves history, reserves the target UUID, and waits for an outstanding save. Accepted connections remain protected against reset until world join or disconnect.
 - Reload refuses active sessions and database work; unsupported native forms, unsafe presentation, and incompatible revisions leave the running settings unchanged.
 
-The `presentation` module supplies the safe text formatter, interface messages, and bundled defaults to both platforms. Paper does not depend on the Velocity plugin or PacketEvents. Paper bundles Adventure NBT for strict response parsing; it does not bundle another copy of the Adventure text APIs.
+The `presentation` module supplies the safe text formatter, interface messages, and bundled defaults to both platforms. Paper does not depend on the Velocity plugin or PacketEvents. Paper bundles and relocates Adventure NBT and Examination for strict response parsing. Paper's NBT API types and Adventure text APIs remain platform-provided.
 
 ## Installation for testing
 
@@ -29,11 +29,11 @@ Do not install the gate on both a proxy and its backend for the same admission r
 
 Live testing on 2026-09-12 used a Paper-compatible 26.2 server with protocol translation and a Java 26.1 synthetic client. It verified Indonesian selection, unchecked submission rejection, stale-token rejection, two-page reading, Back, acceptance followed by play login, accepted reconnect without a dialog, and immediate Leave disconnection. SQLite inspection confirmed one granted event for the shown version and `id-ID` locale. The bot used the documented corrected custom-click encoding, not an unmodified client.
 
-The longer waiting attempt ended with a `disconnect.timeout` message logged by GrimAC. Its cause is not isolated: client behavior, configuration-stage integration, and anticheat interaction still need comparison on a minimal server. Do not claim prolonged-wait compatibility with that plugin stack yet. The test container was stopped afterward and its temporary gate disabled; records were retained.
+The full stack reproduced a GrimAC `disconnect.timeout` about 60 seconds after login success despite continuing keepalive replies. The minimal server held the same client beyond 90 seconds and then admitted it after acceptance. This points to a configuration-stage anticheat interaction; a controlled same-build comparison remains open. Do not claim prolonged-wait compatibility with that plugin stack yet. See [detailed test results](11-paper-administration-test-results.md).
 
-1. Live-test Paper status/reset and validation/reload commands, including permission checks, reply delivery, admission races, queue rejection, and unchanged running settings after failure.
+1. Expand Paper command testing to admission races, queue rejection, and storage failures. Console status/reset/reload and in-game permission/reply checks now pass.
 2. Validate native Bedrock integration at Paper's configuration connection, then share the compatible presentation code.
-3. Isolate the long-wait disconnect, then expand automated lifecycle coverage: disconnect/save races, shutdown, full queue, locked SQLite, timeouts, and connection limits.
+3. Resolve the long-wait anticheat compatibility issue, then expand automated lifecycle coverage: disconnect/save races, shutdown, full queue, locked SQLite, timeouts, and connection limits.
 4. Measure world-entry timing with native Paper events and real clients, including protocol translation and reconnects.
 5. Verify the oldest supported Paper build and client versions. Compilation against the 1.21.7 API is not a complete compatibility claim.
 
@@ -41,9 +41,9 @@ The Paper event's [API documentation](https://jd.papermc.io/paper/1.21.7/io/pape
 
 ## Local administrator checks
 
-The 2026-09-12 command implementation passes the shared permission, target parsing, save/reset ordering, and queued/running job accounting tests. Paper-specific presentation tests check bundled defaults, native-form rejection, unsafe markup, missing messages, and keeping the running runtime usable after failed validation. The local Velocity wire suite passed all 14 checks after extracting the shared command rules. These checks do not replace live Paper command testing.
+The 2026-09-12 command implementation passes the shared permission, target parsing, save/reset ordering, and queued/running job accounting tests. Paper-specific presentation tests check bundled defaults, native-form rejection, unsafe markup, missing messages, and keeping the running runtime usable after failed validation. The local Velocity wire suite passed all 14 checks after extracting the shared command rules. Console and in-game runtime checks are recorded in the [test results](11-paper-administration-test-results.md).
 
-Before deploying this slice, use a disposable test UUID and confirm:
+Keep the following checklist for regression testing; the race and failure cases are not all covered yet:
 
 1. Console and authorized players receive status and validation replies; each command rejects users without its own permission.
 2. Reset refuses a player reading documents, an accepted connection not yet in the world, and an online player. After disconnect, reset keeps history and requires consent on reconnect.
@@ -52,6 +52,6 @@ Before deploying this slice, use a disposable test UUID and confirm:
 
 ## Long-wait investigation
 
-Source inspection found a plausible configuration-stage timeout path in GrimAC revision `63a684d`: its [login listener](https://github.com/GrimAnticheat/Grim/blob/63a684d/common/src/main/java/ac/grim/grimac/events/packets/PacketPlayerJoinQuit.java) adds a user at login success. In [GrimPlayer](https://github.com/GrimAnticheat/Grim/blob/63a684d/common/src/main/java/ac/grim/grimac/player/GrimPlayer.java), transaction sends return outside the play phase, while `pollData()` checks time since the last transaction clock without that phase guard. This could expire during an extended configuration hold if that player is being polled. It is a hypothesis, not a confirmed runtime cause.
+Source inspection found a plausible configuration-stage timeout path in GrimAC revision `63a684d`: its [login listener](https://github.com/GrimAnticheat/Grim/blob/63a684d/common/src/main/java/ac/grim/grimac/events/packets/PacketPlayerJoinQuit.java) adds a user at login success. In [GrimPlayer](https://github.com/GrimAnticheat/Grim/blob/63a684d/common/src/main/java/ac/grim/grimac/player/GrimPlayer.java), transaction sends return outside the play phase, while `pollData()` checks time since the last transaction clock without that phase guard. This could expire during an extended configuration hold if that player is being polled. Runtime logs now reproduce GrimAC's timeout during configuration, while a minimal server permits a longer hold. A controlled same-build comparison is still needed.
 
-The synthetic client's installed protocol library handles keepalives but does not automatically reply to ping packets. A follow-up client must reply to pings and log connection state before comparing a minimal Paper server with the anticheat stack. Do not shorten reading time or disable anticheat globally as a workaround. Neither anticheat settings nor remote servers were changed during this local investigation.
+The synthetic client was updated to reply to pings and log connection state. No pings arrived during the failed configuration hold; keepalives continued until disconnect. Pings arrived and were answered after play login. Anticheat settings were not changed. Do not shorten reading time or disable anticheat globally as a workaround.
