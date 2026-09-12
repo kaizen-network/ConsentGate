@@ -1,5 +1,7 @@
 package io.github.consentgate.velocity;
 
+import io.github.consentgate.presentation.SafeTextFormatter;
+
 import io.github.consentgate.core.config.DialogAppearance;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;

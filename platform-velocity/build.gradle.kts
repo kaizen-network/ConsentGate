@@ -7,6 +7,7 @@ repositories {
 }
 dependencies {
     implementation(project(":core"))
+    implementation(project(":presentation"))
     compileOnly("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
     testImplementation("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
     annotationProcessor("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
@@ -14,6 +15,9 @@ dependencies {
     compileOnly("org.geysermc.geyser:api:2.10.0-SNAPSHOT")
     testImplementation("org.geysermc.geyser:api:2.10.0-SNAPSHOT")
     testImplementation("net.kyori:adventure-text-minimessage:4.26.1")
+}
+sourceSets.test {
+    resources.srcDir(project(":presentation").file("src/main/resources"))
 }
 tasks.jar {
     enabled = false

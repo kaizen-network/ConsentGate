@@ -1,5 +1,7 @@
 package io.github.consentgate.velocity;
 
+import io.github.consentgate.presentation.SafeTextFormatter;
+
 import org.geysermc.geyser.api.GeyserApi;
 import org.geysermc.cumulus.form.Form;
 import java.util.UUID;

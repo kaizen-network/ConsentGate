@@ -1,5 +1,7 @@
 package io.github.consentgate.velocity;
 
+import io.github.consentgate.presentation.SafeTextFormatter;
+
 import io.github.consentgate.core.GateSession;
 import io.github.consentgate.core.admission.AdmissionDocument;
 import io.github.consentgate.core.admission.AdmissionRequest;

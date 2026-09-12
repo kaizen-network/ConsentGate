@@ -2,4 +2,4 @@ name: ConsentGate
 version: '${version}'
 main: io.github.consentgate.paper.ConsentGatePaper
 api-version: '1.21.7'
-description: Experimental pre-admission dialog prototype
+description: Configurable pre-admission agreements

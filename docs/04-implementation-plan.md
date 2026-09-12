@@ -2,7 +2,7 @@
 
 Status: early implementation. Strict admission still needs real-client proof before support can be advertised.
 
-Implementation status: Velocity uses validated configuration, local documents, multi-page navigation, bounded database work, transactional SQLite storage before backend admission, and administrator status/reset/validation/reload commands. Java and native Bedrock flows have real-client testing, with broader compatibility and failure checks still open. Paper remains a connection prototype awaiting runtime validation. Shared tests and the local Velocity wire checks pass. See [development notes](05-development.md). Milestones 1 and 2 are not complete yet.
+Implementation status: Velocity uses validated configuration, local documents, multi-page navigation, bounded database work, transactional SQLite storage before backend admission, and administrator status/reset/validation/reload commands. Java and native Bedrock flows have real-client testing, with broader compatibility and failure checks still open. Paper has an initial shared Java flow with live bot checks; command parity, native Bedrock, and prolonged-wait validation remain open. Shared tests and the local Velocity wire checks pass. See [development notes](05-development.md). Milestones 1 and 2 are not complete yet.
 
 ## Design decisions
 
@@ -22,6 +22,7 @@ Implementation status: Velocity uses validated configuration, local documents, m
 ```text
 ConsentGate/
   core/                 Documents, sessions, admission rules, configuration
+  presentation/         Shared safe text, messages, and bundled defaults
   storage/              SQLite and remote SQL
   platform-velocity/    Connection lifecycle and dialog transport
   platform-paper/       Connection lifecycle and native dialog conversion

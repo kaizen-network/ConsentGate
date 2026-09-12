@@ -8,7 +8,7 @@ Fresh installations include inactive Terms of Service and Privacy Policy starter
 
 ## Status
 
-Early development. Velocity now loads styled local documents, supports automatic locale matching and an optional language selector, checks and stores SQLite acceptance before backend admission, and supports full document navigation. Paper remains a connection prototype. Neither artifact is a production release. Features below describe the planned complete plugin.
+Early development. Velocity now loads styled local documents, supports automatic locale matching and an optional language selector, checks and stores SQLite acceptance before backend admission, and supports full document navigation. Paper has an initial shared Java consent flow; admin commands, native Bedrock forms, and broader runtime validation remain pending there. Neither artifact is a production release. Features below describe the planned complete plugin.
 
 ## Planned features
 
@@ -36,6 +36,7 @@ Connection handling must pass prototype tests before these guarantees are advert
 - [Player flow and configuration](docs/02-product-and-config.md)
 - [Storage and database upgrades](docs/03-storage-and-migration.md)
 - [Administrator commands](docs/07-admin-commands.md)
+- [Paper implementation progress](docs/10-paper-progress.md)
 - [Architecture and roadmap](docs/04-implementation-plan.md)
 
 ## License

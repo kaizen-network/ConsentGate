@@ -1,4 +1,4 @@
-package io.github.consentgate.velocity;
+package io.github.consentgate.presentation;
 
 import io.github.consentgate.core.config.DialogAppearance;
 import io.github.consentgate.core.document.DocumentCatalog;
@@ -14,7 +14,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-final class SafeTextFormatter {
+public final class SafeTextFormatter {
     private static final Pattern TAG = Pattern.compile("(?<!\\\\)<(/?)([^<>]+)>");
     private static final Pattern HEX_TAG = Pattern.compile("#[0-9a-f]{6}");
     private static final Set<String> SAFE_TAGS = Set.of(
@@ -31,24 +31,24 @@ final class SafeTextFormatter {
 
     private final DialogAppearance appearance;
 
-    SafeTextFormatter(DialogAppearance appearance) {
+    public SafeTextFormatter(DialogAppearance appearance) {
         this.appearance = appearance;
     }
 
-    Component title(String value) { return format(value, appearance.titleColor()); }
-    Component accent(String value) { return format(value, appearance.accentColor()); }
-    Component text(String value) { return format(value, appearance.textColor()); }
-    Component muted(String value) { return format(value, appearance.mutedColor()); }
-    Component mutedPlain(String value) { return Component.text(value, color(appearance.mutedColor())); }
-    Component error(String value) { return format(value, appearance.errorColor()); }
-    Component button(String value) { return format(value, appearance.buttonColor()); }
+    public Component title(String value) { return format(value, appearance.titleColor()); }
+    public Component accent(String value) { return format(value, appearance.accentColor()); }
+    public Component text(String value) { return format(value, appearance.textColor()); }
+    public Component muted(String value) { return format(value, appearance.mutedColor()); }
+    public Component mutedPlain(String value) { return Component.text(value, color(appearance.mutedColor())); }
+    public Component error(String value) { return format(value, appearance.errorColor()); }
+    public Component button(String value) { return format(value, appearance.buttonColor()); }
 
-    Component format(String value, String defaultColor) {
+    public Component format(String value, String defaultColor) {
         validate(value);
         return MINI_MESSAGE.deserialize(value).colorIfAbsent(color(defaultColor));
     }
 
-    static void validateCatalog(DocumentCatalog catalog) {
+    public static void validateCatalog(DocumentCatalog catalog) {
         for (var document : catalog.documents()) {
             for (var entry : document.translations().entrySet()) {
                 var translation = entry.getValue();
@@ -65,7 +65,7 @@ final class SafeTextFormatter {
         }
     }
 
-    static void validate(String value) {
+    public static void validate(String value) {
         Matcher matcher = TAG.matcher(value);
         while (matcher.find()) {
             String definition = matcher.group(2).toLowerCase(Locale.ROOT);

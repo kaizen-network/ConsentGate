@@ -1,5 +1,7 @@
 package io.github.consentgate.velocity;
 
+import io.github.consentgate.presentation.SafeTextFormatter;
+
 import io.github.consentgate.core.config.DialogAppearance;
 import io.github.consentgate.core.document.DocumentCatalog;
 import io.github.consentgate.core.document.DocumentLoader;

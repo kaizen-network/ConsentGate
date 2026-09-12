@@ -1,5 +1,7 @@
 package io.github.consentgate.velocity;
 
+import io.github.consentgate.presentation.SafeTextFormatter;
+
 import io.github.consentgate.core.admission.AdmissionSession;
 import io.github.consentgate.core.config.LanguageSelectorConfig;
 import org.geysermc.cumulus.form.CustomForm;

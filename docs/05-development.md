@@ -1,6 +1,6 @@
 # Development
 
-Velocity now uses the shared configuration, document, admission, and SQLite components. It supports summary checkboxes, optional language selection, full multi-page reading, restricted MiniMessage formatting, durable acceptance before backend release, and accepted reconnects. Optional native Cumulus forms are implemented for Geyser on the same proxy. Real-client testing confirmed the native menu, acceptance, formatting, and return from the agreement form. Broader client and failure testing remains open. Paper remains a connection prototype. Velocity has administrator status, offline reset, validation, and safe reload commands. Cached acceptance and remote databases are not implemented. Do not install either artifact on a production server or proxy.
+Velocity now uses the shared configuration, document, admission, and SQLite components. It supports summary checkboxes, optional language selection, full multi-page reading, restricted MiniMessage formatting, durable acceptance before backend release, and accepted reconnects. Optional native Cumulus forms are implemented for Geyser on the same proxy. Real-client testing confirmed the native menu, acceptance, formatting, and return from the agreement form. Broader client and failure testing remains open. Paper has an initial shared Java consent flow; commands and native Bedrock support remain pending. Velocity has administrator status, offline reset, validation, and safe reload commands. Cached acceptance and remote databases are not implemented. Do not install either artifact on a production server or proxy.
 
 ## Build
 
@@ -23,7 +23,7 @@ The shaded platform JARs contain the shared core, relocated SnakeYAML, SQLite JD
 
 Velocity is disabled on a fresh installation. It creates `config.yml` and styled, inactive `documents/terms.yml.example` and `documents/privacy.yml.example` starter templates. Administrators must replace bracketed values, remove sections that do not apply, review the final text, rename the files to `.yml`, and set `enabled: true`. Current acceptance then bypasses the dialog. Otherwise, players can read every page, return with checkbox state preserved, and continue only after every required box is checked and SQLite commits the acceptance. Leave, invalid input, timeout, storage failure, and shutdown do not admit the player.
 
-Velocity timeout and pending-session limits come from configuration. Database checks and writes use two workers and a bounded queue. Paper still uses fixed five-minute and 128-session prototype limits. Shutdown, disconnect, and errors end pending sessions without admission.
+Both platforms use configured timeout and pending-session limits. Database checks and writes use two workers and a bounded queue. Paper's initial Java flow now uses the shared runtime and documents; its commands, native Bedrock forms, and broader lifecycle checks remain pending. Shutdown, disconnect, and errors end pending sessions without admission.
 
 Velocity checks admission again on every backend connection request. It maintains keepalives while held and consumes its own delayed heartbeat responses. Paper holds only its asynchronous configuration event, never the server's main thread.
 
@@ -101,7 +101,8 @@ The runner verifies the local proxy configuration, stages the current plugin art
 | Shared session core | Automated session lifecycle checks |
 | Configuration, documents, admission, and SQLite | Automated loading, acceptance, withdrawal, and history checks |
 | Velocity formatting and administration | Automated formatting, command permissions, target parsing, and save/reset ordering checks |
-| Paper 1.21.7 API | Compiles; runtime and real-client checks pending |
+| Paper 1.21.7 API | Compiles; strict response parsing tests pass |
+| Paper-compatible 26.2 server with Java 26.1 bot | Language, navigation, acceptance, SQLite persistence, reconnect, and Leave tested; prolonged-wait timeout remains unresolved |
 | Velocity 3.4.0 build 563, PacketEvents 2.13.0 | Local wire/console checks cover admission and administrator status/reset/validation/reload |
 | Java protocols 771 and 772 | All 14 wire/console checks passed separately for each protocol on 2026-09-12; four golden framing tests also passed |
 | Velocity 4.1.0 snapshot, PacketEvents 2.13.0, Minecraft 26.2 | Styled two-document acceptance and accepted reconnect reached a backend on 2026-09-10 |
