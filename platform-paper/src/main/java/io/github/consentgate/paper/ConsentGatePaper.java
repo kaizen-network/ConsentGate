@@ -3,18 +3,22 @@ package io.github.consentgate.paper;
 import com.destroystokyo.paper.ClientOption;
 import com.destroystokyo.paper.event.player.PlayerConnectionCloseEvent;
 import io.github.consentgate.core.GateSession;
+import io.github.consentgate.core.admin.AdminCommands;
+import io.github.consentgate.core.admin.DatabaseJobs;
+import io.github.consentgate.core.admin.PlayerOperations;
 import io.github.consentgate.core.admission.AdmissionRequest;
 import io.github.consentgate.core.admission.AdmissionSession;
 import io.github.consentgate.core.runtime.ConsentGateRuntime;
 import io.github.consentgate.core.runtime.RuntimeLoader;
 import io.github.consentgate.presentation.InterfaceMessages;
-import io.github.consentgate.presentation.SafeTextFormatter;
 import io.papermc.paper.connection.PlayerConfigurationConnection;
 import io.papermc.paper.event.connection.configuration.AsyncPlayerConnectionConfigureEvent;
 import io.papermc.paper.event.player.PlayerCustomClickEvent;
 import net.kyori.adventure.text.Component;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,6 +26,8 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -30,39 +36,38 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 public final class ConsentGatePaper extends JavaPlugin implements Listener {
     private final Map<PlayerConfigurationConnection, Pending> sessions = new ConcurrentHashMap<>();
+    private final Set<UUID> resetting = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> awaitingJoin = ConcurrentHashMap.newKeySet();
+    private final PlayerOperations playerOperations = new PlayerOperations();
+    private boolean reloading;
+    private DatabaseJobs databaseJobs;
     private volatile boolean stopping;
     private volatile boolean ready;
-    private ConsentGateRuntime runtime;
+    private volatile ConsentGateRuntime runtime;
     private PaperDialogs dialogs;
     private ThreadPoolExecutor database;
 
     @Override public void onEnable() {
         getServer().getPluginManager().registerEvents(this, this);
+        installCommand();
         try {
             defaults();
             runtime = new RuntimeLoader().load(getDataFolder().toPath());
             var messages = new InterfaceMessages(getDataFolder().toPath().resolve("messages"));
             if (runtime.enabled()) {
-                if (runtime.config().nativeBedrockForms()) throw new IllegalArgumentException("Native Bedrock forms are not implemented on Paper yet; set bedrock.native-forms to false");
                 var catalog = runtime.admissionService().orElseThrow().catalog();
-                SafeTextFormatter.validateCatalog(catalog);
-                var locales = new java.util.HashSet<String>();
-                locales.add(runtime.config().defaultLocale());
-                catalog.documents().forEach(document -> locales.addAll(document.translations().keySet()));
-                messages.validateFor(locales, runtime.config().defaultLocale());
-                var selector = runtime.config().languageSelector();
-                SafeTextFormatter.validate(selector.title());
-                SafeTextFormatter.validate(selector.prompt());
-                selector.options().values().forEach(SafeTextFormatter::validate);
+                PaperConfiguration.validate(new RuntimeLoader.Prepared(runtime.config(), catalog), messages);
                 int capacity = Math.min(10_000, Math.max(32, runtime.config().maxPending() * 2));
                 database = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(capacity), task -> {
                     Thread thread = new Thread(task, "consentgate-paper-database");
                     thread.setDaemon(true);
                     return thread;
                 }, new ThreadPoolExecutor.AbortPolicy());
+                databaseJobs = new DatabaseJobs(database);
                 dialogs = new PaperDialogs(runtime.config(), messages);
                 getLogger().info("ConsentGate is enabled with SQLite storage.");
             } else getLogger().warning("ConsentGate is disabled. Configure documents before enabling it.");
@@ -78,11 +83,14 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
         if (!runtime.enabled()) return;
         UUID id = connection.getProfile().getId();
         if (id == null) { connection.disconnect(Component.text("ConsentGate could not identify this connection.")); return; }
-        String locale = runtime.config().useClientLocale() ? connection.getClientOption(ClientOption.LOCALE) : runtime.config().defaultLocale();
-        var pending = new Pending(connection, id, locale);
+        Pending pending;
         boolean rejected;
         synchronized (sessions) {
-            rejected = stopping || sessions.size() >= runtime.config().maxPending() || sessions.putIfAbsent(connection, pending) != null;
+            String locale = runtime.config().useClientLocale() ? connection.getClientOption(ClientOption.LOCALE) : runtime.config().defaultLocale();
+            pending = new Pending(connection, id, locale);
+            rejected = stopping || reloading || resetting.contains(id) || awaitingJoin.contains(id)
+                    || sessions.values().stream().anyMatch(active -> active.id.equals(id))
+                    || sessions.size() >= runtime.config().maxPending() || sessions.putIfAbsent(connection, pending) != null;
         }
         if (rejected) { connection.disconnect(Component.text("ConsentGate is busy. Please try again shortly.")); return; }
         execute(pending, () -> {
@@ -100,7 +108,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
         try { pending.done.get(runtime.config().timeoutSeconds(), TimeUnit.SECONDS); }
         catch (InterruptedException ex) { Thread.currentThread().interrupt(); finish(pending, "ConsentGate is stopping."); }
         catch (Exception ex) { finish(pending, "Consent request timed out or failed."); }
-        finally { sessions.remove(connection, pending); }
+        finally { synchronized (sessions) { sessions.remove(connection, pending); } }
     }
 
     private void begin(Pending pending, AdmissionRequest request) {
@@ -200,14 +208,14 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
 
     private void execute(Pending pending, DatabaseOperation operation) {
         try {
-            database.execute(() -> {
+            submitDatabase(() -> playerOperations.run(pending.id, () -> {
                 if (pending.finished.get() || stopping) { finish(pending, "ConsentGate is stopping."); return; }
                 try { operation.run(); }
                 catch (Exception ex) {
                     getLogger().log(java.util.logging.Level.WARNING, "Consent operation failed for " + pending.id, ex);
                     finish(pending, "Consent records could not be processed. Please try again later.");
                 }
-            });
+            }), false);
         } catch (RejectedExecutionException ex) { finish(pending, "ConsentGate is busy. Please try again shortly."); }
     }
     private void finish(Pending pending, String denial) {
@@ -218,17 +226,132 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
                 try { pending.connection.getAudience().closeDialog(); }
                 catch (RuntimeException ex) { if (denial == null) denial = "Consent dialog could not be closed."; }
                 if (denial != null) pending.connection.disconnect(Component.text(denial));
+                else awaitingJoin.add(pending.id);
             } finally { pending.done.complete(null); }
         }
     }
     @EventHandler public void disconnected(PlayerConnectionCloseEvent event) {
         sessions.values().stream().filter(pending -> pending.id.equals(event.getPlayerUniqueId()))
                 .forEach(pending -> finish(pending, "Connection ended."));
+        awaitingJoin.remove(event.getPlayerUniqueId());
     }
+    @EventHandler public void joined(PlayerJoinEvent event) { awaitingJoin.remove(event.getPlayer().getUniqueId()); }
+
+    private void installCommand() {
+        var commands = new AdminCommands(name -> Optional.ofNullable(getServer().getPlayerExact(name))
+                .map(org.bukkit.entity.Player::getUniqueId), new AdminCommands.Operations() {
+            public void status(UUID id, Consumer<String> reply) { adminOperation(id, false, reply); }
+            public void reset(UUID id, Consumer<String> reply) { adminOperation(id, true, reply); }
+            public void configuration(boolean apply, Consumer<String> reply) { configurationCheck(apply, reply); }
+        });
+        var command = java.util.Objects.requireNonNull(getCommand("consentgate"), "Missing consentgate command");
+        command.setExecutor((sender, ignored, label, args) -> {
+            commands.execute(args, sender::hasPermission, text -> reply(sender, text));
+            return true;
+        });
+        command.setTabCompleter((sender, ignored, label, args) -> AdminCommands.suggest(args, sender::hasPermission));
+    }
+
+    private void reply(CommandSender sender, String text) {
+        if (stopping) return;
+        if (getServer().isPrimaryThread()) sender.sendMessage(Component.text(text));
+        else {
+            try { getServer().getScheduler().runTask(this, () -> { if (!stopping) sender.sendMessage(Component.text(text)); }); }
+            catch (org.bukkit.plugin.IllegalPluginAccessException ignored) { }
+        }
+    }
+
+    private void submitDatabase(Runnable operation, boolean maintenance) {
+        synchronized (sessions) {
+            if (stopping || (reloading && !maintenance) || database == null || database.isShutdown()) throw new RejectedExecutionException();
+            databaseJobs.execute(operation);
+        }
+    }
+
+    private boolean running(Consumer<String> reply) {
+        if (stopping || !ready || runtime == null || !runtime.enabled()) {
+            reply.accept("ConsentGate must be enabled and running before using this command.");
+            return false;
+        }
+        return true;
+    }
+
+    private void adminOperation(UUID id, boolean reset, Consumer<String> reply) {
+        if (!running(reply)) return;
+        if (reset) {
+            synchronized (sessions) {
+                if (getServer().getPlayer(id) != null || awaitingJoin.contains(id)
+                        || sessions.values().stream().anyMatch(pending -> pending.id.equals(id))) {
+                    reply.accept("Disconnect the player first, then reset using their UUID: " + id);
+                    return;
+                }
+                if (!resetting.add(id)) { reply.accept("A reset is already pending for " + id + "."); return; }
+            }
+        }
+        try {
+            submitDatabase(() -> playerOperations.run(id, () -> {
+                try {
+                    if (stopping) { reply.accept("ConsentGate is stopping. The command was not applied."); return; }
+                    var service = runtime.admissionService().orElseThrow();
+                    if (reset) {
+                        service.reset(id, Instant.now());
+                        reply.accept("Consent reset for " + id + " in scope " + runtime.config().scope()
+                                + ". History was kept. Acceptance is required on the next connection.");
+                    } else {
+                        reply.accept("Consent status for " + id + " in scope " + runtime.config().scope() + ":");
+                        for (var status : service.status(id)) reply.accept(status.id() + " (" + status.version() + "): "
+                                + (status.accepted() ? "accepted" : "acceptance required"));
+                    }
+                } catch (Exception ex) {
+                    getLogger().log(java.util.logging.Level.WARNING, "Consent admin operation failed for " + id, ex);
+                    reply.accept("Consent records could not be processed. Check the server log before retrying.");
+                } finally { if (reset) resetting.remove(id); }
+            }), false);
+        } catch (RejectedExecutionException ex) {
+            if (reset) resetting.remove(id);
+            reply.accept("ConsentGate is busy. Please try again shortly.");
+        }
+    }
+
+    private void configurationCheck(boolean apply, Consumer<String> reply) {
+        synchronized (sessions) {
+            if (!running(reply)) return;
+            if (reloading || (apply && (!sessions.isEmpty() || databaseJobs.pending() != 0 || !resetting.isEmpty()))) {
+                reply.accept("Reload is busy. Wait for consent sessions and database work to finish, then retry.");
+                return;
+            }
+            if (apply) reloading = true;
+            try {
+                submitDatabase(() -> {
+                    try {
+                        var prepared = new RuntimeLoader().prepare(getDataFolder().toPath());
+                        var nextMessages = new InterfaceMessages(getDataFolder().toPath().resolve("messages"));
+                        PaperConfiguration.validate(prepared, nextMessages);
+                        var nextDialogs = new PaperDialogs(prepared.config(), nextMessages);
+                        var nextRuntime = runtime.reconfigured(prepared);
+                        synchronized (sessions) {
+                            if (stopping) throw new IllegalStateException("ConsentGate is stopping");
+                            if (apply) { dialogs = nextDialogs; runtime = nextRuntime; }
+                        }
+                        reply.accept(apply ? "ConsentGate reloaded. Changes apply to new connections; existing players are not kicked."
+                                : "Validation passed. Configuration, documents, messages, and saved revisions are compatible. Nothing was applied.");
+                    } catch (Exception ex) {
+                        getLogger().log(java.util.logging.Level.WARNING, "ConsentGate configuration check failed", ex);
+                        reply.accept("Configuration check failed: " + ex.getMessage() + ". The running configuration was kept.");
+                    } finally { if (apply) synchronized (sessions) { reloading = false; } }
+                }, apply);
+            } catch (RejectedExecutionException ex) {
+                if (apply) reloading = false;
+                reply.accept("ConsentGate is busy. Please try again shortly.");
+            }
+        }
+    }
+
     @Override public void onDisable() {
         List<Pending> ending;
         synchronized (sessions) { stopping = true; ending = List.copyOf(sessions.values()); }
         ending.forEach(pending -> finish(pending, "ConsentGate is stopping."));
+        awaitingJoin.clear();
         if (database != null) {
             database.shutdownNow();
             try { database.awaitTermination(5, TimeUnit.SECONDS); }

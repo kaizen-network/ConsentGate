@@ -8,6 +8,7 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.7-R0.1-SNAPSHOT")
     implementation("net.kyori:adventure-nbt:4.26.1") { isTransitive = false }
     testImplementation("net.kyori:adventure-nbt:4.26.1")
+    testImplementation("net.kyori:adventure-text-minimessage:4.26.1")
 }
 tasks.jar {
     enabled = false

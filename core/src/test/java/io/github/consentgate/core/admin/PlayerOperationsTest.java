@@ -1,4 +1,4 @@
-package io.github.consentgate.velocity;
+package io.github.consentgate.core.admin;
 
 import org.junit.jupiter.api.Test;
 
