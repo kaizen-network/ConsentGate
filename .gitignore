@@ -1,5 +1,9 @@
 .gradle/
 **/build/
+/core/bin/
+/platform-paper/bin/
+/platform-velocity/bin/
+/presentation/bin/
 .idea/
 *.iml
 .run/
