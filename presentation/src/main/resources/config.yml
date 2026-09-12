@@ -31,3 +31,5 @@ storage:
   type: sqlite
   sqlite:
     file: data/consent.db
+  # Remote storage is opt-in. Install db/mysql-v1.sql before selecting mysql or mariadb.
+  # See docs/15-remote-storage.md for credentials, TLS, and the cache freshness limit.

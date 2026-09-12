@@ -114,16 +114,41 @@ public final class ConfigLoader {
         Path documentsDirectory = resolveInside(root, text(documents, "directory", 1, 256), "documents.directory");
 
         Map<?, ?> storage = map(required(config, "storage"), "storage");
-        rejectUnknown(storage, "storage", "type", "sqlite");
+        rejectUnknown(storage, "storage", "type", "sqlite", "remote", "cache");
         String type = text(storage, "type", 1, 32);
-        if (!type.equals("sqlite")) throw new ConfigLoadException("Unsupported storage type in this build: " + type);
+        if (!Set.of("sqlite", "mysql", "mariadb").contains(type)) throw new ConfigLoadException("Unsupported storage type in this build: " + type);
         Map<?, ?> sqlite = map(required(storage, "sqlite"), "storage.sqlite");
         rejectUnknown(sqlite, "storage.sqlite", "file");
         Path sqliteFile = resolveInside(root, text(sqlite, "file", 1, 256), "storage.sqlite.file");
         if (sqliteFile.equals(root)) throw new ConfigLoadException("storage.sqlite.file must name a file");
 
+        RemoteStorageConfig remote = null;
+        if (storage.containsKey("remote")) {
+            Map<?, ?> values = map(storage.get("remote"), "storage.remote");
+            rejectUnknown(values, "storage.remote", "host", "port", "database", "username", "password", "ssl-mode",
+                    "server-certificate", "connect-timeout-millis", "socket-timeout-millis");
+            String certificate = values.containsKey("server-certificate") ? text(values, "server-certificate", 0, 256) : "";
+            remote = new RemoteStorageConfig(text(values, "host", 1, 255), integer(values, "port", 1, 65535),
+                    text(values, "database", 1, 64), text(values, "username", 1, 80), text(values, "password", 0, 1024),
+                    values.containsKey("ssl-mode") ? text(values, "ssl-mode", 1, 32) : "verify-full",
+                    certificate.isEmpty() ? null : resolveInside(root, certificate, "storage.remote.server-certificate"),
+                    values.containsKey("connect-timeout-millis") ? integer(values, "connect-timeout-millis", 100, 30000) : 3000,
+                    values.containsKey("socket-timeout-millis") ? integer(values, "socket-timeout-millis", 100, 30000) : 5000);
+        }
+        if (!type.equals("sqlite") && remote == null) throw new ConfigLoadException("Remote storage settings are required");
+        var cache = new StorageConfig.Cache(!type.equals("sqlite"), root.resolve("data/remote-cache.db"), 60, 100000);
+        if (storage.containsKey("cache")) {
+            Map<?, ?> values = map(storage.get("cache"), "storage.cache");
+            rejectUnknown(values, "storage.cache", "enabled", "file", "freshness-seconds", "max-entries");
+            Path cacheFile = resolveInside(root, text(values, "file", 1, 256), "storage.cache.file");
+            if (cacheFile.equals(root)) throw new ConfigLoadException("storage.cache.file must name a file");
+            cache = new StorageConfig.Cache(bool(values, "enabled"), cacheFile,
+                    integer(values, "freshness-seconds", 0, 300), integer(values, "max-entries", 1, 1000000));
+        }
+
         return new ConsentGateConfig(enabled, scope, timeoutSeconds, maxPending, defaultLocale,
-                useClientLocale, selector, appearance, nativeBedrockForms, bedrockButtonColor, documentsDirectory, sqliteFile);
+                useClientLocale, selector, appearance, nativeBedrockForms, bedrockButtonColor, documentsDirectory,
+                new StorageConfig(type, sqliteFile, remote, cache));
     }
 
     private static Path resolveInside(Path root, String value, String key) throws ConfigLoadException {

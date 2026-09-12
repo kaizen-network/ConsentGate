@@ -31,7 +31,7 @@ public final class AdmissionService implements AutoCloseable {
 
     public AdmissionService reconfigured(ConsentGateConfig candidate, DocumentCatalog documents) throws SQLException {
         if (config.enabled() != candidate.enabled() || !config.scope().equals(candidate.scope())
-                || !config.sqliteFile().equals(candidate.sqliteFile()) || config.maxPending() != candidate.maxPending()) {
+                || !config.storage().equals(candidate.storage()) || config.maxPending() != candidate.maxPending()) {
             throw new IllegalArgumentException("Changes to enabled, scope, storage, or max-pending require a restart");
         }
         var revisions = new java.util.ArrayList<ShownDocument>();
@@ -60,7 +60,7 @@ public final class AdmissionService implements AutoCloseable {
         for (var revision : catalog.required()) {
             boolean accepted = false;
             for (String locale : revision.translations().keySet()) {
-                if (repository.isAccepted(playerId, config.scope(),
+                if (repository.isAcceptedAuthoritatively(playerId, config.scope(),
                         List.of(ShownDocument.from(revision, locale, config.defaultLocale())))) {
                     accepted = true;
                     break;

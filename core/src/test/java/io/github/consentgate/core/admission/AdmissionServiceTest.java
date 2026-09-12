@@ -22,6 +22,19 @@ import static org.junit.jupiter.api.Assertions.*;
 class AdmissionServiceTest {
     @org.junit.jupiter.api.io.TempDir Path databaseDirectory;
 
+    @Test void remoteConnectionAndCacheChangesRequireRestart() throws Exception {
+        var original = config(true, true);
+        try (var service = new AdmissionService(original, catalog(), new io.github.consentgate.core.storage.SqliteAcceptanceRepository(databaseDirectory.resolve("restart.db")))) {
+            var storage = new io.github.consentgate.core.config.StorageConfig("mariadb", original.sqliteFile(),
+                    new io.github.consentgate.core.config.RemoteStorageConfig("localhost", 3306, "example", "example", "test-value", "verify-full", null, 3000, 5000),
+                    original.storage().cache());
+            var candidate = new ConsentGateConfig(original.enabled(), original.scope(), original.timeoutSeconds(), original.maxPending(),
+                    original.defaultLocale(), original.useClientLocale(), original.languageSelector(), original.appearance(), original.nativeBedrockForms(),
+                    original.bedrockButtonColor(), original.documentsDirectory(), storage);
+            assertThrows(IllegalArgumentException.class, () -> service.reconfigured(candidate, catalog()));
+        }
+    }
+
     @Test void adminResetPreservesHistoryAndRequiresFreshAcceptance() throws Exception {
         UUID player = UUID.randomUUID();
         Path database = databaseDirectory.resolve("admin.db");

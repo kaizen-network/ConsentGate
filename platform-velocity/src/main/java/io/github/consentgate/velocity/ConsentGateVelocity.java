@@ -111,7 +111,7 @@ public final class ConsentGateVelocity {
     @Subscribe(priority = Short.MIN_VALUE) public void initialize(ProxyInitializeEvent event) {
         try {
             installDefaults();
-            runtime = new RuntimeLoader().load(dataDirectory);
+            runtime = new RuntimeLoader(logger::warn).load(dataDirectory);
             formatter = new SafeTextFormatter(runtime.config().appearance());
             messages = new InterfaceMessages(dataDirectory.resolve("messages"));
             if (runtime.enabled()) {
@@ -124,7 +124,7 @@ public final class ConsentGateVelocity {
                 int queueSize = Math.min(10_000, Math.max(32, runtime.config().maxPending() * 2));
                 databaseExecutor = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS,
                         new ArrayBlockingQueue<>(queueSize), threadFactory(), new ThreadPoolExecutor.AbortPolicy());
-                logger.info("ConsentGate is enabled with SQLite storage.");
+                logger.info("ConsentGate is enabled with {} storage.", runtime.config().storage().type());
             } else {
                 logger.warn("ConsentGate is disabled. Edit config.yml and add a required document before enabling it.");
             }

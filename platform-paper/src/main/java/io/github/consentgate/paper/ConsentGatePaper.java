@@ -56,7 +56,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
         installCommand();
         try {
             defaults();
-            runtime = new RuntimeLoader().load(getDataFolder().toPath());
+            runtime = new RuntimeLoader(getLogger()::warning).load(getDataFolder().toPath());
             var messages = new InterfaceMessages(getDataFolder().toPath().resolve("messages"));
             if (runtime.enabled()) {
                 var catalog = runtime.admissionService().orElseThrow().catalog();
@@ -69,7 +69,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
                 }, new ThreadPoolExecutor.AbortPolicy());
                 databaseJobs = new DatabaseJobs(database);
                 dialogs = new PaperDialogs(runtime.config(), messages);
-                getLogger().info("ConsentGate is enabled with SQLite storage.");
+                getLogger().info("ConsentGate is enabled with " + runtime.config().storage().type() + " storage.");
             } else getLogger().warning("ConsentGate is disabled. Configure documents before enabling it.");
             ready = true;
         } catch (Exception | LinkageError ex) {

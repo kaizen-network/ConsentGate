@@ -19,6 +19,10 @@ dependencies {
 sourceSets.test {
     resources.srcDir(project(":presentation").file("src/main/resources"))
 }
+tasks.test {
+    dependsOn(tasks.shadowJar)
+    systemProperty("consentgate.velocityArtifact", tasks.shadowJar.get().archiveFile.get().asFile.absolutePath)
+}
 tasks.jar {
     enabled = false
 }
@@ -28,5 +32,6 @@ tasks.shadowJar {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
     mergeServiceFiles()
     relocate("org.yaml.snakeyaml", "io.github.consentgate.internal.snakeyaml")
+    relocate("org.mariadb.jdbc", "io.github.consentgate.internal.mariadb")
     exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
 }

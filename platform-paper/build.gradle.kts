@@ -21,6 +21,7 @@ tasks.shadowJar {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
     mergeServiceFiles()
     relocate("org.yaml.snakeyaml", "io.github.consentgate.internal.snakeyaml")
+    relocate("org.mariadb.jdbc", "io.github.consentgate.internal.mariadb")
     relocate("net.kyori.adventure.nbt", "io.github.consentgate.internal.adventurenbt") {
         exclude("net.kyori.adventure.nbt.api.**")
     }

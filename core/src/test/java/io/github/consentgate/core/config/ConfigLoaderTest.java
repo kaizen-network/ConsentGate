@@ -118,6 +118,41 @@ class ConfigLoaderTest {
         assertThrows(ConfigLoadException.class, () -> new ConfigLoader().load(directory, invalid));
     }
 
+    @Test void remoteSettingsDefaultToVerifiedTlsAndFreshCache() throws Exception {
+        var loaded = new ConfigLoader().load(directory, write(remoteConfig()));
+        assertEquals("mariadb", loaded.storage().type());
+        assertEquals("verify-full", loaded.storage().remote().sslMode());
+        assertEquals(3000, loaded.storage().remote().connectTimeoutMillis());
+        assertEquals(5000, loaded.storage().remote().socketTimeoutMillis());
+        assertTrue(loaded.storage().cache().enabled());
+        assertEquals(60, loaded.storage().cache().freshnessSeconds());
+        assertFalse(loaded.toString().contains("test-secret-value"));
+        assertEquals("mysql", new ConfigLoader().load(directory, write(remoteConfig().replace("type: mariadb", "type: mysql"))).storage().type());
+    }
+
+    @Test void remoteConnectionRejectsUrlInjectionUnsafeTlsAndUnboundedWaits() throws Exception {
+        for (String invalid : java.util.List.of(remoteConfig().replace("localhost", "localhost?allowLocalInfile=true"),
+                remoteConfig() + "    ssl-mode: trust\n", remoteConfig() + "    socket-timeout-millis: 0\n",
+                remoteConfig().replace("database: consentgate", "database: consentgate/other"),
+                remoteConfig() + "    server-certificate: ../outside.pem\n")) {
+            assertThrows(ConfigLoadException.class, () -> new ConfigLoader().load(directory, write(invalid)));
+        }
+    }
+
+    @Test void cachePathsAndBoundsAreStrict() throws Exception {
+        String cache = "  cache:\n    enabled: true\n    file: data/cache.db\n    freshness-seconds: 0\n    max-entries: 5\n";
+        assertEquals(0, new ConfigLoader().load(directory, write(remoteConfig() + cache)).storage().cache().freshnessSeconds());
+        for (String invalid : java.util.List.of(cache.replace("data/cache.db", "data/consent.db"), cache.replace("data/cache.db", "../cache.db"),
+                cache.replace("max-entries: 5", "max-entries: 0"), cache.replace("freshness-seconds: 0", "freshness-seconds: 301"))) {
+            assertThrows(ConfigLoadException.class, () -> new ConfigLoader().load(directory, write(remoteConfig() + invalid)));
+        }
+    }
+
+    private static String remoteConfig() {
+        return config("documents", "data/consent.db").replace("type: sqlite", "type: mariadb")
+                + "  remote:\n    host: localhost\n    port: 3306\n    database: consentgate\n    username: consentgate\n    password: test-secret-value\n";
+    }
+
     private Path write(String value) throws Exception {
         Path file = directory.resolve("config.yml");
         Files.writeString(file, value);

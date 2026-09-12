@@ -8,11 +8,17 @@ import io.github.consentgate.core.document.DocumentCatalog;
 import io.github.consentgate.core.document.DocumentLoadException;
 import io.github.consentgate.core.document.DocumentLoader;
 import io.github.consentgate.core.storage.SqliteAcceptanceRepository;
+import io.github.consentgate.core.storage.AcceptanceRepository;
+import io.github.consentgate.core.storage.RemoteAcceptanceRepository;
+import io.github.consentgate.core.storage.CachedAcceptanceRepository;
 
 import java.nio.file.Path;
 import java.sql.SQLException;
 
 public final class RuntimeLoader {
+    private final java.util.function.Consumer<String> warning;
+    public RuntimeLoader() { this(message -> System.getLogger(RuntimeLoader.class.getName()).log(System.Logger.Level.WARNING, message)); }
+    public RuntimeLoader(java.util.function.Consumer<String> warning) { this.warning = java.util.Objects.requireNonNull(warning); }
     public record Prepared(ConsentGateConfig config, DocumentCatalog catalog) { }
 
     public Prepared prepare(Path dataDirectory) throws ConfigLoadException, DocumentLoadException {
@@ -37,7 +43,14 @@ public final class RuntimeLoader {
         var prepared = prepare(dataDirectory);
         var config = prepared.config();
         if (!config.enabled()) return new ConsentGateRuntime(config, null);
-        var repository = new SqliteAcceptanceRepository(config.sqliteFile());
+        AcceptanceRepository repository;
+        if (config.storage().type().equals("sqlite")) repository = new SqliteAcceptanceRepository(config.sqliteFile());
+        else {
+            var remote = new RemoteAcceptanceRepository(config.storage().remote());
+            var target = config.storage().remote();
+            repository = new CachedAcceptanceRepository(remote, config.storage().cache(),
+                    target.host() + ":" + target.port() + "/" + target.database(), java.time.Clock.systemUTC(), warning);
+        }
         try {
             return new ConsentGateRuntime(config, new AdmissionService(config, prepared.catalog(), repository));
         } catch (RuntimeException ex) {
