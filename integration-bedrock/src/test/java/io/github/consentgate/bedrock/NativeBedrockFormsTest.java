@@ -2,7 +2,6 @@ package io.github.consentgate.bedrock;
 
 import io.github.consentgate.presentation.SafeTextFormatter;
 
-import io.github.consentgate.core.GateSession;
 import io.github.consentgate.core.admission.AdmissionDocument;
 import io.github.consentgate.core.admission.AdmissionRequest;
 import io.github.consentgate.core.admission.AdmissionSession;
@@ -42,7 +41,7 @@ class NativeBedrockFormsTest {
         active.set(false);
     }, error -> {
         failures.incrementAndGet();
-        session.end(GateSession.Decision.FAILED);
+        session.end(AdmissionSession.Decision.FAILED);
         active.set(false);
     });
 

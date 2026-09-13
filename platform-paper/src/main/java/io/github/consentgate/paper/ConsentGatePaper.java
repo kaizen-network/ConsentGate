@@ -14,6 +14,7 @@ import io.github.consentgate.core.admission.AdmissionSession;
 import io.github.consentgate.core.runtime.ConsentGateRuntime;
 import io.github.consentgate.core.runtime.RuntimeLoader;
 import io.github.consentgate.presentation.InterfaceMessages;
+import io.github.consentgate.presentation.PresentationValidator;
 import io.github.consentgate.presentation.SafeTextFormatter;
 import io.papermc.paper.connection.PlayerConfigurationConnection;
 import io.papermc.paper.event.connection.configuration.AsyncPlayerConnectionConfigureEvent;
@@ -63,7 +64,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
             var messages = new InterfaceMessages(getDataFolder().toPath().resolve("messages"));
             if (runtime.enabled()) {
                 var catalog = runtime.admissionService().orElseThrow().catalog();
-                PaperConfiguration.validate(new RuntimeLoader.Prepared(runtime.config(), catalog), messages);
+                PresentationValidator.validate(runtime.config(), catalog, messages);
                 int capacity = Math.min(10_000, Math.max(32, runtime.config().maxPending() * 2));
                 database = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(capacity), task -> {
                     Thread thread = new Thread(task, "consentgate-paper-database");
@@ -352,7 +353,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
                     try {
                         var prepared = new RuntimeLoader().prepare(getDataFolder().toPath());
                         var nextMessages = new InterfaceMessages(getDataFolder().toPath().resolve("messages"));
-                        PaperConfiguration.validate(prepared, nextMessages);
+                        PresentationValidator.validate(prepared.config(), prepared.catalog(), nextMessages);
                         var nextDialogs = new PaperDialogs(prepared.config(), nextMessages);
                         var nextRuntime = runtime.reconfigured(prepared);
                         synchronized (sessions) {

@@ -10,7 +10,9 @@ public final class LocaleTag {
     private LocaleTag() { }
 
     public static String normalize(String value) {
-        if (value == null || !VALID.matcher(value).matches()) throw new IllegalArgumentException("Invalid locale: " + value);
+        if (value == null || value.length() > 64 || !VALID.matcher(value).matches()) {
+            throw new IllegalArgumentException("Invalid locale (maximum 64 characters): " + value);
+        }
         String[] parts = value.replace('_', '-').split("-");
         parts[0] = parts[0].toLowerCase(Locale.ROOT);
         for (int index = 1; index < parts.length; index++) {

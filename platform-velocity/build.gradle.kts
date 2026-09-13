@@ -13,10 +13,6 @@ dependencies {
     testImplementation("com.velocitypowered:velocity-api:3.4.0-20260121.190037-118")
     annotationProcessor("com.velocitypowered:velocity-api:3.4.0-20260121.190037-118")
     compileOnly("com.github.retrooper:packetevents-api:2.13.0")
-    testImplementation("net.kyori:adventure-text-minimessage:4.26.1")
-}
-sourceSets.test {
-    resources.srcDir(project(":presentation").file("src/main/resources"))
 }
 tasks.test {
     dependsOn(tasks.shadowJar)

@@ -1,7 +1,6 @@
-package io.github.consentgate.paper;
+package io.github.consentgate.presentation;
 
 import io.github.consentgate.core.runtime.RuntimeLoader;
-import io.github.consentgate.presentation.InterfaceMessages;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -9,7 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
-class PaperConfigurationTest {
+class PresentationValidatorTest {
     @TempDir Path directory;
 
     @BeforeEach void fixtures() throws Exception {
@@ -43,6 +42,16 @@ class PaperConfigurationTest {
         assertThrows(IllegalArgumentException.class, this::validate);
     }
 
+    @Test void missingRequiredInterfaceMessageIsRejected() throws Exception {
+        replace("messages/en-US.properties", "continue=Continue", "");
+        assertThrows(IllegalArgumentException.class, this::validate);
+    }
+
+    @Test void markupOnlyInterfaceMessageIsRejected() throws Exception {
+        replace("messages/en-US.properties", "continue=Continue", "continue=<white></white>");
+        assertThrows(IllegalArgumentException.class, this::validate);
+    }
+
     @Test void failedPresentationValidationLeavesRunningRuntimeUsable() throws Exception {
         try (var runtime = new RuntimeLoader().load(directory)) {
             String original = runtime.admissionService().orElseThrow().catalog().required().getFirst().version();
@@ -55,7 +64,8 @@ class PaperConfigurationTest {
     }
 
     private void validate() throws Exception {
-        PaperConfiguration.validate(new RuntimeLoader().prepare(directory), new InterfaceMessages(directory.resolve("messages")));
+        var prepared = new RuntimeLoader().prepare(directory);
+        PresentationValidator.validate(prepared.config(), prepared.catalog(), new InterfaceMessages(directory.resolve("messages")));
     }
 
     private void copy(String resource, String target) throws Exception {

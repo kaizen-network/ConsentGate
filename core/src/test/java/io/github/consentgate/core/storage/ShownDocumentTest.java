@@ -11,6 +11,13 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ShownDocumentTest {
+    @Test void localeMustFitTheSharedStorageLimit() {
+        String locale = "en" + "-12345678".repeat(6) + "-1234567";
+        assertDoesNotThrow(() -> new ShownDocument("rules", "v1", locale, "a".repeat(64), "Title", "Snapshot"));
+        assertThrows(IllegalArgumentException.class,
+                () -> new ShownDocument("rules", "v1", locale + "8", "a".repeat(64), "Title", "Snapshot"));
+    }
+
     @Test void recordsTheLocaleActuallyShown() {
         var english = new DocumentTranslation("Rules", "Summary", "Agree", "Read",
                 List.of(new DocumentPage("One", "Text")), "a".repeat(64));

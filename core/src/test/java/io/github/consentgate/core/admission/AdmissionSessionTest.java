@@ -1,6 +1,5 @@
 package io.github.consentgate.core.admission;
 
-import io.github.consentgate.core.GateSession;
 import io.github.consentgate.core.document.DocumentPage;
 import io.github.consentgate.core.storage.ShownDocument;
 import org.junit.jupiter.api.Test;
@@ -17,13 +16,45 @@ class AdmissionSessionTest {
         assertFalse(session.accept(session.token(), Map.of("rules", true, "privacy", false)));
         assertTrue(session.pending());
         assertTrue(session.accept(session.token(), Map.of("rules", true, "privacy", true)));
-        assertEquals(GateSession.Decision.ACCEPTED, session.result().toCompletableFuture().join());
+        assertEquals(AdmissionSession.Decision.ACCEPTED, session.result().toCompletableFuture().join());
     }
 
     @Test void preservesValidSelectionsAcrossNavigation() {
         var session = session();
         assertTrue(session.updateSelections(session.token(), Map.of("rules", true, "privacy", false)));
         assertEquals(Map.of("rules", true, "privacy", false), session.selections());
+    }
+
+    @Test void timeoutCannotBeOverriddenByLateAcceptance() {
+        var session = session();
+        assertTrue(session.end(AdmissionSession.Decision.TIMED_OUT));
+        assertFalse(session.accept(session.token(), Map.of("rules", true, "privacy", true)));
+        assertEquals(AdmissionSession.Decision.TIMED_OUT, session.result().toCompletableFuture().join());
+    }
+
+    @Test void concurrentClicksCompleteOnlyOnce() {
+        var session = session();
+        long accepted = java.util.stream.IntStream.range(0, 100).parallel()
+                .filter(ignored -> session.accept(session.token(), Map.of("rules", true, "privacy", true))).count();
+        assertEquals(1, accepted);
+        assertFalse(session.decline(session.token()));
+    }
+
+    @Test void callersCannotCompleteTheSessionThroughItsResult() {
+        var session = session();
+        session.result().toCompletableFuture().complete(AdmissionSession.Decision.ACCEPTED);
+        assertTrue(session.pending());
+        assertFalse(session.accepted());
+        assertThrows(IllegalArgumentException.class, () -> session.end(AdmissionSession.Decision.ACCEPTED));
+        assertThrows(IllegalArgumentException.class, () -> session.end(AdmissionSession.Decision.DECLINED));
+    }
+
+    @Test void shutdownReleasesWaitersWithoutAcceptance() {
+        var session = session();
+        var waiter = session.result().toCompletableFuture();
+        assertTrue(session.end(AdmissionSession.Decision.SHUTDOWN));
+        assertEquals(AdmissionSession.Decision.SHUTDOWN, waiter.join());
+        assertFalse(session.accepted());
     }
 
     @Test void rejectsForgedStaleAndIncompleteResponses() {
@@ -43,12 +74,12 @@ class AdmissionSessionTest {
     }
 
     @Test void completionCallbacksRunWithoutHoldingTheSessionLock() {
-        for (var decision : GateSession.Decision.values()) {
+        for (var decision : AdmissionSession.Decision.values()) {
             var session = session();
             var heldLock = new java.util.concurrent.atomic.AtomicBoolean(true);
             var callback = session.result().thenAccept(ignored -> heldLock.set(Thread.holdsLock(session)));
-            if (decision == GateSession.Decision.ACCEPTED) session.accept(session.token(), Map.of("rules", true, "privacy", true));
-            else if (decision == GateSession.Decision.DECLINED) session.decline(session.token());
+            if (decision == AdmissionSession.Decision.ACCEPTED) session.accept(session.token(), Map.of("rules", true, "privacy", true));
+            else if (decision == AdmissionSession.Decision.DECLINED) session.decline(session.token());
             else session.end(decision);
             callback.toCompletableFuture().join();
             assertFalse(heldLock.get(), decision.toString());
@@ -70,7 +101,7 @@ class AdmissionSessionTest {
                 assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS));
                 assertFalse(session.pending());
                 assertTrue(session.accepted());
-                assertFalse(session.end(GateSession.Decision.TIMED_OUT));
+                assertFalse(session.end(AdmissionSession.Decision.TIMED_OUT));
                 assertFalse(session.decline(session.token()));
                 assertFalse(session.updateSelections(session.token(), Map.of("rules", false, "privacy", false)));
                 assertEquals(Map.of("rules", true, "privacy", true), session.selections());

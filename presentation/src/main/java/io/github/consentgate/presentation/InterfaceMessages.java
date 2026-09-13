@@ -33,7 +33,9 @@ public final class InterfaceMessages {
         for (String locale : locales) {
             for (String key : java.util.List.of("title", "prompt", "required", "continue", "leave", "back",
                     "previous", "next", "version", "page", "denied")) {
-                if (text(locale, fallback, key).isBlank()) throw new IllegalArgumentException("Empty interface message: " + key);
+                if (SafeTextFormatter.plain(text(locale, fallback, key)).isBlank()) {
+                    throw new IllegalArgumentException("Empty interface message: " + key);
+                }
             }
         }
     }

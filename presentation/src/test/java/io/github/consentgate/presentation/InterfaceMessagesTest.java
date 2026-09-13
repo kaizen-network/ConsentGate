@@ -1,6 +1,4 @@
-package io.github.consentgate.velocity;
-
-import io.github.consentgate.presentation.InterfaceMessages;
+package io.github.consentgate.presentation;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

@@ -1,6 +1,4 @@
-package io.github.consentgate.velocity;
-
-import io.github.consentgate.presentation.SafeTextFormatter;
+package io.github.consentgate.presentation;
 
 import io.github.consentgate.core.config.DialogAppearance;
 import io.github.consentgate.core.document.DocumentCatalog;

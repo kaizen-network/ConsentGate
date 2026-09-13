@@ -9,6 +9,7 @@ import io.github.consentgate.presentation.AdminDocuments;
 
 import io.github.consentgate.presentation.SafeTextFormatter;
 import io.github.consentgate.presentation.InterfaceMessages;
+import io.github.consentgate.presentation.PresentationValidator;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketListenerAbstract;
@@ -48,7 +49,6 @@ import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.scheduler.ScheduledTask;
-import io.github.consentgate.core.GateSession;
 import io.github.consentgate.core.admission.AdmissionDocument;
 import io.github.consentgate.core.admission.AdmissionRequest;
 import io.github.consentgate.core.admission.AdmissionService;
@@ -121,12 +121,7 @@ public final class ConsentGateVelocity {
             formatter = new SafeTextFormatter(runtime.config().appearance());
             messages = new InterfaceMessages(dataDirectory.resolve("messages"));
             if (runtime.enabled()) {
-                SafeTextFormatter.validateCatalog(runtime.admissionService().orElseThrow().catalog());
-                if (runtime.config().languageSelector().enabled()) {
-                    SafeTextFormatter.validate(runtime.config().languageSelector().title());
-                    SafeTextFormatter.validate(runtime.config().languageSelector().prompt());
-                    runtime.config().languageSelector().options().values().forEach(SafeTextFormatter::validate);
-                }
+                PresentationValidator.validate(runtime.config(), runtime.admissionService().orElseThrow().catalog(), messages);
                 int queueSize = Math.min(10_000, Math.max(32, runtime.config().maxPending() * 2));
                 databaseExecutor = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS,
                         new ArrayBlockingQueue<>(queueSize), threadFactory(), new ThreadPoolExecutor.AbortPolicy());
@@ -232,10 +227,10 @@ public final class ConsentGateVelocity {
                         runtime.config().bedrockButtonColor(),
                         key -> message(pending, key),
                         () -> !pending.finished.get() && !stopping && pending.player.isActive(),
-                        () -> endOrFinish(pending, GateSession.Decision.DISCONNECTED, message(pending, "denied")),
+                        () -> endOrFinish(pending, AdmissionSession.Decision.DISCONNECTED, message(pending, "denied")),
                         ex -> {
                             logger.warn("Native Bedrock form failed", ex);
-                            endOrFinish(pending, GateSession.Decision.FAILED, "Consent form could not be shown.");
+                            endOrFinish(pending, AdmissionSession.Decision.FAILED, "Consent form could not be shown.");
                         });
             }
             if (runtime.config().languageSelector().enabled() && (pending.preview == null || pending.preview.locale() == null)) showLanguageSelector(pending);
@@ -251,7 +246,7 @@ public final class ConsentGateVelocity {
         AdmissionSession session = new AdmissionSession(request);
         pending.session = session;
         session.result().whenComplete((decision, failure) -> {
-            if (failure == null && decision == GateSession.Decision.ACCEPTED) {
+            if (failure == null && decision == AdmissionSession.Decision.ACCEPTED) {
                 if (request.preview()) finishDenied(pending, PreviewQueue.COMPLETE);
                 else executeDatabase(pending, () -> persistAcceptance(pending));
             } else {
@@ -261,7 +256,7 @@ public final class ConsentGateVelocity {
         try { showSummary(pending, false); }
         catch (RuntimeException ex) {
             logger.error("Unable to show the consent dialog", ex);
-            session.end(GateSession.Decision.FAILED);
+            session.end(AdmissionSession.Decision.FAILED);
         }
     }
 
@@ -302,7 +297,7 @@ public final class ConsentGateVelocity {
         try { receive(event); }
         catch (RuntimeException ex) {
             Pending pending = sessionsByUser.get(event.getUser());
-            if (pending != null) endOrFinish(pending, GateSession.Decision.FAILED, "Invalid consent response.");
+            if (pending != null) endOrFinish(pending, AdmissionSession.Decision.FAILED, "Invalid consent response.");
             logger.warn("Invalid consent dialog packet", ex);
         }
     }
@@ -335,7 +330,7 @@ public final class ConsentGateVelocity {
             }
         } else if (type == PacketType.Configuration.Client.CONFIGURATION_END_ACK) {
             event.setCancelled(true);
-            endOrFinish(pending, GateSession.Decision.FAILED, "Connection configuration ended unexpectedly.");
+            endOrFinish(pending, AdmissionSession.Decision.FAILED, "Connection configuration ended unexpectedly.");
         }
     }
 
@@ -514,7 +509,7 @@ public final class ConsentGateVelocity {
                 }).delay(Duration.ofNanos(delay)).schedule();
             } catch (RuntimeException ex) {
                 pending.redisplayQueued.set(false);
-                endOrFinish(pending, GateSession.Decision.FAILED, "ConsentGate is stopping.");
+                endOrFinish(pending, AdmissionSession.Decision.FAILED, "ConsentGate is stopping.");
             }
         }
     }
@@ -592,11 +587,11 @@ public final class ConsentGateVelocity {
                 synchronized (pending) {
                     if (pending.finished.get()) continue;
                     if (!pending.player.isActive()) {
-                        endOrFinish(pending, GateSession.Decision.DISCONNECTED, "Connection ended.");
+                        endOrFinish(pending, AdmissionSession.Decision.DISCONNECTED, "Connection ended.");
                     } else if (now - pending.started > Duration.ofSeconds(runtime.config().timeoutSeconds()).toNanos()) {
-                        endOrFinish(pending, GateSession.Decision.TIMED_OUT, "Consent request timed out.");
+                        endOrFinish(pending, AdmissionSession.Decision.TIMED_OUT, "Consent request timed out.");
                     } else if (pending.heartbeat != null && now - pending.heartbeat.sent() > HEARTBEAT_TIMEOUT.toNanos()) {
-                        endOrFinish(pending, GateSession.Decision.TIMED_OUT, "Consent connection timed out.");
+                        endOrFinish(pending, AdmissionSession.Decision.TIMED_OUT, "Consent connection timed out.");
                     } else if (pending.heartbeat == null && now - pending.lastHeartbeat > HEARTBEAT_INTERVAL.toNanos()) {
                         pending.heartbeat = new Heartbeat(ThreadLocalRandom.current().nextLong(), now);
                         pending.lastHeartbeat = now;
@@ -605,7 +600,7 @@ public final class ConsentGateVelocity {
                 }
             } catch (RuntimeException ex) {
                 logger.warn("Connection heartbeat failed", ex);
-                endOrFinish(pending, GateSession.Decision.FAILED, "ConsentGate connection handling failed.");
+                endOrFinish(pending, AdmissionSession.Decision.FAILED, "ConsentGate connection handling failed.");
             }
         }
     }
@@ -651,16 +646,8 @@ public final class ConsentGateVelocity {
                 submitDatabase(() -> {
                     try {
                         var prepared = new RuntimeLoader().prepare(dataDirectory);
-                        SafeTextFormatter.validateCatalog(prepared.catalog());
-                        var selector = prepared.config().languageSelector();
-                        SafeTextFormatter.validate(selector.title());
-                        SafeTextFormatter.validate(selector.prompt());
-                        selector.options().values().forEach(SafeTextFormatter::validate);
                         var nextMessages = new InterfaceMessages(dataDirectory.resolve("messages"));
-                        var locales = new java.util.HashSet<>(selector.options().keySet());
-                        locales.add(prepared.config().defaultLocale());
-                        prepared.catalog().documents().forEach(document -> locales.addAll(document.translations().keySet()));
-                        nextMessages.validateFor(locales, prepared.config().defaultLocale());
+                        PresentationValidator.validate(prepared.config(), prepared.catalog(), nextMessages);
                         var nextFormatter = new SafeTextFormatter(prepared.config().appearance());
                         var nextRuntime = runtime.reconfigured(prepared);
                         synchronized (sessions) {
@@ -766,7 +753,7 @@ public final class ConsentGateVelocity {
                 ex -> logger.warn("Could not disconnect a denied connection", ex));
     }
 
-    private void endOrFinish(Pending pending, GateSession.Decision decision, String message) {
+    private void endOrFinish(Pending pending, AdmissionSession.Decision decision, String message) {
         AdmissionSession session = pending.session;
         if (session == null || !session.end(decision)) finishDenied(pending, message);
     }
@@ -840,7 +827,7 @@ public final class ConsentGateVelocity {
     @Subscribe public void disconnect(DisconnectEvent event) {
         admitted.remove(event.getPlayer());
         var pending = sessions.get(event.getPlayer());
-        if (pending != null) endOrFinish(pending, GateSession.Decision.DISCONNECTED, "Connection ended.");
+        if (pending != null) endOrFinish(pending, AdmissionSession.Decision.DISCONNECTED, "Connection ended.");
     }
 
     @Subscribe public void shutdown(ProxyShutdownEvent event) {
@@ -849,7 +836,7 @@ public final class ConsentGateVelocity {
             stopping = true;
             ending = List.copyOf(sessions.values());
         }
-        ending.forEach(pending -> endOrFinish(pending, GateSession.Decision.SHUTDOWN, "ConsentGate is stopping."));
+        ending.forEach(pending -> endOrFinish(pending, AdmissionSession.Decision.SHUTDOWN, "ConsentGate is stopping."));
         if (timer != null) timer.cancel();
         PacketEvents.getAPI().getEventManager().unregisterListener(packets);
         if (databaseExecutor != null) {

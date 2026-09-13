@@ -67,6 +67,14 @@ class DocumentLoaderTest {
         return file;
     }
 
+    @Test void rejectsLocaleBeyondStorageLimitDuringDocumentLoad() throws Exception {
+        String locale = "en" + "-12345678".repeat(6) + "-1234567";
+        assertEquals(locale, LocaleTag.normalize(locale));
+        assertThrows(IllegalArgumentException.class, () -> LocaleTag.normalize(locale + "8"));
+        Path file = write("rules.yml", document("rules", "v1", 10, "Text").replace("en-US:", locale + "8:"));
+        assertThrows(DocumentLoadException.class, () -> new DocumentLoader().loadFile(directory, file));
+    }
+
     private static String document(String id, String version, int order, String body) {
         return """
                 id: %s

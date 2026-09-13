@@ -1,6 +1,5 @@
 package io.github.consentgate.paper;
 
-import io.github.consentgate.core.GateSession;
 import io.github.consentgate.core.admin.PlayerOperations;
 import io.github.consentgate.core.admin.PreviewQueue;
 import io.github.consentgate.core.admission.AdmissionSession;
@@ -38,7 +37,7 @@ abstract class PaperAdmission {
         if (session != null) throw new IllegalStateException("Consent session already started");
         session = new AdmissionSession(request);
         session.result().whenComplete((decision, error) -> {
-            if (error == null && decision == GateSession.Decision.ACCEPTED) {
+            if (error == null && decision == AdmissionSession.Decision.ACCEPTED) {
                 if (request.preview()) finish(PreviewQueue.COMPLETE);
                 else execute(() -> { save.run(); finish(null); });
             } else finish(denied.get());
@@ -83,7 +82,7 @@ abstract class PaperAdmission {
             }
         } finally {
             // A native response can hold the session lock while its callback completes this connection.
-            if (ending != null && ending.pending()) ending.end(GateSession.Decision.DISCONNECTED);
+            if (ending != null && ending.pending()) ending.end(AdmissionSession.Decision.DISCONNECTED);
         }
     }
 

@@ -1,7 +1,5 @@
 package io.github.consentgate.core.admission;
 
-import io.github.consentgate.core.GateSession;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -10,11 +8,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 public final class AdmissionSession {
+    public enum Decision { ACCEPTED, DECLINED, TIMED_OUT, DISCONNECTED, SHUTDOWN, FAILED }
+
     private final String token = UUID.randomUUID().toString();
     private final AdmissionRequest request;
     private final Map<String, Boolean> selections = new LinkedHashMap<>();
-    private final CompletableFuture<GateSession.Decision> result = new CompletableFuture<>();
-    private volatile GateSession.Decision decision;
+    private final CompletableFuture<Decision> result = new CompletableFuture<>();
+    private volatile Decision decision;
 
     public AdmissionSession(AdmissionRequest request) {
         this.request = Objects.requireNonNull(request, "request");
@@ -26,9 +26,9 @@ public final class AdmissionSession {
 
     public String token() { return token; }
     public AdmissionRequest request() { return request; }
-    public CompletionStage<GateSession.Decision> result() { return result.minimalCompletionStage(); }
+    public CompletionStage<Decision> result() { return result.minimalCompletionStage(); }
     public boolean pending() { return decision == null; }
-    public boolean accepted() { return decision == GateSession.Decision.ACCEPTED; }
+    public boolean accepted() { return decision == Decision.ACCEPTED; }
 
     public synchronized Map<String, Boolean> selections() { return Map.copyOf(selections); }
 
@@ -42,25 +42,25 @@ public final class AdmissionSession {
     public boolean accept(String suppliedToken, Map<String, Boolean> supplied) {
         synchronized (this) {
             if (!updateSelections(suppliedToken, supplied) || selections.containsValue(false)) return false;
-            decision = GateSession.Decision.ACCEPTED;
+            decision = Decision.ACCEPTED;
         }
-        result.complete(GateSession.Decision.ACCEPTED);
+        result.complete(Decision.ACCEPTED);
         return true;
     }
 
     public boolean decline(String suppliedToken) {
-        return token.equals(suppliedToken) && decide(GateSession.Decision.DECLINED);
+        return token.equals(suppliedToken) && decide(Decision.DECLINED);
     }
 
-    public boolean end(GateSession.Decision reason) {
+    public boolean end(Decision reason) {
         Objects.requireNonNull(reason, "reason");
-        if (reason == GateSession.Decision.ACCEPTED || reason == GateSession.Decision.DECLINED) {
+        if (reason == Decision.ACCEPTED || reason == Decision.DECLINED) {
             throw new IllegalArgumentException("Player decisions require a validated token");
         }
         return decide(reason);
     }
 
-    private boolean decide(GateSession.Decision reason) {
+    private boolean decide(Decision reason) {
         synchronized (this) {
             if (decision != null) return false;
             decision = reason;
