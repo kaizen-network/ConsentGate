@@ -42,6 +42,44 @@ class AdmissionSessionTest {
         assertThrows(IllegalArgumentException.class, () -> new AdmissionSession(request));
     }
 
+    @Test void completionCallbacksRunWithoutHoldingTheSessionLock() {
+        for (var decision : GateSession.Decision.values()) {
+            var session = session();
+            var heldLock = new java.util.concurrent.atomic.AtomicBoolean(true);
+            var callback = session.result().thenAccept(ignored -> heldLock.set(Thread.holdsLock(session)));
+            if (decision == GateSession.Decision.ACCEPTED) session.accept(session.token(), Map.of("rules", true, "privacy", true));
+            else if (decision == GateSession.Decision.DECLINED) session.decline(session.token());
+            else session.end(decision);
+            callback.toCompletableFuture().join();
+            assertFalse(heldLock.get(), decision.toString());
+        }
+    }
+
+    @Test void slowCompletionCallbackCannotAllowAnotherDecisionOrSelectionChange() throws Exception {
+        var session = session();
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var callback = session.result().thenAccept(ignored -> {
+            entered.countDown();
+            try { assertTrue(release.await(5, java.util.concurrent.TimeUnit.SECONDS)); }
+            catch (InterruptedException ex) { Thread.currentThread().interrupt(); throw new RuntimeException(ex); }
+        });
+        try (var pool = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var response = pool.submit(() -> session.accept(session.token(), Map.of("rules", true, "privacy", true)));
+            try {
+                assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS));
+                assertFalse(session.pending());
+                assertTrue(session.accepted());
+                assertFalse(session.end(GateSession.Decision.TIMED_OUT));
+                assertFalse(session.decline(session.token()));
+                assertFalse(session.updateSelections(session.token(), Map.of("rules", false, "privacy", false)));
+                assertEquals(Map.of("rules", true, "privacy", true), session.selections());
+            } finally { release.countDown(); }
+            assertTrue(response.get(5, java.util.concurrent.TimeUnit.SECONDS));
+            callback.toCompletableFuture().get(5, java.util.concurrent.TimeUnit.SECONDS);
+        }
+    }
+
     private static AdmissionSession session() {
         return new AdmissionSession(new AdmissionRequest(UUID.randomUUID(), UUID.randomUUID(),
                 List.of(document("rules", "a"), document("privacy", "b"))));

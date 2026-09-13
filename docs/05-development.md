@@ -1,6 +1,6 @@
 # Development
 
-Velocity uses the shared configuration, documents, admission, and storage components. It supports summary checkboxes, language selection, full reading pages, safe formatting, durable acceptance before backend release, and accepted reconnects. Optional native Cumulus forms have real-client checks through local Geyser. Paper has an initial Java flow and administrator commands with console and synthetic-client checks; native Bedrock remains pending there. Remote SQL and a local cache are implemented with MariaDB repository tests. MySQL verification and live remote-storage admission remain open. Do not install either artifact on a production server or proxy.
+Both platforms use shared configuration, documents, admission, and storage. They support checkboxes, language selection, reading pages, formatting, durable acceptance, and administrator commands. Native Cumulus forms share one renderer, with real-client checks on Velocity and initial integration on Paper. Remote SQL and a local cache are implemented with MariaDB repository tests. MySQL verification, Paper Bedrock delivery, and broader runtime checks remain open. See [release progress](16-release-progress.md). Do not install either artifact on a production server or proxy.
 
 ## Build
 
@@ -23,7 +23,7 @@ The shaded platform JARs contain the shared core, relocated SnakeYAML and MariaD
 
 Velocity is disabled on a fresh installation. It creates `config.yml` and styled, inactive `documents/terms.yml.example` and `documents/privacy.yml.example` starter templates. Administrators must replace bracketed values, remove sections that do not apply, review the final text, rename the files to `.yml`, and set `enabled: true`. Current acceptance then bypasses the dialog. Otherwise, players can read every page, return with checkbox state preserved, and continue only after every required box is checked and SQLite commits the acceptance. Leave, invalid input, timeout, storage failure, and shutdown do not admit the player.
 
-Both platforms use configured timeout and pending-session limits. Database checks and writes use two workers and a bounded queue. Paper's initial Java flow now uses the shared runtime, documents, and administrator command rules; native Bedrock forms and broader lifecycle checks remain pending. Shutdown, disconnect, and errors end pending sessions without admission.
+Both platforms use configured timeout and pending-session limits. Database checks and writes use two workers and a bounded queue. Paper admission tests cover queued cancellation, save/reset ordering, locked SQLite, shutdown, timeout, and rendering failures. Broader runtime checks remain pending. Shutdown, disconnect, and errors end pending sessions without admission.
 
 Velocity checks admission again on every backend connection request. It maintains keepalives while held and consumes its own delayed heartbeat responses. Paper holds only its asynchronous configuration event, never the server's main thread.
 
@@ -57,6 +57,8 @@ The Python wire probe stages the current shaded JAR with an enabled local test d
 This is a protocol test, not visual verification or proof of complete gameplay routing.
 
 The loopback-only [Paper probe](12-paper-anticheat-compatibility.md#headless-reproduction) checks prolonged configuration holds, acceptance, and play-stage timeout behavior on a separately prepared server. Run its dependency-free helper tests with `node --test tools/test_paper_probe.cjs`. It does not open a graphical client or produce rendered screenshots. Paper visual checks remain manual.
+
+After preparing `.run/paper-minimal` with that server and local Node dependencies, run `python tools/run_paper_probe.py --modules C:/path/to/node_modules`. It tests the packaged JAR's Java admission, accepted rejoin, reset history, version reload, Leave, and timeout. The server must be stopped, offline, bound to `127.0.0.1:25592`, and have RCON, query, and metrics disabled. The runner stops its process, restores the original ConsentGate configuration, and retains its unique test fixture. It does not launch a desktop application.
 
 ## Local Velocity test setup
 
@@ -125,4 +127,4 @@ The live proxy bot used a custom dialog response encoder because the installed b
 
 Finish runtime and visual checks on Paper and Velocity with real Java and Bedrock clients. Confirm text, checkbox responses, closing behavior, timeout, clean world entry, and normal backend routing. Do not mark the connection milestone complete from compilation or a synthetic client alone.
 
-The [response encoding mismatch is resolved](09-protocol-compatibility-findings.md) as a bot-library defect. [Paper command testing](11-paper-administration-test-results.md) now covers console operations and in-game replies. The [official Grim build passes initial-login timeout checks](12-paper-anticheat-compatibility.md). Next, add native Paper Bedrock forms and expand connection-pressure checks. Keep unmodified Java client boundary checks and broader Java/Bedrock validation on the release checklist, then proceed to remote storage. See [administrator commands](07-admin-commands.md) for current behavior and restart-only settings. The roadmap tracks the remaining work.
+The response encoding mismatch is resolved as a bot-library defect. Paper command testing covers console operations and in-game replies, and the official Grim build passes initial-login timeout checks. Native Paper Bedrock integration and remote storage are implemented. Their remaining runtime checks, connection-pressure tests, and unmodified-client validation are tracked in [release progress](16-release-progress.md).

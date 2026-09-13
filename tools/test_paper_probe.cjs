@@ -17,6 +17,12 @@ test('timeout probe requires deliberate ping withholding and observation time', 
   assert.throws(() => parseOptions([...base, '--expect', 'play-timeout']));
   assert.equal(parseOptions([...base, '--expect', 'play-timeout', '--reply-pings', 'false', '--play-seconds', '90']).expect, 'play-timeout');
 });
+test('leave and accepted rejoin require explicit expectations', () => {
+  assert.throws(() => parseOptions([...base, '--action', 'leave']));
+  assert.throws(() => parseOptions([...base, '--action', 'unknown']));
+  assert.equal(parseOptions([...base, '--action', 'leave', '--expect', 'denied']).action, 'leave');
+  assert.equal(parseOptions([...base, '--expect', 'rejoin']).expect, 'rejoin');
+});
 test('anonymous empty compound uses a payload length, not a presence flag', () => {
   assert.equal(encodeClick('test:a', []).toString('hex'), '0806746573743a61020a00');
 });

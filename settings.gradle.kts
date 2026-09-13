@@ -1,2 +1,2 @@
 rootProject.name = "ConsentGate"
-include("core", "presentation", "platform-paper", "platform-velocity")
+include("core", "presentation", "integration-bedrock", "platform-paper", "platform-velocity")

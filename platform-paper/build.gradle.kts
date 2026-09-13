@@ -5,6 +5,7 @@ plugins {
 dependencies {
     implementation(project(":core"))
     implementation(project(":presentation"))
+    implementation(project(":integration-bedrock"))
     compileOnly("io.papermc.paper:paper-api:1.21.7-R0.1-SNAPSHOT")
     implementation("net.kyori:adventure-nbt:4.26.1") { isTransitive = false }
     implementation("net.kyori:examination-api:1.3.0") { isTransitive = false }

@@ -1,5 +1,8 @@
 package io.github.consentgate.velocity;
 
+import io.github.consentgate.bedrock.BedrockView;
+import io.github.consentgate.bedrock.GeyserBedrockBridge;
+
 import io.github.consentgate.core.admin.PlayerOperations;
 
 import io.github.consentgate.presentation.SafeTextFormatter;

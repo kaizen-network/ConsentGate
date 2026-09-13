@@ -27,9 +27,9 @@ class PaperConfigurationTest {
         assertFalse(Files.exists(directory.resolve("data")));
     }
 
-    @Test void unsupportedNativeFormsAreRejected() throws Exception {
+    @Test void nativeFormsCanBeConfiguredWithoutLoadingGeyserClasses() throws Exception {
         replace("config.yml", "native-forms: false", "native-forms: true");
-        assertTrue(assertThrows(IllegalArgumentException.class, this::validate).getMessage().contains("not implemented on Paper"));
+        validate();
         assertFalse(Files.exists(directory.resolve("data")));
     }
 
@@ -46,7 +46,7 @@ class PaperConfigurationTest {
     @Test void failedPresentationValidationLeavesRunningRuntimeUsable() throws Exception {
         try (var runtime = new RuntimeLoader().load(directory)) {
             String original = runtime.admissionService().orElseThrow().catalog().required().getFirst().version();
-            replace("config.yml", "native-forms: false", "native-forms: true");
+            replace("config.yml", "English", "<click:run_command:'/stop'>English</click>");
             assertThrows(IllegalArgumentException.class, this::validate);
             assertFalse(runtime.config().nativeBedrockForms());
             assertEquals(original, runtime.admissionService().orElseThrow().catalog().required().getFirst().version());

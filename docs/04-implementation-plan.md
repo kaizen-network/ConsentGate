@@ -2,7 +2,7 @@
 
 Status: early implementation. Strict admission still needs real-client proof before support can be advertised.
 
-Implementation status: Velocity uses validated configuration, local documents, multi-page navigation, bounded database work, transactional SQLite storage before backend admission, and administrator status/reset/validation/reload commands. Java and native Bedrock flows have real-client testing, with broader compatibility and failure checks still open. Paper has an initial shared Java flow and administrator commands with live bot checks. Official Grim build `8eb5f28` passes initial-login timeout checks; native Paper Bedrock forms and broader failure checks remain open. Shared tests and the local Velocity wire checks pass. See [development notes](05-development.md). Milestones 1 and 2 are not complete yet.
+Both platforms implement documents, translations, versioned acceptance, bounded storage work, and administrator commands. Native Bedrock forms now share one renderer, with real-client checks on Velocity and initial integration on Paper. Official Grim build `8eb5f28` passes initial-login timeout checks. Broader runtime, failure, and real-client coverage remains open. See [release progress](16-release-progress.md). Milestones 1 and 2 are not complete yet.
 
 ## Design decisions
 
@@ -68,7 +68,7 @@ The [dialog compatibility investigation](08-protocol-compatibility-plan.md) iden
 | 1. Connection prototypes | Velocity and Paper, including Geyser translation | Dialog, callback, long wait, disconnect, and safe continuation on pinned builds |
 | 2. Core flow | Local documents, navigation, versions, SQLite, basic commands | First join, accepted rejoin, changed version, invalid input, and write failure behave correctly |
 | 3. Shared storage | MySQL/MariaDB, local cache, concurrency, audit transactions | Outage and recovery checks against both actual database products |
-| 4. Bedrock presentation | Native Cumulus implemented on Velocity; extend and validate on Paper | Full text and explicit acceptance work before admission; fallback is verified |
+| 4. Bedrock presentation | Shared native Cumulus renderer integrated on both platforms; validate Paper delivery | Full text and explicit acceptance work before admission; fallback is verified |
 | 5. Packaging and docs | Platform loading, configuration reference, setup, troubleshooting | Clean install and upgrade from packaged JARs |
 | 6. Release preparation | License text, dependency notices, source package, release notes | Local release artifacts ready |
 | Later platforms | BungeeCord and plain Spigot prototypes | Equivalent admission guarantees before support is advertised |

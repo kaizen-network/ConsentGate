@@ -1,11 +1,12 @@
 # Paper implementation progress
 
-Status: first Java admission slice. Not a production release or full platform parity.
+Status: Java admission and initial native Bedrock integration. Not a production release or full platform parity. Current work is tracked in [release progress](16-release-progress.md).
 
 ## Implemented
 
 - Shared configuration, local documents, versions, translations, and SQLite acceptance.
 - Native Paper dialogs with summary checkboxes, optional language selection, full reading pages, and two-column navigation.
+- Optional native Bedrock forms through local Geyser-Spigot, using the same renderer as Velocity. Real Paper Bedrock delivery remains unverified.
 - Accepted reconnects use the shared acceptance rules, including accepted translations.
 - Two database workers with a bounded queue and the configured pending-connection limit.
 - Only the asynchronous configuration event waits for completion. The main server thread does not wait for storage or player input.
@@ -21,7 +22,7 @@ The `presentation` module supplies the safe text formatter, interface messages, 
 
 Use `ConsentGate-Paper-0.1.0-prototype.jar` on a disposable Paper-compatible server. Fresh installations are disabled and create inactive example documents. Adapt the examples, rename selected documents to `.yml`, then enable the gate and restart.
 
-Leave `bedrock.native-forms: false`. Native Cumulus forms are not implemented on Paper yet; enabling that option makes startup fail closed rather than silently promising an unavailable renderer. Geyser-translated native dialogs still need separate Paper testing.
+Keep `bedrock.native-forms: false` for the initial Java check. For native Bedrock testing, install Geyser-Spigot on the same server and enable the option. Paper declares Geyser as an optional dependency. Java-only installations still load without it. Geyser-translated dialogs and native Paper form delivery need separate Bedrock runtime checks.
 
 Do not install the gate on both a proxy and its backend for the same admission requirement. Direct backend access and proxy forwarding need their own network configuration.
 
@@ -32,7 +33,7 @@ Live testing on 2026-09-12 used a Paper-compatible 26.2 server with protocol tra
 The older GrimAC revision `63a684d` caused a configuration timeout around 60 seconds. Official build `2.3.74-8eb5f28` includes upstream's fix and passes the initial-login long-wait, play-timeout, consent-timeout, and reconnect checks. Use the exact tested revision, not the broad `2.3.74` label. See [administration results](11-paper-administration-test-results.md) and the [controlled anticheat investigation](12-paper-anticheat-compatibility.md).
 
 1. Expand Paper command testing to admission races, queue rejection, and storage failures. Console status/reset/reload and in-game permission/reply checks now pass.
-2. Validate native Bedrock integration at Paper's configuration connection, then share the compatible presentation code.
+2. Validate the shared native Bedrock renderer at Paper's configuration connection with Geyser and Bedrock clients.
 3. Expand automated lifecycle coverage: disconnect/save races, shutdown, full queue, locked SQLite, timeouts, and connection limits. Reconfiguration after a previous PLAY session needs a separate Grim compatibility check.
 4. Measure world-entry timing with native Paper events and real clients, including protocol translation and reconnects.
 5. Verify the oldest supported Paper build and client versions. Compilation against the 1.21.7 API is not a complete compatibility claim.
@@ -41,7 +42,7 @@ The Paper event's [API documentation](https://jd.papermc.io/paper/1.21.7/io/pape
 
 ## Local administrator checks
 
-The 2026-09-12 command implementation passes the shared permission, target parsing, save/reset ordering, and queued/running job accounting tests. Paper-specific presentation tests check bundled defaults, native-form rejection, unsafe markup, missing messages, and keeping the running runtime usable after failed validation. The local Velocity wire suite passed all 14 checks after extracting the shared command rules. Console and in-game runtime checks are recorded in the [test results](11-paper-administration-test-results.md).
+The shared command implementation passes permission, target parsing, save/reset ordering, and queued/running job accounting tests. Paper presentation tests cover bundled defaults, optional native-form configuration, unsafe markup, missing messages, and preserving the runtime after failed validation. Eleven Paper admission tests cover commit-before-release, queued cancellation, full queues, locked SQLite, save/reset ordering after disconnect, shutdown, timeout, rendering failures, and native callback lock ordering. Earlier console and in-game checks are recorded in the [test results](11-paper-administration-test-results.md).
 
 Keep the following checklist for regression testing; the race and failure cases are not all covered yet:
 

@@ -9,7 +9,6 @@ final class PaperConfiguration {
     private PaperConfiguration() { }
 
     static void validate(RuntimeLoader.Prepared prepared, InterfaceMessages messages) {
-        if (prepared.config().nativeBedrockForms()) throw new IllegalArgumentException("Native Bedrock forms are not implemented on Paper yet; set bedrock.native-forms to false");
         SafeTextFormatter.validateCatalog(prepared.catalog());
         var selector = prepared.config().languageSelector();
         SafeTextFormatter.validate(selector.title());

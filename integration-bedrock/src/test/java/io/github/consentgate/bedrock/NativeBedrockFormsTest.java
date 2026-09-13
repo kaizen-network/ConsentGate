@@ -1,4 +1,4 @@
-package io.github.consentgate.velocity;
+package io.github.consentgate.bedrock;
 
 import io.github.consentgate.presentation.SafeTextFormatter;
 

@@ -1,7 +1,7 @@
-const allowed = new Set(['modules', 'port', 'hold', 'name', 'expect', 'play-seconds', 'reply-pings']);
+const allowed = new Set(['modules', 'port', 'hold', 'name', 'expect', 'play-seconds', 'reply-pings', 'action']);
 
 function parseOptions(args) {
-  const options = {port: '25592', hold: '75', name: 'ConsentProbe', expect: 'accepted', 'play-seconds': '0', 'reply-pings': 'true'};
+  const options = {port: '25592', hold: '75', name: 'ConsentProbe', expect: 'accepted', 'play-seconds': '0', 'reply-pings': 'true', action: 'accept'};
   const seen = new Set();
   for (let index = 0; index < args.length; index += 2) {
     const key = args[index].slice(2);
@@ -17,7 +17,9 @@ function parseOptions(args) {
   }
   if (options.port < 1 || options.port > 65535 || options.hold > 3600 || options['play-seconds'] > 3600) throw new Error('Numeric option out of range');
   if (!/^[A-Za-z0-9_]{1,16}$/.test(options.name)) throw new Error('Invalid offline player name');
-  if (!['accepted', 'denied', 'play-timeout'].includes(options.expect)) throw new Error('Invalid expected result');
+  if (!['accepted', 'denied', 'rejoin', 'play-timeout'].includes(options.expect)) throw new Error('Invalid expected result');
+  if (!['accept', 'leave'].includes(options.action)) throw new Error('Invalid action');
+  if (options.action === 'leave' && options.expect !== 'denied') throw new Error('Leave requires --expect denied');
   if (!['true', 'false'].includes(options['reply-pings'])) throw new Error('Invalid ping reply option');
   if (options.expect === 'play-timeout' && (options['reply-pings'] !== 'false' || options['play-seconds'] === 0)) throw new Error('play-timeout needs --reply-pings false and a positive --play-seconds');
   return options;

@@ -12,13 +12,13 @@ ConsentGate is a prototype, not a production release. Use a disposable test serv
 | Velocity | A compatible Velocity build and the Velocity distribution of PacketEvents 2.13.0 on the same proxy. ConsentGate compiles against Velocity 3.4.0. |
 | Paper | A Paper-compatible build with the native dialog and asynchronous configuration APIs. Current compile target and plugin API declaration are 1.21.7; the oldest supported runtime is not yet verified. No separate PacketEvents plugin is required by ConsentGate on Paper. |
 | SQLite | Included in both JARs, including JDBC and native libraries. The plugin data folder must be writable. |
-| Geyser | Optional for Bedrock access. Native consent forms currently require Geyser on the same Velocity proxy. Configure its authentication, forwarding, and Bedrock UDP listener separately. |
+| Geyser | Optional for Bedrock access. Native consent forms require Geyser on the same proxy/server, using Geyser-Spigot for Paper. Configure its authentication, forwarding, and Bedrock UDP listener separately. Paper Bedrock runtime verification remains open. |
 
 Use the complete server/proxy distribution of a dependency, not a thin Maven API JAR. Get dependencies through their projects' official channels: [PacketEvents](https://github.com/retrooper/packetevents), [Velocity](https://papermc.io/software/velocity), [Paper](https://papermc.io/software/paper), and [Geyser](https://geysermc.org/download).
 
 ConsentGate does not require GrimAC, a separate Cumulus plugin, a website, or an external database service. Cumulus is accessed through the optional Geyser integration. Floodgate is not a direct ConsentGate dependency; whether it is needed depends on your Geyser authentication setup. Follow [Geyser's setup guide](https://geysermc.org/wiki/geyser/setup/) for that configuration.
 
-Optional MySQL/MariaDB storage and a local SQLite cache are implemented. MariaDB 11.8.6 has repository integration tests; MySQL server verification and live remote-storage admission remain open. Both artifacts bundle MariaDB Connector/J, so no separate driver plugin is needed. Follow the [remote storage guide](15-remote-storage.md) before selecting that provider. BungeeCord, plain Spigot, and native Cumulus forms on Paper are not implemented.
+Optional MySQL/MariaDB storage and a local SQLite cache are implemented. MariaDB 11.8.6 has repository integration tests; MySQL server verification and live remote-storage admission remain open. Both artifacts bundle MariaDB Connector/J, so no separate driver plugin is needed. Follow the [remote storage guide](15-remote-storage.md) before selecting that provider. BungeeCord and plain Spigot are not implemented.
 
 ## Choose the admission point
 
@@ -34,7 +34,7 @@ Do not copy Velocity's PacketEvents JAR into Paper or the Paper ConsentGate JAR 
 3. Start once. ConsentGate creates an inactive configuration, example documents, and message files. Check for missing-dependency or startup errors, then stop again.
 4. Open the generated folder: `plugins/consentgate/` on Velocity, or `plugins/ConsentGate/` on Paper. Paths and capitalization matter on Linux.
 5. Edit the example documents in `documents/`. Replace every bracketed placeholder, remove sections that do not apply, and review each translation. Set your own document IDs, titles, versions, and content before first use. Rename each selected `.yml.example` file to `.yml`; inactive examples are not loaded as agreements.
-6. In the existing `config.yml`, set `enabled: true`. Keep `storage.type: sqlite`. Choose a stable `scope` and allow enough reading time through `gate.timeout-seconds`. Keep `bedrock.native-forms: false` for the initial Java check, and always on Paper for now.
+6. In the existing `config.yml`, set `enabled: true`. Keep `storage.type: sqlite`. Choose a stable `scope` and allow enough reading time through `gate.timeout-seconds`. Keep `bedrock.native-forms: false` for the initial Java check.
 7. Start the proxy/server. Confirm the log says ConsentGate is enabled with `sqlite` storage. In the console, run `consentgate validate` without a leading slash. A failed or disabled startup must be corrected in the files and restarted; admin validation is not available on a disabled gate.
 8. Connect with a supported test client and no previous acceptance. Read each document and test both Leave and acceptance. Accepted rejoin should skip the dialog. On Velocity, also confirm the player reaches the intended backend only after acceptance.
 
@@ -44,9 +44,9 @@ The bundled examples use `draft-2` as a placeholder version. It is not a plugin 
 
 The default language is `en-US`. Matching the client's locale is enabled by default; the optional language selector is not. Configure `language.selector.enabled`, its title, prompt, and language labels in `config.yml`. Keep document translations and `messages/<locale>.properties` complete for the languages you offer. See [configuration and player flow](02-product-and-config.md).
 
-For native Bedrock forms on Velocity, first configure Geyser on that same proxy and verify normal Bedrock connectivity. Then set `bedrock.native-forms: true`, validate, and reload when no consent sessions or database jobs are pending. Geyser handles Cumulus delivery; no additional web service is needed. A separate Geyser instance on another server is not the current native integration path.
+For native Bedrock forms, first configure Geyser on the same proxy/server and verify normal Bedrock connectivity. Then set `bedrock.native-forms: true`, validate, and reload when no consent sessions or database jobs are pending. Geyser handles Cumulus delivery; no additional web service is needed. A separate Geyser instance on another server is not the current native integration path.
 
-On Paper, leave native forms disabled. Geyser-translated dialogs still need separate Paper testing and are not a completed native Bedrock implementation. Do not advertise Paper Bedrock support based only on Java tests.
+Paper now uses the shared native renderer through Geyser-Spigot, declared as an optional dependency. Native delivery and Geyser-translated dialogs still need separate Paper Bedrock testing. Java tests do not establish Paper Bedrock compatibility.
 
 ## Administration and backups
 
@@ -63,7 +63,7 @@ Stop the proxy/server before making a file-based backup. Preserve the entire Con
 | No dialog | Is the gate enabled? Did startup succeed? Are active documents named `.yml`? Has this UUID already accepted the current required versions? |
 | Velocity reports PacketEvents missing | Install the full Velocity PacketEvents plugin on the proxy, then restart. |
 | Paper fails with a missing API method | Verify the exact Paper build against the tested matrix. An API compile target does not prove runtime compatibility. |
-| Native forms fail on Paper | Set `bedrock.native-forms: false`; that renderer is not implemented there. |
+| Native forms fail on Paper | Check that Geyser-Spigot is enabled on the same server and inspect the log. Paper Bedrock runtime verification is still in progress. |
 | Edited documents fail validation | Check the reported locale, field, formatting, and version. Existing revisions cannot silently change text. |
 | Disconnect around 60 seconds while reading | If GrimAC is installed, check the exact build revision. Older builds have a configuration-timeout bug; see [Grim compatibility findings](12-paper-anticheat-compatibility.md). Do not disable anticheat or shorten reading time to conceal it. |
 | Backend is unreachable after accepting | Check the proxy route, forced hostname, forwarding settings, and backend availability separately. |

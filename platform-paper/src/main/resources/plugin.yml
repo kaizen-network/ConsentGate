@@ -3,6 +3,7 @@ version: '${version}'
 main: io.github.consentgate.paper.ConsentGatePaper
 api-version: '1.21.7'
 description: Configurable pre-admission agreements
+softdepend: [Geyser-Spigot]
 commands:
   consentgate:
     description: Inspect consent records and manage ConsentGate

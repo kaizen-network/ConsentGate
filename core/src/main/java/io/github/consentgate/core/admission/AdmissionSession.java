@@ -14,6 +14,7 @@ public final class AdmissionSession {
     private final AdmissionRequest request;
     private final Map<String, Boolean> selections = new LinkedHashMap<>();
     private final CompletableFuture<GateSession.Decision> result = new CompletableFuture<>();
+    private volatile GateSession.Decision decision;
 
     public AdmissionSession(AdmissionRequest request) {
         this.request = Objects.requireNonNull(request, "request");
@@ -26,8 +27,8 @@ public final class AdmissionSession {
     public String token() { return token; }
     public AdmissionRequest request() { return request; }
     public CompletionStage<GateSession.Decision> result() { return result.minimalCompletionStage(); }
-    public boolean pending() { return !result.isDone(); }
-    public boolean accepted() { return result.getNow(null) == GateSession.Decision.ACCEPTED; }
+    public boolean pending() { return decision == null; }
+    public boolean accepted() { return decision == GateSession.Decision.ACCEPTED; }
 
     public synchronized Map<String, Boolean> selections() { return Map.copyOf(selections); }
 
@@ -38,20 +39,34 @@ public final class AdmissionSession {
         return true;
     }
 
-    public synchronized boolean accept(String suppliedToken, Map<String, Boolean> supplied) {
-        if (!updateSelections(suppliedToken, supplied) || selections.containsValue(false)) return false;
-        return result.complete(GateSession.Decision.ACCEPTED);
+    public boolean accept(String suppliedToken, Map<String, Boolean> supplied) {
+        synchronized (this) {
+            if (!updateSelections(suppliedToken, supplied) || selections.containsValue(false)) return false;
+            decision = GateSession.Decision.ACCEPTED;
+        }
+        result.complete(GateSession.Decision.ACCEPTED);
+        return true;
     }
 
-    public synchronized boolean decline(String suppliedToken) {
-        return token.equals(suppliedToken) && result.complete(GateSession.Decision.DECLINED);
+    public boolean decline(String suppliedToken) {
+        return token.equals(suppliedToken) && decide(GateSession.Decision.DECLINED);
     }
 
-    public synchronized boolean end(GateSession.Decision reason) {
+    public boolean end(GateSession.Decision reason) {
         Objects.requireNonNull(reason, "reason");
         if (reason == GateSession.Decision.ACCEPTED || reason == GateSession.Decision.DECLINED) {
             throw new IllegalArgumentException("Player decisions require a validated token");
         }
-        return result.complete(reason);
+        return decide(reason);
+    }
+
+    private boolean decide(GateSession.Decision reason) {
+        synchronized (this) {
+            if (decision != null) return false;
+            decision = reason;
+        }
+        // Platform callbacks can acquire connection locks or submit database work.
+        result.complete(reason);
+        return true;
     }
 }

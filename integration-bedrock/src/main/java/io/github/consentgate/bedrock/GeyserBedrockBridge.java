@@ -1,4 +1,4 @@
-package io.github.consentgate.velocity;
+package io.github.consentgate.bedrock;
 
 import io.github.consentgate.presentation.SafeTextFormatter;
 
@@ -9,10 +9,10 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-final class GeyserBedrockBridge {
+public final class GeyserBedrockBridge {
     private GeyserBedrockBridge() { }
 
-    static BedrockView open(UUID player, SafeTextFormatter formatter, String buttonColor, Function<String, String> messages,
+    public static BedrockView open(UUID player, SafeTextFormatter formatter, String buttonColor, Function<String, String> messages,
                             BooleanSupplier active, Runnable leave, Consumer<RuntimeException> failure) {
         var api = GeyserApi.api();
         if (api == null) throw new IllegalStateException("Geyser is not initialized");

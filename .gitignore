@@ -4,6 +4,7 @@
 /platform-paper/bin/
 /platform-velocity/bin/
 /presentation/bin/
+/integration-bedrock/bin/
 .idea/
 *.iml
 .run/
