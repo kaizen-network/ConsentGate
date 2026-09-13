@@ -1,6 +1,6 @@
 # Storage and database upgrades
 
-Status: SQLite and remote SQL/cache implementations are available in the prototype. MariaDB 11.8.6 and MySQL 8.4.8 have repository integration tests. MySQL admission and outage checks pass on both platforms; MariaDB runtime and load testing remain open. See [setup and exact behavior](15-remote-storage.md).
+Status: SQLite and remote SQL/cache implementations are available in the prototype. MariaDB 11.8.6 and MySQL 8.4.8 passed repository, TLS, and admission/outage checks on both platforms. See [setup and exact behavior](15-remote-storage.md) and [release progress](16-release-progress.md).
 
 ## Database choices
 
@@ -48,7 +48,7 @@ Freshness starts before the successful primary query, not the last player join. 
 
 The 60-second default permits up to 60 seconds of stale acceptance after a withdrawal elsewhere. Administrators requiring a primary check on every admission can set freshness to zero. There is no immediate cross-proxy revocation guarantee with a local cache alone.
 
-For the local process, invalidate affected entries immediately after a withdrawal/reset. Expired entries cannot be revived during outages. Detect invalid timestamps or backward clock movement and revalidate. Do not cache a new acceptance before its commit is known to have succeeded.
+For the local process, invalidate affected entries before attempting a grant or withdrawal/reset, including uncertain outcomes. Expired entries cannot be revived during outages. Detect invalid timestamps or backward clock movement and revalidate. Do not cache a new acceptance before its commit is known to have succeeded.
 
 Defer offline write queues: they would allow admission without a primary commit and introduce conflict handling after recovery.
 
@@ -66,6 +66,6 @@ Imports from other products and compatibility with their schemas are outside the
 
 ## Backups and retention
 
-Document consistent SQLite backups and database-native backups for remote providers. Cache files are disposable and are not acceptance backups.
+Follow [backup and recovery procedures](17-backups-and-recovery.md) for consistent SQLite copies, database-native remote backups, isolated restores, and failed schema installation. Cache files are disposable and are not acceptance backups.
 
 Define retention separately for acceptance history, audit events, and cached decisions. Preserve referenced document snapshots while their acceptance records are retained. Erasure must invalidate current decisions and prevent records from returning through stale caches. Define multi-instance invalidation and its freshness limits before exposing an erasure command.

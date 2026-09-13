@@ -10,6 +10,8 @@ import socket
 import subprocess
 import time
 import uuid
+import shutil
+import xml.etree.ElementTree as ET
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -33,6 +35,7 @@ server_binary = base / 'bin' / ('mysqld.exe' if args.engine == 'mysql' else 'mar
 assert server_binary.is_file(), 'Provide the extracted database server directory'
 client_binary = args.client.resolve() if args.client else base / 'bin/mysql.exe'
 assert client_binary.is_file() and (client_binary.parent / 'mysqladmin.exe').is_file()
+assert (client_binary.parent / 'mysqldump.exe').is_file(), 'The MySQL client directory must include mysqldump.exe'
 fixture = project / '.run' / (args.engine + '-test-' + uuid.uuid4().hex)
 fixture.mkdir()
 data = fixture / 'data'
@@ -122,9 +125,17 @@ try:
     result = subprocess.run([str(project / 'gradlew.bat'), '--offline', ':core:remoteDatabaseTest', '--console=plain'],
                             cwd=project, env=env, timeout=240, creationflags=flags, capture_output=True, text=True)
     (fixture / 'gradle.log').write_text(result.stdout + result.stderr)
-    print(result.stdout[-3500:] + result.stderr[-1000:], flush=True)
     if result.returncode:
+        print(result.stdout[-3500:] + result.stderr[-1000:], flush=True)
         raise RuntimeError('Database integration tests failed')
+    report_path = project / 'core/build/test-results/remoteDatabaseTest/TEST-io.github.consentgate.core.storage.RemoteAcceptanceRepositoryTest.xml'
+    shutil.copyfile(report_path, fixture / 'repository-results.xml')
+    report = ET.parse(report_path).getroot()
+    print('Repository checks: ' + report.get('tests') + ' tests, ' + report.get('failures') + ' failures, '
+          + report.get('skipped') + ' skipped', flush=True)
+    for line in (report.findtext('system-out') or '').splitlines():
+        if line.startswith('Remote load'):
+            print(line, flush=True)
     for platform in args.platforms:
         command = [os.sys.executable, str(project / 'tools/run_remote_admission_probe.py'), '--platform', platform]
         if args.modules is not None:
@@ -135,11 +146,36 @@ try:
         print(result.stdout + result.stderr, flush=True)
         if result.returncode:
             raise RuntimeError(platform + ' remote admission checks failed')
+    backup = fixture / 'backup.sql'
+    subprocess.run([str(client_binary.parent / 'mysqldump.exe'), '--defaults-file=' + str(client_file),
+                    '--single-transaction', '--skip-lock-tables', '--no-tablespaces', '--set-gtid-purged=OFF',
+                    '--column-statistics=0', '--result-file=' + str(backup), database],
+                   check=True, capture_output=True, timeout=60, creationflags=flags)
+    restored_database = 'consentgate_test_restore_' + uuid.uuid4().hex[:16]
+    client_command = [str(client_binary), '--defaults-file=' + str(client_file), '--batch', '--skip-column-names', '--default-character-set=utf8mb4']
+    subprocess.run(client_command, input='CREATE DATABASE ' + restored_database + ' CHARACTER SET utf8mb4;',
+                   text=True, check=True, capture_output=True, timeout=15, creationflags=flags)
+    with backup.open('rb') as source:
+        subprocess.run(client_command + ['--database=' + restored_database], stdin=source,
+                       check=True, capture_output=True, timeout=60, creationflags=flags)
+    for table, order in [('cg_schema_history', 'version'), ('cg_player_locks', 'player_uuid,scope'),
+                         ('cg_document_revisions', 'scope,document_id,version,locale'), ('cg_acceptance_events', 'event_id'),
+                         ('cg_acceptance_state', 'player_uuid,scope,document_id'), ('cg_audit_events', 'request_id')]:
+        query = 'SELECT * FROM ' + table + ' ORDER BY ' + order + ';'
+        original_rows = subprocess.run(client_command + ['--database=' + database], input=query, text=True,
+                                       encoding='utf-8', check=True, capture_output=True, timeout=30, creationflags=flags).stdout
+        restored_rows = subprocess.run(client_command + ['--database=' + restored_database], input=query, text=True,
+                                       encoding='utf-8', check=True, capture_output=True, timeout=30, creationflags=flags).stdout
+        assert original_rows == restored_rows, 'Backup restore mismatch: ' + table
+    print('PASS: native SQL backup restored every row in all six tables into a separate disposable database', flush=True)
 finally:
     if server_process is not None and server_process.poll() is None:
         if client_file.exists():
-            subprocess.run([str(client_binary.parent / 'mysqladmin.exe'), '--defaults-file=' + str(client_file), 'shutdown'],
-                           capture_output=True, timeout=15, creationflags=flags)
+            try:
+                subprocess.run([str(client_binary.parent / 'mysqladmin.exe'), '--defaults-file=' + str(client_file), 'shutdown'],
+                               capture_output=True, timeout=15, creationflags=flags)
+            except (OSError, subprocess.TimeoutExpired):
+                pass
         try:
             server_process.wait(timeout=15)
         except subprocess.TimeoutExpired:

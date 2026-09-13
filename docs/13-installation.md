@@ -18,7 +18,7 @@ Use the complete server/proxy distribution of a dependency, not a thin Maven API
 
 ConsentGate does not require GrimAC, a separate Cumulus plugin, a website, or an external database service. Cumulus is accessed through the optional Geyser integration. Floodgate is not a direct ConsentGate dependency; whether it is needed depends on your Geyser authentication setup. Follow [Geyser's setup guide](https://geysermc.org/wiki/geyser/setup/) for that configuration.
 
-Optional MySQL/MariaDB storage and a local SQLite cache are implemented. Both products have repository tests, and MySQL 8.4.8 has headless admission and outage checks on both platforms. Broader MariaDB runtime testing remains open. Both artifacts bundle MariaDB Connector/J, so no separate driver plugin is needed. Follow the [remote storage guide](15-remote-storage.md) before selecting that provider. BungeeCord and plain Spigot are not implemented.
+Optional MySQL/MariaDB storage and a local SQLite cache are implemented. Both products passed repository, TLS, and headless admission/outage checks on both platforms. Both artifacts bundle MariaDB Connector/J, so no separate driver plugin is needed. Follow the [remote storage guide](15-remote-storage.md) before selecting that provider. BungeeCord and plain Spigot are not implemented.
 
 ## Choose the admission point
 
@@ -55,6 +55,8 @@ Use `consentgate status <online-player|uuid>` to inspect current acceptance. For
 Use `consentgate validate` followed by `consentgate reload` for supported edits. Reload refuses while sessions or database work are active. Changing `enabled`, `scope`, any storage/cache setting, or the pending-session limit requires a restart. See [commands and permissions](07-admin-commands.md).
 
 Stop the proxy/server before making a file-based backup. Preserve the entire ConsentGate data folder, including documents, messages, configuration, and the SQLite database at the configured path. Do not copy only the main SQLite file while it is being written. Keep backups private because acceptance records contain player identifiers and decisions.
+
+See [backups and recovery](17-backups-and-recovery.md) for restore checks and schema-failure recovery. A restored remote primary needs fresh empty caches on every instance.
 
 ## Troubleshooting
 

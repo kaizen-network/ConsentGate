@@ -59,7 +59,7 @@ class SqliteAcceptanceRepositoryTest {
         try (var repository = new SqliteAcceptanceRepository(database)) {
             repository.grant(player, "main", List.of(shown), UUID.randomUUID(), Instant.parse("2026-09-10T00:00:00Z"), "in-game");
             repository.withdraw(player, "main", List.of("rules"), UUID.randomUUID(), Instant.parse("2026-09-10T01:00:00Z"), "command");
-            repository.grant(player, "main", List.of(shown), UUID.randomUUID(), Instant.parse("2026-09-10T00:30:00Z"), "import");
+            assertThrows(SQLException.class, () -> repository.grant(player, "main", List.of(shown), UUID.randomUUID(), Instant.parse("2026-09-10T00:30:00Z"), "import"));
             assertFalse(repository.isAccepted(player, "main", List.of(shown)));
         }
     }
@@ -129,11 +129,109 @@ class SqliteAcceptanceRepositoryTest {
             repository.withdraw(player, "main", List.of("rules"), withdrawalRequest, withdrawalTime, "command");
             repository.grant(player, "main", List.of(shown), UUID.randomUUID(),
                     Instant.parse("2026-09-10T01:00:00Z"), "in-game");
-            repository.withdraw(player, "main", List.of("rules"), withdrawalRequest, withdrawalTime, "command");
+            assertThrows(SQLException.class, () -> repository.withdraw(player, "main", List.of("rules"), withdrawalRequest, withdrawalTime, "command"));
             assertTrue(repository.isAccepted(player, "main", List.of(shown)));
         }
         assertEquals(1, count(database, "cg_acceptance_events"));
         assertEquals(2, count(database, "cg_audit_events"));
+    }
+
+    @Test void withdrawalWithoutExistingStateBlocksOlderAndEqualTimeGrants() throws Exception {
+        Path database = directory.resolve("empty-reset.db");
+        var player = UUID.randomUUID();
+        var document = shown("rules", "v1", "hash", "text");
+        Instant at = Instant.parse("2026-09-10T01:00:00Z");
+        try (var repository = new SqliteAcceptanceRepository(database)) {
+            repository.withdraw(player, "main", List.of("rules"), UUID.randomUUID(), at, "admin-reset");
+            for (var attempt : List.of(at.minusSeconds(1), at)) {
+                assertThrows(SQLException.class, () -> repository.grant(player, "main", List.of(document), UUID.randomUUID(), attempt, "in-game"));
+            }
+            assertEquals(0, count(database, "cg_acceptance_events"));
+            assertEquals(0, count(database, "cg_document_revisions"));
+            repository.grant(player, "main", List.of(document), UUID.randomUUID(), at.plusNanos(1), "in-game");
+            assertTrue(repository.isAccepted(player, "main", List.of(document)));
+        }
+    }
+
+    @Test void equalTimestampAndReplayedGrantsCannotReportSuccessAfterReset() throws Exception {
+        Path database = directory.resolve("replay-reset.db");
+        var player = UUID.randomUUID();
+        var request = UUID.randomUUID();
+        var document = shown("rules", "v1", "hash", "text");
+        Instant at = Instant.parse("2026-09-10T01:00:00Z");
+        try (var repository = new SqliteAcceptanceRepository(database)) {
+            repository.grant(player, "main", List.of(document), request, at, "in-game");
+            repository.withdraw(player, "main", List.of("rules"), UUID.randomUUID(), at.plusSeconds(1), "admin-reset");
+            assertThrows(SQLException.class, () -> repository.grant(player, "main", List.of(document), request, at, "in-game"));
+            assertThrows(SQLException.class, () -> repository.grant(player, "main", List.of(document), UUID.randomUUID(), at.plusSeconds(1), "in-game"));
+            assertFalse(repository.isAccepted(player, "main", List.of(document)));
+            assertEquals(2, count(database, "cg_acceptance_events"));
+        }
+    }
+
+    @Test void clockSkewCannotMakeAnUnappliedResetReportSuccess() throws Exception {
+        Path database = directory.resolve("clock-reset.db");
+        var player = UUID.randomUUID();
+        var document = shown("rules", "v1", "hash", "text");
+        Instant at = Instant.parse("2026-09-10T01:00:00Z");
+        try (var repository = new SqliteAcceptanceRepository(database)) {
+            repository.grant(player, "main", List.of(document), UUID.randomUUID(), at, "in-game");
+            assertThrows(SQLException.class, () -> repository.withdraw(player, "main", List.of("rules"), UUID.randomUUID(), at.minusSeconds(1), "admin-reset"));
+            assertTrue(repository.isAccepted(player, "main", List.of(document)));
+            assertEquals(1, count(database, "cg_audit_events"));
+            assertEquals(1, count(database, "cg_acceptance_events"));
+            repository.withdraw(player, "main", List.of("rules"), UUID.randomUUID(), at, "admin-reset");
+            assertFalse(repository.isAccepted(player, "main", List.of(document)));
+        }
+    }
+
+    @Test void existingVersionOneFilesKeepHistoryAndClosedBackupsRestoreAcceptance() throws Exception {
+        Path database = directory.resolve("existing-v1.db");
+        Path backup = directory.resolve("backup.db");
+        var player = UUID.randomUUID();
+        var missing = UUID.randomUUID();
+        var document = shown("rules", "v1", "hash", "text");
+        Instant at = Instant.parse("2026-09-10T01:00:00Z");
+        try (var repository = new SqliteAcceptanceRepository(database)) {
+            repository.grant(player, "main", List.of(document), UUID.randomUUID(), at, "in-game");
+            repository.withdraw(missing, "main", List.of("rules"), UUID.randomUUID(), at, "admin-reset");
+        }
+        // Earlier builds used the same version 1 tables without this optional lookup index.
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database); var statement = connection.createStatement()) {
+            statement.execute("DROP INDEX cg_audit_events_player");
+        }
+        java.nio.file.Files.copy(database, backup);
+        try (var repository = new SqliteAcceptanceRepository(database)) {
+            assertTrue(repository.isAccepted(player, "main", List.of(document)));
+            assertEquals(1, count(database, "cg_document_revisions"));
+            assertEquals(1, count(database, "cg_acceptance_events"));
+            assertEquals(2, count(database, "cg_audit_events"));
+            repository.withdraw(player, "main", List.of("rules"), UUID.randomUUID(), at.plusSeconds(1), "admin-reset");
+            assertFalse(repository.isAccepted(player, "main", List.of(document)));
+        }
+        try (var restored = new SqliteAcceptanceRepository(backup)) {
+            assertTrue(restored.isAccepted(player, "main", List.of(document)));
+            assertThrows(SQLException.class, () -> restored.grant(missing, "main", List.of(document), UUID.randomUUID(), at, "in-game"));
+            assertEquals(2, count(backup, "cg_audit_events"));
+            assertEquals(1, count(backup, "cg_schema_history"));
+        }
+    }
+
+    @Test void anEmptyResetAffectsOnlyItsExactPlayerScopeAndDocumentIds() throws Exception {
+        Path database = directory.resolve("reset-scope.db");
+        var player = UUID.randomUUID();
+        var rules = shown("rules", "v1", "hash", "text");
+        var other = shown("rules-other", "v1", "other", "other");
+        Instant at = Instant.parse("2026-09-10T01:00:00Z");
+        try (var repository = new SqliteAcceptanceRepository(database)) {
+            repository.withdraw(player, "main", List.of("rules"), UUID.randomUUID(), at, "admin-reset");
+            repository.grant(player, "main", List.of(other), UUID.randomUUID(), at, "in-game");
+            repository.grant(player, "other", List.of(rules), UUID.randomUUID(), at, "in-game");
+            repository.grant(UUID.randomUUID(), "main", List.of(rules), UUID.randomUUID(), at, "in-game");
+            assertTrue(repository.isAccepted(player, "main", List.of(other)));
+            assertTrue(repository.isAccepted(player, "other", List.of(rules)));
+            assertThrows(SQLException.class, () -> repository.grant(player, "main", List.of(rules), UUID.randomUUID(), at, "in-game"));
+        }
     }
 
     private static ShownDocument shown(String id, String version, String hash, String snapshot) {

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import socket
+import sqlite3
 import subprocess
 import threading
 import time
@@ -171,15 +172,24 @@ def main():
         print('PASS: ' + args.platform + ' remote acceptance, rejoin, status, and reset history', flush=True)
 
         # The rejoin performs a confirmed positive read and seeds the local cache.
-        verified = time.monotonic()
         probe('ConsentRemote', 'rejoin')
+        # Client startup may take seconds; expiry must be measured after the confirmed check.
+        verified = time.monotonic()
+        def cached_time():
+            with closing(sqlite3.connect('file:' + (fixture / 'cache.db').as_posix() + '?mode=ro', uri=True)) as cache:
+                return cache.execute('SELECT MAX(verified_at) FROM cg_cached_checks WHERE player=? AND scope=?',
+                                     (player, storage.scope)).fetchone()[0]
+        cached_verification = cached_time()
+        assert cached_verification is not None, 'The confirmed rejoin must create a positive cache entry'
         relay.set_available(False)
         probe('ConsentRemote', 'rejoin')
+        assert cached_time() == cached_verification, 'An outage cache hit must not extend freshness'
         probe('ConsentUnknown', 'unavailable')
         command('consentgate status ' + player, 'Consent records could not be processed.')
         remaining = verified + 11 - time.monotonic()
         if remaining > 0:
             time.sleep(remaining)
+        assert time.time() * 1000 - cached_verification >= 10_000, 'Stored verification must be expired before denial check'
         probe('ConsentRemote', 'unavailable')
         relay.set_available(True)
         probe('ConsentRemote', 'rejoin')

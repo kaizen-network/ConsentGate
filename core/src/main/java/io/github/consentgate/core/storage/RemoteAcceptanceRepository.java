@@ -122,14 +122,23 @@ public final class RemoteAcceptanceRepository implements AcceptanceRepository {
         if (ids.isEmpty() || ids.size() > 32) throw new IllegalArgumentException("Between 1 and 32 document IDs are required");
         for (String id : ids) if (!id.matches("[a-z0-9][a-z0-9_-]{0,63}")) throw new IllegalArgumentException("Invalid document ID");
         transaction(playerId, scope, connection -> {
-            if (!audit(connection, playerId, scope, requestId, at, method, "acceptance_withdrawn", String.join("\n", ids))) return;
-            for (String id : ids) {
-                String version = null, locale = null, hash = null;
-                try (var query = prepare(connection, "SELECT version,locale,content_hash FROM cg_acceptance_state WHERE player_uuid=? AND scope=? AND document_id=?", playerId.toString(), scope, id);
-                     var rows = query.executeQuery()) {
-                    if (rows.next()) { version = rows.getString(1); locale = rows.getString(2); hash = rows.getString(3); }
+            if (audit(connection, playerId, scope, requestId, at, method, "acceptance_withdrawn", String.join("\n", ids))) {
+                for (String id : ids) {
+                    String version = null, locale = null, hash = null;
+                    try (var query = prepare(connection, "SELECT version,locale,content_hash FROM cg_acceptance_state WHERE player_uuid=? AND scope=? AND document_id=?", playerId.toString(), scope, id);
+                         var rows = query.executeQuery()) {
+                        if (rows.next()) { version = rows.getString(1); locale = rows.getString(2); hash = rows.getString(3); }
+                    }
+                    decision(connection, playerId, scope, id, version, locale, hash, "withdrawn", requestId, at, method);
                 }
-                decision(connection, playerId, scope, id, version, locale, hash, "withdrawn", requestId, at, method);
+            }
+            for (String id : ids) {
+                try (var query = prepare(connection, "SELECT decision FROM cg_acceptance_state WHERE player_uuid=? AND scope=? AND document_id=?", playerId.toString(), scope, id);
+                     var rows = query.executeQuery()) {
+                    if (!rows.next() || !"withdrawn".equals(rows.getString(1))) {
+                        throw new SQLException("Withdrawal request is older than the current decision; check host clocks and retry");
+                    }
+                }
             }
         });
     }

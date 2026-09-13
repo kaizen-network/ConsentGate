@@ -1,6 +1,6 @@
 # Remote storage implementation
 
-Status: repository tests pass on MariaDB 11.8.6 and MySQL 8.4.8. MySQL admission and outage checks pass on both platforms. SQLite remains the default. Broader MariaDB runtime and load tests remain open. Setup is documented in [the remote storage guide](15-remote-storage.md).
+Status: repository, TLS, admission/outage, reset-ordering, and initial sustained-load checks pass on MariaDB 11.8.6 and MySQL 8.4.8. SQLite remains the default. Setup is documented in [the remote storage guide](15-remote-storage.md).
 
 ## This slice
 
@@ -43,8 +43,6 @@ Tested artifact SHA-256 values: Paper `d3c6187342be8e3b26be4786325d5b1394ba811b1
 
 ## Still open
 
-- Measure sustained connection load and decide whether a small pool is justified.
-- Broader review of multi-instance reset timing and clock-skew handling before release.
 - Prepare corresponding dependency source materials before any binary publication.
 
 References: [MariaDB Connector/J](https://mariadb.com/docs/connectors/mariadb-connector-j/about-mariadb-connector-j), [InnoDB locking reads](https://dev.mysql.com/doc/refman/8.4/en/innodb-locking-reads.html).
@@ -70,3 +68,20 @@ The first relay fixture used a one-second connection timeout and failed during V
 MariaDB 11.8.6 passed the same 15 repository checks with no failures or skips, including verified TLS, unrelated-CA and hostname rejection, both isolated drivers, and actual socket interruptions before commit and before its acknowledgement. Its official Windows ZIP matched the archive's published SHA-256 checksum. The runner initialized a fresh loopback database without installing a service.
 
 Both packaged platforms also passed the full admission and TLS-relay outage sequence described above for MySQL: acceptance, rejoin, status, reset history, fresh-cache admission, unknown and expired-cache denial, failed-save denial, and recovery. The proxy, server, database, and relays stopped afterward; original plugin configurations were restored. Sustained load and wider multi-instance timing remain open.
+
+## Reset ordering and sustained load, 2026-09-13
+
+Both products passed 17 repository tests after adding reset-result verification and a 30-second workload. Older or replayed resets now return a storage error if a newer grant remains current. The error rolls back any new audit or decision rows. Equal-timestamp withdrawal still wins. Host clocks still need synchronization; errors do not repair a skewed clock.
+
+The workload used two repository/cache instances with four workers total, matching two platform instances. Each cycle checked a new UUID, granted two documents, confirmed the grant, made five cache reads, withdrew both documents, and confirmed denial. Every cycle's audit and decision rows were counted afterward.
+
+| Database | Completed cycles | Elapsed | Grant p50 / p95 | Primary check p50 / p95 | Cache hit p50 / p95 | Reset p50 / p95 |
+| --- | --- | --- | --- | --- | --- | --- |
+| MySQL 8.4.8 | 308 | 30.22 s | 34.59 / 134.44 ms | 50.78 / 188.14 ms | 11.14 / 53.38 ms | 44.41 / 162.73 ms |
+| MariaDB 11.8.6 | 642 | 30.10 s | 19.23 / 38.28 ms | 32.53 / 64.63 ms | 8.86 / 18.61 ms | 26.32 / 52.32 ms |
+
+These are separate loopback runs on one development machine with verified TLS and persistent SQLite caches. Background load was not controlled, so the numbers are not a database comparison or a production capacity promise. Cache-hit samples average five consecutive reads. No cycle failed and no cache was disabled. Keep the current two-worker limit and per-operation connections for the initial release. Deployments needing more throughput should measure their own network and storage before considering a pool.
+
+Both platforms passed admission and relay-outage checks again after the reset fix. One MariaDB Paper rerun exposed a test timer error: its expiry assertion ran when the persisted entry was only 9.272 seconds old, within the configured ten seconds. The runner now starts its wait after the confirmed rejoin, checks the persisted timestamp, and verifies that cache hits do not refresh it. The corrected run passed.
+
+MySQL and MariaDB each passed a dump/restore check into a second empty database. The runner used the MySQL 8.4.8 dump/client tools with explicit TLS, restored the dump, and compared every row in all six tables. Repeated repository runs still passed all 17 checks. Test services stopped afterward; fixture logs, results, dumps, and data remain local.

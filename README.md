@@ -33,13 +33,14 @@ SQLite is the default, with its driver bundled. Optional MySQL/MariaDB storage a
 
 See the [installation guide](docs/13-installation.md) for platform setup, Bedrock, backups, and troubleshooting. The starter documents need administrator review; they are not a guarantee of legal compliance.
 
-## Planned features
+## Implemented features
 
 - Read full documents in game and explicitly accept required agreements.
 - Configure names, versions, order, wording, colors, safe text formatting, and translations.
 - Request acceptance again when required documents change.
 - Store acceptance in SQLite, MySQL, or MariaDB.
 - Use a local persistent cache with remote storage.
+- Inspect active documents and preview the login flow without saving consent.
 - Support Java dialogs and Bedrock through Geyser, with optional Cumulus forms.
 
 ## Platforms
@@ -60,6 +61,8 @@ Connection handling must pass prototype tests before these guarantees are advert
 - [Player flow and configuration](docs/02-product-and-config.md)
 - [Storage and database upgrades](docs/03-storage-and-migration.md)
 - [MySQL, MariaDB, and cache setup](docs/15-remote-storage.md)
+- [Backups and recovery](docs/17-backups-and-recovery.md)
+- [Release progress and remaining checks](docs/16-release-progress.md)
 - [Administrator commands](docs/07-admin-commands.md)
 - [Paper implementation progress](docs/10-paper-progress.md)
 - [Paper anticheat compatibility](docs/12-paper-anticheat-compatibility.md)

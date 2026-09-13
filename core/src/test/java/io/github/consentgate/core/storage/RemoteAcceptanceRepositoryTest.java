@@ -109,6 +109,85 @@ class RemoteAcceptanceRepositoryTest {
         }
     }
 
+    @Test void olderResetAndReplayedResetCannotReportSuccessAfterANewerGrant() throws Exception {
+        var reset = UUID.randomUUID();
+        try (var first = repository(); var second = repository()) {
+            first.withdraw(player, scope, List.of("rules"), reset, at, "admin-reset");
+            second.grant(player, scope, List.of(document), UUID.randomUUID(), at.plusSeconds(2), "in-game");
+            assertThrows(SQLException.class, () -> first.withdraw(player, scope, List.of("rules"), reset, at, "admin-reset"));
+            assertThrows(SQLException.class, () -> first.withdraw(player, scope, List.of("rules"), UUID.randomUUID(), at.plusSeconds(1), "admin-reset"));
+            assertTrue(second.isAccepted(player, scope, List.of(document)));
+            assertEquals(2, count("cg_acceptance_events"));
+            assertEquals(2, count("cg_audit_events"));
+            first.withdraw(player, scope, List.of("rules"), UUID.randomUUID(), at.plusSeconds(2), "admin-reset");
+            assertFalse(second.isAccepted(player, scope, List.of(document)));
+        }
+    }
+
+    @Test @Timeout(120)
+    void thirtySecondTwoInstanceLoadKeepsEveryGrantAndResetConsistent() throws Exception {
+        var required = List.of(document, shown("privacy", "v1", "Data notice"));
+        var cycles = new java.util.concurrent.atomic.LongAdder();
+        var grantTimes = new ConcurrentLinkedQueue<Long>();
+        var checkTimes = new ConcurrentLinkedQueue<Long>();
+        var hitTimes = new ConcurrentLinkedQueue<Long>();
+        var resetTimes = new ConcurrentLinkedQueue<Long>();
+        var warnings = new ConcurrentLinkedQueue<String>();
+        try (var first = new CachedAcceptanceRepository(repository(), new StorageConfig.Cache(true, directory.resolve("first.db"), 60, 20_000), "load", Clock.systemUTC(), warnings::add);
+             var second = new CachedAcceptanceRepository(repository(), new StorageConfig.Cache(true, directory.resolve("second.db"), 60, 20_000), "load", Clock.systemUTC(), warnings::add);
+             var workers = Executors.newFixedThreadPool(4)) {
+            var start = new CountDownLatch(1);
+            var futures = new ArrayList<Future<?>>();
+            long began = System.nanoTime();
+            long deadline = began + TimeUnit.SECONDS.toNanos(30);
+            for (int worker = 0; worker < 4; worker++) {
+                var repository = worker < 2 ? first : second;
+                futures.add(workers.submit(() -> {
+                    start.await();
+                    do {
+                        var id = UUID.randomUUID();
+                        Instant decision = Instant.now();
+                        assertFalse(repository.isAccepted(id, scope, required));
+                        long before = System.nanoTime();
+                        repository.grant(id, scope, required, UUID.randomUUID(), decision, "load-test");
+                        grantTimes.add(System.nanoTime() - before);
+                        before = System.nanoTime();
+                        assertTrue(repository.isAccepted(id, scope, required));
+                        checkTimes.add(System.nanoTime() - before);
+                        before = System.nanoTime();
+                        for (int hit = 0; hit < 5; hit++) assertTrue(repository.isAccepted(id, scope, required));
+                        hitTimes.add((System.nanoTime() - before) / 5);
+                        before = System.nanoTime();
+                        repository.withdraw(id, scope, List.of("rules", "privacy"), UUID.randomUUID(), decision.plusNanos(1), "load-reset");
+                        resetTimes.add(System.nanoTime() - before);
+                        assertFalse(repository.isAccepted(id, scope, required));
+                        cycles.increment();
+                    } while (System.nanoTime() < deadline);
+                    return null;
+                }));
+            }
+            start.countDown();
+            for (var future : futures) future.get(90, TimeUnit.SECONDS);
+            double elapsed = (System.nanoTime() - began) / 1_000_000_000.0;
+            assertTrue(cycles.sum() >= 4);
+            assertTrue(warnings.isEmpty(), "Cache must stay operational throughout load");
+            assertEquals(cycles.sum() * 2, count("cg_audit_events"));
+            assertEquals(cycles.sum() * 4, count("cg_acceptance_events"));
+            System.out.printf(Locale.ROOT, "Remote load: 2 instances, 4 workers, %d complete cycles in %.2fs (%.2f cycles/s)%n", cycles.sum(), elapsed, cycles.sum() / elapsed);
+            reportLatency("grant", grantTimes);
+            reportLatency("primary-check", checkTimes);
+            reportLatency("cache-hit", hitTimes);
+            reportLatency("reset", resetTimes);
+        }
+    }
+
+    private static void reportLatency(String operation, Collection<Long> samples) {
+        var sorted = samples.stream().mapToLong(Long::longValue).sorted().toArray();
+        System.out.printf(Locale.ROOT, "Remote load %s: p50=%.2fms p95=%.2fms max=%.2fms%n", operation,
+                sorted[sorted.length / 2] / 1_000_000.0, sorted[(int) Math.floor((sorted.length - 1) * 0.95)] / 1_000_000.0,
+                sorted[sorted.length - 1] / 1_000_000.0);
+    }
+
     @Test void concurrentNewerWithdrawalWinsRegardlessOfLockOrder() throws Exception {
         try (var first = repository(); var second = repository(); var executor = Executors.newFixedThreadPool(2)) {
             var start = new CountDownLatch(1);

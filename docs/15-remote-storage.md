@@ -1,6 +1,6 @@
 # MySQL, MariaDB, and the local cache
 
-Prototype feature. MariaDB 11.8.6 and MySQL 8.4.8 each passed dedicated repository, verified TLS, socket-failure, and live platform admission checks. Neither is a production support claim. Certificate deployment and sustained load testing remain open.
+Prototype feature. MariaDB 11.8.6 and MySQL 8.4.8 each passed dedicated repository, verified TLS, socket-failure, live platform admission, initial sustained-load, and dump/restore checks. Neither is a production support claim. Deployment-specific certificate and capacity checks remain necessary.
 
 ## Set up the database
 
@@ -60,6 +60,8 @@ The schema stores immutable document snapshots, acceptance/withdrawal events, cu
 
 Current state uses the supplied UTC decision timestamp. Newer timestamps win, and withdrawal wins an equal-timestamp tie. Keep proxy/server clocks synchronized. There is no global ordering guarantee for badly skewed host clocks. A reset records a withdrawal even when the player has no prior state, preventing an older delayed grant from reviving it. Replayed or stale grants cannot admit a player whose current required decisions remain withdrawn. Already-online players are not kicked by a reset on another instance.
 
+A reset verifies that every requested decision is withdrawn before returning success. An older or replayed reset that cannot replace a newer grant returns an error and rolls back its new records. Correct the host clocks, inspect authoritative status, and retry as a new reset. Success never means only that an audit row was written.
+
 Revision keys are byte-sensitive, including case and trailing spaces. Reusing a scope, document ID, version, and locale with different text fails the whole grant transaction. Use matching scopes and document revisions only when installations should share acceptance.
 
 ## Cache rules
@@ -95,7 +97,7 @@ The suite covers atomic grants, shared acceptance, replay conflicts, immutable r
 
 Additional TLS checks use `CG_TEST_DB_UNTRUSTED_CERTIFICATE` (a valid unrelated CA) and `CG_TEST_DB_WRONG_HOST` (an alias reaching the same server but absent from its certificate). `CG_TEST_DB_SOCKET_FAULTS=true` enables a loopback-only plaintext protocol proxy that cuts its own connection before COMMIT or drops the server's successful COMMIT reply. These targeted socket checks leave the database service running; ordinary repository checks still use the configured TLS connection.
 
-On Windows, `python tools/run_local_mysql_tests.py --server C:/path/to/extracted/mysql` prepares a disposable database with generated credentials and test certificates, runs all checks, then stops its process. It requires Python's `cryptography` package and an already extracted official MySQL ZIP distribution. It does not download software, install a service, or launch a desktop app. Test data, certificates, credentials, and logs remain in the ignored `.run/` fixture for inspection.
+On Windows, `python tools/run_local_mysql_tests.py --server C:/path/to/extracted/mysql` prepares a disposable database with generated credentials and test certificates, runs all 17 repository checks including 30 seconds of load, verifies a dump restored into another empty database, then stops its process. It requires Python's `cryptography` package and an already extracted official MySQL ZIP distribution, including `mysql.exe`, `mysqladmin.exe`, and `mysqldump.exe`. It does not download software, install a service, or launch a desktop app. Test data, certificates, credentials, results, dumps, and logs remain in the ignored `.run/` fixture for inspection.
 
 For MariaDB, use `--engine mariadb --server C:/path/to/extracted/mariadb --client C:/path/to/mysql/bin/mysql.exe`. The common inspection helper uses the MySQL client for explicit TLS settings with either server. The runner initializes new MariaDB data without registering a Windows service.
 

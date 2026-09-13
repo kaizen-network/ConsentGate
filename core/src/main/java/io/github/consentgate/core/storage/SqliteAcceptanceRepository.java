@@ -58,11 +58,15 @@ public final class SqliteAcceptanceRepository implements AcceptanceRepository {
         validateScope(scope);
         if (required.isEmpty()) return true;
         Map<String, ShownDocument> expected = uniqueDocuments(required);
+        try (Connection connection = connection()) { return accepted(connection, playerId, scope, expected); }
+    }
+
+    private static boolean accepted(Connection connection, UUID playerId, String scope, Map<String, ShownDocument> expected) throws SQLException {
         String placeholders = String.join(",", java.util.Collections.nCopies(expected.size(), "?"));
         String sql = "SELECT document_id, version, content_hash, decision FROM cg_acceptance_state "
                 + "WHERE player_uuid=? AND scope=? AND document_id IN (" + placeholders + ")";
         Set<String> accepted = new HashSet<>();
-        try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, playerId.toString());
             statement.setString(2, scope);
             int index = 3;
@@ -113,16 +117,20 @@ public final class SqliteAcceptanceRepository implements AcceptanceRepository {
         Map<String, ShownDocument> unique = uniqueDocuments(shown);
         if (unique.isEmpty()) throw new IllegalArgumentException("At least one document is required");
         transaction(connection -> {
-            if (!insertAudit(connection, requestId, playerId, scope, "acceptance_granted",
-                    auditPayload(unique.values()), decidedAt, method)) return;
-            for (ShownDocument document : unique.values()) {
-                registerRevision(connection, scope, document, decidedAt);
-                String eventId = requestId + ":" + document.documentId();
-                insertEvent(connection, eventId, playerId, scope, document.documentId(), document.version(),
-                        document.locale(), document.contentHash(), "granted", decidedAt, method);
-                updateState(connection, playerId, scope, document.documentId(), document.version(),
-                        document.locale(), document.contentHash(), "granted", decidedAt, eventId);
+            boolean fresh = insertAudit(connection, requestId, playerId, scope, "acceptance_granted",
+                    auditPayload(unique.values()), decidedAt, method);
+            rejectWithdrawnRequest(connection, playerId, scope, unique.keySet(), decidedAt);
+            if (fresh) {
+                for (ShownDocument document : unique.values()) {
+                    registerRevision(connection, scope, document, decidedAt);
+                    String eventId = requestId + ":" + document.documentId();
+                    insertEvent(connection, eventId, playerId, scope, document.documentId(), document.version(),
+                            document.locale(), document.contentHash(), "granted", decidedAt, method);
+                    updateState(connection, playerId, scope, document.documentId(), document.version(),
+                            document.locale(), document.contentHash(), "granted", decidedAt, eventId);
+                }
             }
+            if (!accepted(connection, playerId, scope, unique)) throw new SQLException("Acceptance request is older than the current decision; reconnect to review again");
         });
     }
 
@@ -143,18 +151,43 @@ public final class SqliteAcceptanceRepository implements AcceptanceRepository {
         });
         transaction(connection -> {
             String payload = ids.stream().sorted().collect(java.util.stream.Collectors.joining("\n"));
-            if (!insertAudit(connection, requestId, playerId, scope, "acceptance_withdrawn",
-                    payload, decidedAt, method)) return;
-            for (String id : ids) {
-                CurrentState current = currentState(connection, playerId, scope, id);
-                if (current == null) continue;
-                String eventId = requestId + ":" + id;
-                insertEvent(connection, eventId, playerId, scope, id, current.version,
-                        current.locale, current.contentHash, "withdrawn", decidedAt, method);
-                updateState(connection, playerId, scope, id, current.version,
-                        current.locale, current.contentHash, "withdrawn", decidedAt, eventId);
+            if (insertAudit(connection, requestId, playerId, scope, "acceptance_withdrawn", payload, decidedAt, method)) {
+                for (String id : ids) {
+                    CurrentState current = currentState(connection, playerId, scope, id);
+                    if (current == null) continue;
+                    String eventId = requestId + ":" + id;
+                    insertEvent(connection, eventId, playerId, scope, id, current.version,
+                            current.locale, current.contentHash, "withdrawn", decidedAt, method);
+                    updateState(connection, playerId, scope, id, current.version,
+                            current.locale, current.contentHash, "withdrawn", decidedAt, eventId);
+                }
+            }
+            try (var query = connection.prepareStatement("SELECT document_id FROM cg_acceptance_state WHERE player_uuid=? AND scope=? AND decision='granted'")) {
+                query.setString(1, playerId.toString()); query.setString(2, scope);
+                try (var rows = query.executeQuery()) {
+                    while (rows.next()) if (ids.contains(rows.getString(1))) {
+                        throw new SQLException("Withdrawal request is older than the current decision; check host clocks and retry");
+                    }
+                }
             }
         });
+    }
+
+    private static void rejectWithdrawnRequest(Connection connection, UUID player, String scope, Set<String> ids, Instant at) throws SQLException {
+        // Version 1 already records resets for missing players in the audit table.
+        try (var query = connection.prepareStatement("SELECT payload,decided_at FROM cg_audit_events WHERE player_uuid=? AND scope=? AND action='acceptance_withdrawn'")) {
+            query.setString(1, player.toString()); query.setString(2, scope);
+            try (var rows = query.executeQuery()) {
+                while (rows.next()) {
+                    Instant withdrawal;
+                    try { withdrawal = Instant.parse(rows.getString(2)); }
+                    catch (RuntimeException ex) { throw new SQLException("Invalid withdrawal timestamp", ex); }
+                    if (!withdrawal.isBefore(at) && java.util.Arrays.stream(rows.getString(1).split("\n")).anyMatch(ids::contains)) {
+                        throw new SQLException("Acceptance request is older than or equal to a withdrawal; reconnect to review again");
+                    }
+                }
+            }
+        }
     }
 
     private void initialize() throws SQLException {
@@ -171,6 +204,7 @@ public final class SqliteAcceptanceRepository implements AcceptanceRepository {
             }
             if (version == null) applyVersionOne(connection);
             else if (version < SCHEMA_VERSION) throw new SQLException("Missing database upgrade from schema " + version);
+            statement.execute("CREATE INDEX IF NOT EXISTS cg_audit_events_player ON cg_audit_events(player_uuid,scope,action)");
         }
     }
 
@@ -270,7 +304,8 @@ public final class SqliteAcceptanceRepository implements AcceptanceRepository {
                 "INSERT INTO cg_acceptance_state(player_uuid,scope,document_id,version,locale,content_hash,decision,decided_at,event_id) "
                         + "VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(player_uuid,scope,document_id) DO UPDATE SET "
                         + "version=excluded.version,locale=excluded.locale,content_hash=excluded.content_hash,decision=excluded.decision,decided_at=excluded.decided_at,event_id=excluded.event_id "
-                        + "WHERE excluded.decided_at >= cg_acceptance_state.decided_at")) {
+                        + "WHERE excluded.decided_at > cg_acceptance_state.decided_at OR (excluded.decided_at = cg_acceptance_state.decided_at "
+                        + "AND (cg_acceptance_state.decision <> 'withdrawn' OR excluded.decision = 'withdrawn'))")) {
             statement.setString(1, playerId.toString()); statement.setString(2, scope); statement.setString(3, documentId);
             statement.setString(4, version); statement.setString(5, locale); statement.setString(6, contentHash);
             statement.setString(7, decision); statement.setString(8, timestamp(at)); statement.setString(9, eventId);
