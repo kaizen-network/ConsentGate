@@ -425,7 +425,8 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
         }
         @Override protected void closePresentation() {
             if (bedrock != null) bedrock.close();
-            else connection.getAudience().closeDialog();
+            // Java button actions use CLOSE, and a denial disconnects the configuration screen.
+            // Audience.closeDialog() is absent from Paper 1.21.7's Adventure API.
         }
         @Override protected void disconnect(String reason) { connection.disconnect(Component.text(reason)); }
         @Override protected void admitted() { awaitingJoin.add(id); }

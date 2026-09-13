@@ -74,6 +74,8 @@ abstract class PaperAdmission {
                     try { closePresentation(); }
                     catch (RuntimeException | LinkageError ex) {
                         if (denial == null) denial = "Consent dialog could not be closed.";
+                        try { failure.accept(ex); }
+                        catch (RuntimeException | LinkageError ignored) { }
                     }
                     if (denial != null) disconnect(denial);
                     else admitted();

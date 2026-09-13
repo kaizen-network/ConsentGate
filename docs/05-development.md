@@ -110,7 +110,7 @@ The runner verifies the local proxy configuration, stages the current plugin art
 | MySQL 8.4.8, Connector/J 3.5.10 | All 17 repository checks pass, including TLS, socket interruptions, reset ordering, and two-instance load; dump/restore also passes |
 | MySQL 8.4.8 and MariaDB 11.8.6 with packaged Paper and Velocity | Each database passed headless acceptance, accepted rejoin, status, reset history, fresh-cache outage, expired-cache denial, failed save, and recovery through a local TLS relay |
 | Velocity formatting and administration | Automated formatting, command permissions, target parsing, and save/reset ordering checks |
-| Paper 1.21.7 API | Compiles; strict response parsing, startup/reload presentation, and isolated shaded-JAR tests pass |
+| Stock Paper 1.21.7 build 32, Java 21.0.2, synthetic Java protocol 772 | Fresh disabled installation, unsupported-schema denial, full packaged admission, preview, administration, pressure rejection, Leave, and timeout pass; no optional plugins installed |
 | Paper-compatible 26.2 server with Java 26.1 bot | Language, navigation, acceptance, reconnect, Leave, and administrator checks pass; official Grim `2.3.74-8eb5f28` passes initial-login long-wait and timeout checks; see the [Grim test report](12-paper-anticheat-compatibility.md) |
 | Velocity 3.4.0 build 563, PacketEvents 2.13.0 | Local wire/console checks cover admission and administrator status/reset/validation/reload |
 | Java protocols 771 and 772 | All 14 wire/console checks passed separately for each protocol on 2026-09-12; four golden framing tests also passed |

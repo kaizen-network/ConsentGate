@@ -1,6 +1,6 @@
 # Paper implementation progress
 
-Status: Java admission and initial native Bedrock integration. Not a production release or full platform parity. Current work is tracked in [release progress](16-release-progress.md).
+Status: Java admission passes on stock Paper 1.21.7 and the newer test server. Native Bedrock delivery on Paper still needs a real-client check. Current work is tracked in [release progress](16-release-progress.md).
 
 ## Implemented
 
@@ -27,6 +27,10 @@ Keep `bedrock.native-forms: false` for the initial Java check. For native Bedroc
 Do not install the gate on both a proxy and its backend for the same admission requirement. Direct backend access and proxy forwarding need their own network configuration.
 
 ## Remaining parity work
+
+Stock Paper 1.21.7 build 32 with Java 21.0.2 passed fresh disabled startup, generated defaults, normal disabled-mode play, and denial when an enabled installation contained a newer unsupported database schema. The packaged admission flow also passed preview without saved consent, accepted-player preview, cancellation, document viewing, capacity rejection, busy reset/reload refusal, acceptance, accepted rejoin, reset history, version reload, Leave, and timeout. These checks used synthetic Java protocol 772, which 1.21.7 and 1.21.8 share.
+
+This runtime check exposed an Adventure API mismatch that compilation missed: Paper 1.21.7 lacks `Audience.closeDialog()`. Java actions already close their dialog, so the redundant call was removed. Denial closes the configuration screen by disconnecting; native Bedrock forms retain their explicit close call. The corrected packaged flow passed on the same stock server.
 
 Live testing on 2026-09-12 used a Paper-compatible 26.2 server with protocol translation and a Java 26.1 synthetic client. It verified Indonesian selection, unchecked submission rejection, stale-token rejection, two-page reading, Back, acceptance followed by play login, accepted reconnect without a dialog, and immediate Leave disconnection. SQLite inspection confirmed one granted event for the shown version and `id-ID` locale. The bot used the documented corrected custom-click encoding, not an unmodified client.
 

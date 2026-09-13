@@ -9,7 +9,7 @@ const hold = options.hold;
 const expected = options.expect;
 const playSeconds = options['play-seconds'];
 const client = protocol.createClient({host: '127.0.0.1', port, username: options.name,
-  version: '26.1', auth: 'offline'});
+  version: options.version, auth: 'offline'});
 const started = Date.now();
 let actions = [], inputs = [], selected = false, acceptanceSent = false, joined = false, left = false;
 let keepalives = 0, pings = 0, timer, lastHeartbeatLog = 0, firstDialogAt = 0, finished = false, hadError = false, previewComplete = false;

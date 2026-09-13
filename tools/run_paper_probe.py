@@ -24,18 +24,24 @@ def offline_uuid(name):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--modules", required=True, type=Path)
+    parser.add_argument("--directory", type=Path, help="Prepared server directory inside this project's .run folder")
+    parser.add_argument("--port", type=int, default=25592)
+    parser.add_argument("--version", choices=("1.21.8", "26.1"), default="26.1")
+    parser.add_argument("--java", default="java", help="Java executable for the prepared server")
     args = parser.parse_args()
     project = Path(__file__).resolve().parents[1]
-    directory = project / ".run" / "paper-minimal"
+    directory = args.directory.resolve() if args.directory else project / ".run" / "paper-minimal"
+    assert directory.is_relative_to((project / ".run").resolve()), "The server must be a local .run fixture"
+    assert 1 <= args.port <= 65535
     properties = dict(line.split("=", 1) for line in (directory / "server.properties").read_text().splitlines()
                       if "=" in line and not line.startswith("#"))
     assert properties.get("server-ip") == "127.0.0.1", "Only the loopback test server is allowed"
-    assert properties.get("server-port") == "25592"
+    assert properties.get("server-port") == str(args.port)
     assert properties.get("online-mode") == "false"
     assert properties.get("enable-rcon") == "false"
     assert properties.get("enable-query") == "false"
     with socket.socket() as check:
-        assert check.connect_ex(("127.0.0.1", 25592)) != 0, "Test port already occupied"
+        assert check.connect_ex(("127.0.0.1", args.port)) != 0, "Test port already occupied"
     modules = args.modules.resolve()
     assert (modules / "minecraft-protocol").is_dir()
     assert (modules / "prismarine-nbt").is_dir()
@@ -76,6 +82,7 @@ def main():
     def probe(name, expected="accepted", hold=0, action="accept", on_dialog=None):
         child = subprocess.Popen(["node", str(project / "tools/probe_paper.cjs"), "--modules", str(modules),
                                  "--name", name, "--hold", str(hold), "--play-seconds", "1",
+                                 "--port", str(args.port), "--version", args.version,
                                  "--expect", expected, "--action", action],
                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         reports = []
@@ -111,16 +118,16 @@ def main():
                 "SELECT decision FROM cg_acceptance_events WHERE player_uuid=? ORDER BY decided_at", (offline_uuid(name),))]
 
     try:
-        process = subprocess.Popen(["java", "-Xms256m", "-Xmx768m", "-Dterminal.jline=false",
+        process = subprocess.Popen([args.java, "-Xms256m", "-Xmx768m", "-Dterminal.jline=false",
                                     "-Dterminal.ansi=false", "-jar", "server.jar", "--nogui"],
                                    cwd=directory, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
                                    stderr=subprocess.STDOUT, text=True)
         deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
             if process.poll() is not None:
-                raise RuntimeError("Paper exited; inspect .run/paper-minimal/logs/latest.log")
+                raise RuntimeError("Paper exited; inspect " + str(log_file))
             with socket.socket() as check:
-                if check.connect_ex(("127.0.0.1", 25592)) == 0 and "Done (" in log():
+                if check.connect_ex(("127.0.0.1", args.port)) == 0 and "Done (" in log():
                     break
             time.sleep(0.2)
         else:

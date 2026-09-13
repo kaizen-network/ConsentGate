@@ -1,7 +1,7 @@
-const allowed = new Set(['modules', 'port', 'hold', 'name', 'expect', 'play-seconds', 'reply-pings', 'action']);
+const allowed = new Set(['modules', 'port', 'hold', 'name', 'expect', 'play-seconds', 'reply-pings', 'action', 'version']);
 
 function parseOptions(args) {
-  const options = {port: '25592', hold: '75', name: 'ConsentProbe', expect: 'accepted', 'play-seconds': '0', 'reply-pings': 'true', action: 'accept'};
+  const options = {port: '25592', hold: '75', name: 'ConsentProbe', expect: 'accepted', 'play-seconds': '0', 'reply-pings': 'true', action: 'accept', version: '26.1'};
   const seen = new Set();
   for (let index = 0; index < args.length; index += 2) {
     const key = args[index].slice(2);
@@ -10,6 +10,7 @@ function parseOptions(args) {
     options[key] = args[index + 1];
   }
   if (!options.modules) throw new Error('Provide --modules with the dependency node_modules directory');
+  if (!['1.21.8', '26.1'].includes(options.version)) throw new Error('Unsupported probe version');
   for (const key of ['port', 'hold', 'play-seconds']) {
     if (!/^\d+$/.test(options[key])) throw new Error('Invalid numeric option: ' + key);
     options[key] = Number(options[key]);

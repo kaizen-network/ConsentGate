@@ -7,8 +7,13 @@ test('defaults and zero-second hold', () => {
   assert.equal(parseOptions(base).port, 25592);
   assert.equal(parseOptions([...base, '--hold', '0']).hold, 0);
 });
+
+test('explicit supported boundary version preserves the existing default', () => {
+  assert.equal(parseOptions(base).version, '26.1');
+  assert.equal(parseOptions([...base, '--version', '1.21.8']).version, '1.21.8');
+});
 test('reject unknown, repeated and incomplete arguments', () => {
-  for (const extra of [['--host', 'example.invalid'], ['--version', '1.21.8'], ['--hold'], ['--hold', '1', '--hold', '2'], ['hold', '2']]) assert.throws(() => parseOptions([...base, ...extra]));
+  for (const extra of [['--host', 'example.invalid'], ['--version', '1.21.7'], ['--hold'], ['--hold', '1', '--hold', '2'], ['hold', '2']]) assert.throws(() => parseOptions([...base, ...extra]));
 });
 test('validate numbers and identity', () => {
   for (const extra of [['--port', '0'], ['--port', '65536'], ['--hold', '-1'], ['--hold', '3601'], ['--hold', 'NaN'], ['--name', 'invalid name']]) assert.throws(() => parseOptions([...base, ...extra]));
