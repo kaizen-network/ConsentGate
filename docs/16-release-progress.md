@@ -9,13 +9,13 @@ Status: implementation and verification in progress. Neither artifact is a produ
 - Paper uses the shared native Bedrock renderer through optional local Geyser-Spigot. Its Java path remains independent of Geyser and PacketEvents.
 - Paper admission now has direct lifecycle tests for delayed saves, cancellation, reset ordering, locked SQLite, shutdown, timeout, and presentation failures. A renderer linkage failure cannot release a successful admission.
 - A native-response/timeout lock regression was reproduced and fixed. Core decision callbacks now run outside the session lock, while the terminal decision and selections remain frozen.
-- Remote MySQL/MariaDB storage and persistent cache are implemented. MariaDB repository checks pass, and MySQL passed all 15 checks including TLS verification and actual socket interruptions around commit.
-- Both packaged platforms passed MySQL admission, status, reset history, fresh-cache outage, expired-cache denial, failed-save denial, and recovery through a local TLS relay.
+- Remote MySQL/MariaDB storage and persistent cache are implemented. Each database passed all 15 checks including TLS verification and actual socket interruptions around commit.
+- Both packaged platforms passed MySQL and MariaDB admission, status, reset history, fresh-cache outage, expired-cache denial, failed-save denial, and recovery through a local TLS relay.
 
 ## Remaining release work
 
 1. Finish Paper runtime admission, administrator, connection-pressure, and reconfiguration checks. Verify native Bedrock form delivery and fallback at the held configuration stage.
-2. Repeat the expanded repository and platform checks on MariaDB, then cover load and multi-instance reset timing.
+2. Cover sustained load and multi-instance reset timing.
 3. Verify supported Java client and platform boundaries, long waits, routing, GUI layout, and Bedrock navigation. Synthetic clients do not replace final unmodified-client checks.
 4. Complete the planned administrator preview/document-viewing controls. Test clean installs and upgrades, backups and schema recovery, then reconcile older planning documents with verified behavior.
 5. Pin build dependencies and prepare local release artifacts, checksums, dependency notices, corresponding sources, and release notes.
@@ -24,7 +24,7 @@ Later BungeeCord and plain Spigot support, external imports, and provider migrat
 
 ## Local validation commands
 
-On 2026-09-13, the full build passed 125 JVM tests with no failures or skips. The Python framing suite passed four tests, and the Node helper suite passed eight. After the lifecycle fix, all 14 Velocity protocol-772 checks passed again. The packaged Paper JAR passed acceptance, accepted rejoin, reset history, invalid and valid reload, Leave, and the gate's own timeout. Both headless test processes stopped afterward.
+On 2026-09-13, the full build passed 125 JVM tests with no failures or skips. The Python framing suite passed four tests, and the Node helper suite passed nine. After the lifecycle fix, all 14 Velocity protocol-772 checks passed again. The packaged Paper JAR passed acceptance, accepted rejoin, reset history, invalid and valid reload, Leave, and the gate's own timeout. Both headless test processes stopped afterward.
 
 ```powershell
 .\gradlew.bat --offline build

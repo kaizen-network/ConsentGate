@@ -106,9 +106,9 @@ The runner verifies the local proxy configuration, stages the current plugin art
 | --- | --- |
 | Shared session core | Automated session lifecycle checks |
 | Configuration, documents, admission, and SQLite | Automated loading, acceptance, withdrawal, and history checks |
-| MariaDB 11.8.6, Connector/J 3.5.10 | Dedicated transactional repository, concurrency, cache outage/recovery, replay, and schema-version checks pass; live remote-storage admission remains unverified |
+| MariaDB 11.8.6, Connector/J 3.5.10 | All 15 repository checks pass, including verified TLS, certificate rejection, and actual socket interruptions around commit |
 | MySQL 8.4.8, Connector/J 3.5.10 | All 15 repository checks pass, including verified TLS, certificate rejection, and actual socket interruption before commit and before its reply reaches the plugin |
-| MySQL 8.4.8 with packaged Paper and Velocity | Headless acceptance, accepted rejoin, status, reset history, fresh-cache outage, expired-cache denial, failed save, and recovery pass through a local TLS relay |
+| MySQL 8.4.8 and MariaDB 11.8.6 with packaged Paper and Velocity | Each database passed headless acceptance, accepted rejoin, status, reset history, fresh-cache outage, expired-cache denial, failed save, and recovery through a local TLS relay |
 | Velocity formatting and administration | Automated formatting, command permissions, target parsing, and save/reset ordering checks |
 | Paper 1.21.7 API | Compiles; strict response parsing, startup/reload presentation, and isolated shaded-JAR tests pass |
 | Paper-compatible 26.2 server with Java 26.1 bot | Language, navigation, acceptance, reconnect, Leave, and administrator checks pass; official Grim `2.3.74-8eb5f28` passes initial-login long-wait and timeout checks; see the [Grim test report](12-paper-anticheat-compatibility.md) |

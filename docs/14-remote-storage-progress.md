@@ -43,8 +43,6 @@ Tested artifact SHA-256 values: Paper `d3c6187342be8e3b26be4786325d5b1394ba811b1
 
 ## Still open
 
-- Repeat the platform admission and outage checks against MariaDB.
-- Repeat the new certificate and socket-failure checks against MariaDB.
 - Measure sustained connection load and decide whether a small pool is justified.
 - Broader review of multi-instance reset timing and clock-skew handling before release.
 - Prepare corresponding dependency source materials before any binary publication.
@@ -66,3 +64,9 @@ The packaged Velocity and Paper plugins passed headless admission through a loca
 With only the relay disabled, fresh cached acceptance still admitted the known player. Unknown players were denied, administrator status failed instead of reporting cached data, and the known player was denied after cache expiry. Restoring the relay allowed rejoin. Disconnecting the relay after showing a new agreement prevented a failed save from admitting that player; restoring it allowed a new confirmed grant.
 
 The first relay fixture used a one-second connection timeout and failed during Velocity startup. The final fixture first verifies a complete TLS query through the relay and uses the plugin's default three-second connection and five-second socket timeouts. Both final platform runs passed. The proxy, server, database, and relays stopped afterward, and original ConsentGate configurations were restored. No graphical client or external deployment was used.
+
+## Expanded MariaDB verification, 2026-09-13
+
+MariaDB 11.8.6 passed the same 15 repository checks with no failures or skips, including verified TLS, unrelated-CA and hostname rejection, both isolated drivers, and actual socket interruptions before commit and before its acknowledgement. Its official Windows ZIP matched the archive's published SHA-256 checksum. The runner initialized a fresh loopback database without installing a service.
+
+Both packaged platforms also passed the full admission and TLS-relay outage sequence described above for MySQL: acceptance, rejoin, status, reset history, fresh-cache admission, unknown and expired-cache denial, failed-save denial, and recovery. The proxy, server, database, and relays stopped afterward; original plugin configurations were restored. Sustained load and wider multi-instance timing remain open.

@@ -1,4 +1,4 @@
-"""Run opt-in MySQL tests using an extracted Windows server, without installing a service."""
+"""Run opt-in SQL tests using an extracted Windows server, without installing a service."""
 
 import argparse
 import datetime
@@ -18,15 +18,22 @@ from cryptography.x509.oid import NameOID, ExtendedKeyUsageOID
 
 project = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--server', required=True, type=Path, help='Root of an extracted MySQL Windows ZIP distribution')
+parser.add_argument('--server', required=True, type=Path, help='Root of an extracted MySQL or MariaDB Windows ZIP distribution')
+parser.add_argument('--engine', choices=('mysql', 'mariadb'), default='mysql')
+parser.add_argument('--client', type=Path, help='MySQL mysql.exe for inspection and shutdown, required with MariaDB')
 parser.add_argument('--platforms', nargs='*', choices=('paper', 'velocity'), default=[])
 parser.add_argument('--modules', type=Path, help='Local Node dependency directory, required for Paper checks')
 args = parser.parse_args()
 if 'paper' in args.platforms and args.modules is None:
     parser.error('Paper checks require --modules')
+if args.engine == 'mariadb' and args.client is None:
+    parser.error('MariaDB checks require --client pointing to a MySQL mysql.exe')
 base = args.server.resolve()
-assert (base / 'bin/mysqld.exe').is_file(), 'Provide the extracted MySQL server directory'
-fixture = project / '.run' / ('mysql-test-' + uuid.uuid4().hex)
+server_binary = base / 'bin' / ('mysqld.exe' if args.engine == 'mysql' else 'mariadbd.exe')
+assert server_binary.is_file(), 'Provide the extracted database server directory'
+client_binary = args.client.resolve() if args.client else base / 'bin/mysql.exe'
+assert client_binary.is_file() and (client_binary.parent / 'mysqladmin.exe').is_file()
+fixture = project / '.run' / (args.engine + '-test-' + uuid.uuid4().hex)
 fixture.mkdir()
 data = fixture / 'data'
 data.mkdir()
@@ -66,32 +73,35 @@ root_password = secrets.token_hex(24)
 client_file = fixture / 'root-client.ini'
 server_process = None
 with (fixture / 'initialize.log').open('wb') as output:
-    subprocess.run([str(bin_dir / 'mysqld.exe'), '--no-defaults', '--initialize-insecure',
-                    '--basedir=' + str(base), '--datadir=' + str(data)], check=True, stdout=output,
+    initialize = ([str(server_binary), '--no-defaults', '--initialize-insecure', '--basedir=' + str(base), '--datadir=' + str(data)]
+                  if args.engine == 'mysql' else [str(bin_dir / 'mariadb-install-db.exe'), '--datadir=' + str(data), '--port=' + str(port)])
+    subprocess.run(initialize, check=True, stdout=output,
                    stderr=subprocess.STDOUT, timeout=120, creationflags=flags)
-print('Initialized disposable MySQL data.', flush=True)
+print('Initialized disposable ' + args.engine + ' data.', flush=True)
 log = (fixture / 'server.log').open('wb')
 try:
-    server_process = subprocess.Popen([str(bin_dir / 'mysqld.exe'), '--no-defaults', '--console',
+    server_args = [str(server_binary), '--no-defaults', '--console',
         '--basedir=' + str(base), '--datadir=' + str(data), '--bind-address=127.0.0.1', '--port=' + str(port),
-        '--mysqlx=OFF', '--skip-log-bin', '--local-infile=OFF', '--ssl-ca=' + str(fixture / 'ca.pem'),
-        '--ssl-cert=' + str(fixture / 'server.pem'), '--ssl-key=' + str(fixture / 'server-key.pem')],
-        stdout=log, stderr=subprocess.STDOUT, creationflags=flags)
+        '--skip-log-bin', '--local-infile=OFF', '--ssl-ca=' + str(fixture / 'ca.pem'),
+        '--ssl-cert=' + str(fixture / 'server.pem'), '--ssl-key=' + str(fixture / 'server-key.pem')]
+    if args.engine == 'mysql':
+        server_args.append('--mysqlx=OFF')
+    server_process = subprocess.Popen(server_args, stdout=log, stderr=subprocess.STDOUT, creationflags=flags)
     deadline = time.monotonic() + 60
     while time.monotonic() < deadline:
         if server_process.poll() is not None:
-            raise RuntimeError('MySQL exited; inspect ' + str(fixture / 'server.log'))
+            raise RuntimeError('Database exited; inspect ' + str(fixture / 'server.log'))
         with socket.socket() as check:
             if check.connect_ex(('127.0.0.1', port)) == 0:
                 break
         time.sleep(0.2)
     else:
-        raise TimeoutError('MySQL did not start')
+        raise TimeoutError('Database did not start')
     sql = (f'CREATE DATABASE {database} CHARACTER SET utf8mb4;'
            f"CREATE USER 'consentgate_test'@'localhost' IDENTIFIED BY '{password}';"
            f"GRANT ALL ON {database}.* TO 'consentgate_test'@'localhost';"
            f"ALTER USER 'root'@'localhost' IDENTIFIED BY '{root_password}';")
-    subprocess.run([str(bin_dir / 'mysql.exe'), '--no-defaults', '--protocol=TCP', '--host=localhost',
+    subprocess.run([str(client_binary), '--no-defaults', '--protocol=TCP', '--host=localhost',
                     '--port=' + str(port), '--user=root', '--ssl-mode=VERIFY_IDENTITY',
                     '--ssl-ca=' + str(fixture / 'ca.pem')], input=sql, text=True, check=True,
                    capture_output=True, timeout=15, creationflags=flags)
@@ -106,14 +116,15 @@ try:
                CG_TEST_DB_SSL_MODE='verify-full', CG_TEST_DB_SERVER_CERTIFICATE=str(fixture / 'ca.pem'))
     env.update(CG_TEST_DB_UNTRUSTED_CERTIFICATE=str(fixture / 'untrusted-ca.pem'), CG_TEST_DB_WRONG_HOST='127.0.0.1')
     env['CG_TEST_DB_SOCKET_FAULTS'] = 'true'
-    env['CG_TEST_DB_CLIENT'] = str(bin_dir / 'mysql.exe')
-    print('Running MySQL repository tests with verified TLS on loopback port ' + str(port), flush=True)
+    env['CG_TEST_DB_CLIENT'] = str(client_binary)
+    env['CG_TEST_DB_TYPE'] = args.engine
+    print('Running ' + args.engine + ' repository tests with verified TLS on loopback port ' + str(port), flush=True)
     result = subprocess.run([str(project / 'gradlew.bat'), '--offline', ':core:remoteDatabaseTest', '--console=plain'],
                             cwd=project, env=env, timeout=240, creationflags=flags, capture_output=True, text=True)
     (fixture / 'gradle.log').write_text(result.stdout + result.stderr)
     print(result.stdout[-3500:] + result.stderr[-1000:], flush=True)
     if result.returncode:
-        raise RuntimeError('MySQL integration tests failed')
+        raise RuntimeError('Database integration tests failed')
     for platform in args.platforms:
         command = [os.sys.executable, str(project / 'tools/run_remote_admission_probe.py'), '--platform', platform]
         if args.modules is not None:
@@ -127,7 +138,7 @@ try:
 finally:
     if server_process is not None and server_process.poll() is None:
         if client_file.exists():
-            subprocess.run([str(bin_dir / 'mysqladmin.exe'), '--defaults-file=' + str(client_file), 'shutdown'],
+            subprocess.run([str(client_binary.parent / 'mysqladmin.exe'), '--defaults-file=' + str(client_file), 'shutdown'],
                            capture_output=True, timeout=15, creationflags=flags)
         try:
             server_process.wait(timeout=15)
@@ -135,4 +146,4 @@ finally:
             server_process.terminate()
             server_process.wait(timeout=10)
     log.close()
-    print('MySQL stopped. Fixture retained at ' + str(fixture), flush=True)
+    print(args.engine + ' stopped. Fixture retained at ' + str(fixture), flush=True)
