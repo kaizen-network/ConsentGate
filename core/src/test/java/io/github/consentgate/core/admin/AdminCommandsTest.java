@@ -19,6 +19,8 @@ class AdminCommandsTest {
                 public void status(UUID id, Consumer<String> reply) { calls.add("status:" + id); }
                 public void reset(UUID id, Consumer<String> reply) { calls.add("reset:" + id); }
                 public void configuration(boolean apply, Consumer<String> reply) { calls.add(apply ? "reload" : "validate"); }
+                public void preview(UUID id, String locale, Consumer<String> reply) { calls.add("preview:" + id + ":" + locale); }
+                public void document(String[] args, Consumer<String> reply) { calls.add("document:" + String.join(":", args)); }
             });
 
     private void execute(Set<String> permissions, String... args) {
@@ -56,6 +58,17 @@ class AdminCommandsTest {
                 new String[]{"status", player.toString(), "extra"}, new String[]{"unknown"})) execute(Set.of("status", "reset", "reload"), args);
         assertTrue(calls.isEmpty());
         assertEquals(5, replies.size());
+    }
+
+    @Test void previewAndDocumentHaveSeparatePermissionsAndArguments() {
+        execute(Set.of("status", "reset"), "preview", player.toString());
+        execute(Set.of("preview"), "document");
+        assertTrue(calls.isEmpty());
+        execute(Set.of("preview"), "preview", player.toString(), "id-ID");
+        execute(Set.of("preview"), "preview", player.toString(), "cancel");
+        execute(Set.of("document"), "document");
+        execute(Set.of("document"), "document", "rules", "id-ID", "2");
+        assertEquals(List.of("preview:" + player + ":id-ID", "preview:" + player + ":cancel", "document:", "document:rules:id-ID:2"), calls);
     }
 
     @Test void completionsDoNotExposeNamesOrUnauthorizedActions() {

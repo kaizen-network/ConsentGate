@@ -43,6 +43,21 @@ public final class SafeTextFormatter {
     public Component error(String value) { return format(value, appearance.errorColor()); }
     public Component button(String value) { return format(value, appearance.buttonColor()); }
 
+    public static String plain(String value) {
+        validate(value);
+        var result = new StringBuilder();
+        appendPlain(MINI_MESSAGE.deserialize(value), result);
+        return result.toString();
+    }
+
+    private static void appendPlain(Component component, StringBuilder result) {
+        if (!(component instanceof net.kyori.adventure.text.TextComponent text)) {
+            throw new IllegalArgumentException("Only plain document text can be displayed");
+        }
+        result.append(text.content());
+        component.children().forEach(child -> appendPlain(child, result));
+    }
+
     public Component format(String value, String defaultColor) {
         validate(value);
         return MINI_MESSAGE.deserialize(value).colorIfAbsent(color(defaultColor));

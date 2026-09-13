@@ -22,6 +22,8 @@ class AdminCommandTest {
                 public void status(UUID id, Consumer<String> reply) { calls.add("status:" + id); }
                 public void reset(UUID id, Consumer<String> reply) { calls.add("reset:" + id); }
                 public void configuration(boolean apply, Consumer<String> reply) { calls.add(apply ? "reload" : "validate"); }
+                public void preview(UUID id, String locale, Consumer<String> reply) { calls.add("preview:" + id); }
+                public void document(String[] args, Consumer<String> reply) { calls.add("document"); }
             });
 
     @Test void resolvesOnlineNamesAndCanonicalOfflineUuids() {

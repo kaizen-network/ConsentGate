@@ -2,6 +2,7 @@ package io.github.consentgate.paper;
 
 import io.github.consentgate.core.GateSession;
 import io.github.consentgate.core.admin.PlayerOperations;
+import io.github.consentgate.core.admin.PreviewQueue;
 import io.github.consentgate.core.admission.AdmissionSession;
 import io.github.consentgate.core.admission.AdmissionRequest;
 import java.util.UUID;
@@ -38,7 +39,8 @@ abstract class PaperAdmission {
         session = new AdmissionSession(request);
         session.result().whenComplete((decision, error) -> {
             if (error == null && decision == GateSession.Decision.ACCEPTED) {
-                execute(() -> { save.run(); finish(null); });
+                if (request.preview()) finish(PreviewQueue.COMPLETE);
+                else execute(() -> { save.run(); finish(null); });
             } else finish(denied.get());
         });
         try { show.accept(session); }

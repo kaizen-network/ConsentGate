@@ -9,6 +9,7 @@ import shutil
 import socket
 import sqlite3
 import subprocess
+import threading
 import time
 import uuid
 
@@ -72,19 +73,35 @@ def main():
             time.sleep(0.1)
         raise AssertionError("Missing console reply for " + value + ": " + expected)
 
-    def probe(name, expected="accepted", hold=0, action="accept"):
-        result = subprocess.run(["node", str(project / "tools/probe_paper.cjs"), "--modules", str(modules),
+    def probe(name, expected="accepted", hold=0, action="accept", on_dialog=None):
+        child = subprocess.Popen(["node", str(project / "tools/probe_paper.cjs"), "--modules", str(modules),
                                  "--name", name, "--hold", str(hold), "--play-seconds", "1",
                                  "--expect", expected, "--action", action],
-                                capture_output=True, text=True, timeout=hold + 60)
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         reports = []
-        for line in result.stdout.splitlines():
-            try:
-                reports.append(json.loads(line))
-            except ValueError:
-                pass
-        if result.returncode != 0 or not any(item.get("event") == "result" and item.get("passed") for item in reports):
-            raise AssertionError("Paper probe failed:\n" + result.stdout + result.stderr)
+        lines = []
+        timer = threading.Timer(hold + 60, child.kill)
+        timer.start()
+        try:
+            for line in child.stdout:
+                lines.append(line)
+                try:
+                    report = json.loads(line)
+                except ValueError:
+                    continue
+                reports.append(report)
+                if report.get("event") == "dialog" and on_dialog is not None:
+                    on_dialog()
+                    on_dialog = None
+            child.wait(timeout=5)
+        finally:
+            timer.cancel()
+            child.stdout.close()
+            if child.poll() is None:
+                child.terminate()
+                child.wait(timeout=5)
+        if child.returncode != 0 or not any(item.get("event") == "result" and item.get("passed") for item in reports):
+            raise AssertionError("Paper probe failed:\n" + "".join(lines))
         print("PASS: Paper " + name + " " + expected + " (" + action + ")", flush=True)
         return reports
 
@@ -110,6 +127,31 @@ def main():
             raise TimeoutError("Paper startup exceeded 90 seconds")
         assert "ConsentGate is enabled with sqlite storage." in log()
         command("consentgate validate", "Validation passed.")
+        command("consentgate document", "test-agreement (probe-1): required; locales: en-US")
+        command("consentgate document test-agreement en-US 2", "Acceptance must be stored before backend admission.")
+        command("consentgate preview " + offline_uuid("ConsentPreview") + " en-US", "Preview queued")
+        probe("ConsentPreview", "preview")
+        assert decisions("ConsentPreview") == []
+        probe("ConsentPreview")
+        assert decisions("ConsentPreview") == ["granted"]
+        command("consentgate preview " + offline_uuid("ConsentPreview"), "Preview queued")
+        probe("ConsentPreview", "preview")
+        assert decisions("ConsentPreview") == ["granted"]
+        probe("ConsentPreview", "rejoin")
+        command("consentgate preview " + offline_uuid("ConsentPreview"), "Preview queued")
+        command("consentgate preview " + offline_uuid("ConsentPreview") + " cancel", "Preview cancelled")
+        probe("ConsentPreview", "rejoin")
+        command("consentgate preview " + offline_uuid("ConsentPreview") + " id-ID", "No exact id-ID translation")
+
+        def pressure_check():
+            target = offline_uuid("ConsentPressure")
+            command("consentgate reset " + target, "Disconnect the player first")
+            command("consentgate preview " + target, "Disconnect the player first")
+            command("consentgate reload", "Reload is busy.")
+            probe("ConsentOverflow", "unavailable")
+            assert decisions("ConsentOverflow") == []
+
+        probe("ConsentPressure", hold=8, on_dialog=pressure_check)
         probe("ConsentFlow")
         assert decisions("ConsentFlow") == ["granted"]
         probe("ConsentFlow", "rejoin")

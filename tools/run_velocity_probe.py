@@ -2,6 +2,8 @@
 
 import pathlib
 import argparse
+import hashlib
+import select
 from contextlib import closing
 import shutil
 import socket
@@ -43,6 +45,8 @@ def main():
     assert artifact.is_file(), "Build the Velocity artifact before running the probe"
     shutil.copyfile(artifact, directory / "plugins" / "ConsentGate.jar")
     data_directory = directory / "plugins" / "consentgate"
+    config_file = data_directory / "config.yml"
+    original_config = config_file.read_bytes() if config_file.exists() else None
     fixture_name = "probe-fixtures/" + uuid.uuid4().hex
     fixture = data_directory / fixture_name
     documents = fixture / "documents"
@@ -93,6 +97,37 @@ def main():
                 raise AssertionError("Admin command did not return the expected response: " + text)
 
             command("consentgate status " + player_id, "test-agreement (probe-1): accepted")
+            command("consentgate document", "test-agreement (probe-1): required; locales: en-US")
+            command("consentgate document test-agreement en-US 2", "Acceptance must be stored before backend admission.")
+            for preview_name, preview_id in ((name, player_id), ("PreviewNew", str(uuid.UUID(
+                    bytes=hashlib.md5(b"OfflinePlayer:PreviewNew").digest(), version=3)))):
+                with closing(sqlite3.connect(database)) as connection:
+                    previous = connection.execute("SELECT COUNT(*) FROM cg_acceptance_events WHERE player_uuid=?", (preview_id,)).fetchone()[0]
+                command("consentgate preview " + preview_id + " en-US", "Preview queued")
+                client = probe_velocity.Client(preview_name)
+                try:
+                    client.click()
+                    packet, _ = client.receive()
+                    assert packet == 17
+                    packet, body = client.receive()
+                    assert packet == 2 and b"Preview complete. No acceptance was saved." in body
+                    assert not select.select([backend], [], [], 0.3)[0]
+                finally:
+                    client.close()
+                with closing(sqlite3.connect(database)) as connection:
+                    assert connection.execute("SELECT COUNT(*) FROM cg_acceptance_events WHERE player_uuid=?", (preview_id,)).fetchone()[0] == previous
+            command("consentgate preview " + player_id, "Preview queued")
+            command("consentgate preview " + player_id + " cancel", "Preview cancelled")
+            client = probe_velocity.Client(name, client_id, expect_dialog=False)
+            try:
+                connection, _ = backend.accept()
+                with connection:
+                    connection.settimeout(5)
+                    assert probe_velocity.exact(connection, probe_velocity.read_varint(connection))[0] == 0
+            finally:
+                client.close()
+            command("consentgate preview " + str(uuid.uuid4()) + " id-ID", "No exact id-ID translation")
+            print("PASS: document viewing and one-shot preview preserve acceptance history and never contact the backend", flush=True)
             command("consentgate validate", "Validation passed.")
             document_file = documents / "agreement.yml"
             document_file.write_text(PROBE_DOCUMENT.replace("Local automated test content.", "Changed text."), encoding="utf-8")
@@ -122,6 +157,7 @@ def main():
             try:
                 probe_velocity.no_backend(backend, client, 0.5)
                 command("consentgate reset " + player_id, "Disconnect the player first")
+                command("consentgate preview " + player_id, "Disconnect the player first")
                 command("consentgate reload", "Reload is busy.")
             finally:
                 client.close()
@@ -151,8 +187,11 @@ def main():
                 process.terminate()
                 process.wait(timeout=10)
         process.stdin.close()
-        clean_database(database, required=False)
-        shutil.rmtree(fixture, ignore_errors=True)
+        if original_config is None:
+            config_file.unlink(missing_ok=True)
+        else:
+            config_file.write_bytes(original_config)
+        print("Velocity stopped; original configuration restored. Fixture: " + str(fixture), flush=True)
 
 
 PROBE_CONFIG = """\

@@ -10,12 +10,14 @@ import java.util.function.Predicate;
 
 /** Shared command rules; platforms supply identity, permission checks, and reply delivery. */
 public final class AdminCommands {
-    private static final List<String> ACTIONS = List.of("status", "reset", "validate", "reload");
+    private static final List<String> ACTIONS = List.of("status", "reset", "validate", "reload", "preview", "document");
 
     public interface Operations {
         void status(UUID playerId, Consumer<String> reply);
         void reset(UUID playerId, Consumer<String> reply);
         void configuration(boolean apply, Consumer<String> reply);
+        void preview(UUID playerId, String locale, Consumer<String> reply);
+        void document(String[] args, Consumer<String> reply);
     }
 
     private final Function<String, Optional<UUID>> onlinePlayer;
@@ -29,8 +31,15 @@ public final class AdminCommands {
     public void execute(String[] args, Predicate<String> permission, Consumer<String> reply) {
         String action = args.length == 0 ? "" : args[0].toLowerCase(Locale.ROOT);
         boolean configuration = action.equals("validate") || action.equals("reload");
-        if (!ACTIONS.contains(action) || args.length != (configuration ? 1 : 2)) {
-            reply.accept("Usage: /consentgate <status|reset> <online-player|uuid>, or /consentgate <validate|reload>");
+        boolean valid = switch (action) {
+            case "validate", "reload" -> args.length == 1;
+            case "status", "reset" -> args.length == 2;
+            case "preview" -> args.length == 2 || args.length == 3;
+            case "document" -> args.length >= 1 && args.length <= 4;
+            default -> false;
+        };
+        if (!valid) {
+            reply.accept("Usage: /consentgate <status|reset> <online-player|uuid>, <validate|reload>, preview <uuid> [locale|cancel], or document [id] [locale] [page]");
             return;
         }
         if (!permission.test("consentgate.admin." + action)) {
@@ -39,6 +48,10 @@ public final class AdminCommands {
         }
         if (configuration) {
             operations.configuration(action.equals("reload"), reply);
+            return;
+        }
+        if (action.equals("document")) {
+            operations.document(java.util.Arrays.copyOfRange(args, 1, args.length), reply);
             return;
         }
         Optional<UUID> target = onlinePlayer.apply(args[1]);
@@ -53,7 +66,8 @@ public final class AdminCommands {
             return;
         }
         if (action.equals("status")) operations.status(target.orElseThrow(), reply);
-        else operations.reset(target.orElseThrow(), reply);
+        else if (action.equals("reset")) operations.reset(target.orElseThrow(), reply);
+        else operations.preview(target.orElseThrow(), args.length == 3 ? args[2] : null, reply);
     }
 
     public static boolean hasPermission(Predicate<String> permission) {

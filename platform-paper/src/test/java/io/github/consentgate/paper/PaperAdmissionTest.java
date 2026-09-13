@@ -73,6 +73,16 @@ class PaperAdmissionTest {
         assertTrue(needsConsent());
     }
 
+    @Test void acceptedPreviewDisconnectsWithoutInvokingTheSaveOrDatabaseQueue() throws Exception {
+        var probe = new Probe(queued::add);
+        probe.begin(runtime.admissionService().orElseThrow().preview(player, "en-US"), ignored -> { },
+                () -> fail("Preview invoked storage"), () -> "Declined");
+        accept(probe);
+        assertDenied(probe);
+        assertTrue(queued.isEmpty());
+        assertTrue(needsConsent());
+    }
+
     @Test void shutdownBeforeQueuedSaveCancelsTheWrite() throws Exception {
         var probe = begin(queued::add);
         accept(probe);

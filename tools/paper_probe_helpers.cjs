@@ -17,7 +17,7 @@ function parseOptions(args) {
   }
   if (options.port < 1 || options.port > 65535 || options.hold > 3600 || options['play-seconds'] > 3600) throw new Error('Numeric option out of range');
   if (!/^[A-Za-z0-9_]{1,16}$/.test(options.name)) throw new Error('Invalid offline player name');
-  if (!['accepted', 'denied', 'rejoin', 'unavailable', 'save-failed', 'play-timeout'].includes(options.expect)) throw new Error('Invalid expected result');
+  if (!['accepted', 'denied', 'rejoin', 'unavailable', 'save-failed', 'preview', 'play-timeout'].includes(options.expect)) throw new Error('Invalid expected result');
   if (!['accept', 'leave'].includes(options.action)) throw new Error('Invalid action');
   if (options.action === 'leave' && options.expect !== 'denied') throw new Error('Leave requires --expect denied');
   if (!['true', 'false'].includes(options['reply-pings'])) throw new Error('Invalid ping reply option');

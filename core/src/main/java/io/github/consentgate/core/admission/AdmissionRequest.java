@@ -4,7 +4,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
-public record AdmissionRequest(UUID playerId, UUID requestId, List<AdmissionDocument> documents) {
+public record AdmissionRequest(UUID playerId, UUID requestId, List<AdmissionDocument> documents, boolean preview) {
+    public AdmissionRequest(UUID playerId, UUID requestId, List<AdmissionDocument> documents) {
+        this(playerId, requestId, documents, false);
+    }
+
     public AdmissionRequest {
         playerId = Objects.requireNonNull(playerId, "playerId");
         requestId = Objects.requireNonNull(requestId, "requestId");

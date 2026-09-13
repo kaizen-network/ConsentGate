@@ -12,7 +12,7 @@ const client = protocol.createClient({host: '127.0.0.1', port, username: options
   version: '26.1', auth: 'offline'});
 const started = Date.now();
 let actions = [], inputs = [], selected = false, acceptanceSent = false, joined = false, left = false;
-let keepalives = 0, pings = 0, timer, lastHeartbeatLog = 0, firstDialogAt = 0, finished = false, hadError = false;
+let keepalives = 0, pings = 0, timer, lastHeartbeatLog = 0, firstDialogAt = 0, finished = false, hadError = false, previewComplete = false;
 const report = (event, details = {}) => console.log(JSON.stringify({event, seconds: (Date.now() - started) / 1000, ...details}));
 function click(prefix) {
   const action = actions.find(value => value.startsWith('consentgate:' + prefix + '/'));
@@ -51,13 +51,16 @@ client.on('success', () => report('authenticated', {uuid: client.uuid}));
 client.on('login', () => {
   joined = true;
   report('play', {acceptanceSent, dialogWaitSeconds: firstDialogAt ? (Date.now() - firstDialogAt) / 1000 : null});
-  if ((expected !== 'rejoin' && !acceptanceSent) || ['denied', 'unavailable', 'save-failed'].includes(expected)) {
+  if ((expected !== 'rejoin' && !acceptanceSent) || ['denied', 'unavailable', 'save-failed', 'preview'].includes(expected)) {
     hadError = true;
     report('failure', {reason: 'Unexpected admission'}); client.end('Probe failed'); return;
   }
   setTimeout(() => { finished = true; client.end('Probe complete'); }, playSeconds * 1000);
 });
-client.on('disconnect', packet => report('disconnect', {reason: packet.reason}));
+client.on('disconnect', packet => {
+  previewComplete = JSON.stringify(packet.reason).includes('Preview complete. No acceptance was saved.');
+  report('disconnect', {reason: packet.reason});
+});
 client.on('kick_disconnect', packet => report('kick', {reason: packet.reason}));
 client.on('error', error => { hadError = true; report('error', {message: error.message}); });
 client.on('end', reason => {
@@ -66,6 +69,7 @@ client.on('end', reason => {
     : expected === 'rejoin' ? joined && !firstDialogAt && !acceptanceSent && finished
     : expected === 'unavailable' ? !joined && !firstDialogAt && !acceptanceSent
     : expected === 'save-failed' ? !joined && !!firstDialogAt && acceptanceSent
+    : expected === 'preview' ? !joined && !!firstDialogAt && acceptanceSent && previewComplete
     : expected === 'denied' ? !!firstDialogAt && !joined && !acceptanceSent && (options.action !== 'leave' || left)
     : joined && acceptanceSent && !finished && pings > 0;
   const passed = matched && !hadError;

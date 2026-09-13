@@ -7,7 +7,7 @@ softdepend: [Geyser-Spigot]
 commands:
   consentgate:
     description: Inspect consent records and manage ConsentGate
-    usage: /consentgate <status|reset|validate|reload>
+    usage: /consentgate <status|reset|validate|reload|preview|document>
 permissions:
   consentgate.admin.status:
     description: Inspect current consent acceptance
@@ -20,4 +20,10 @@ permissions:
     default: op
   consentgate.admin.reload:
     description: Validate and reload supported ConsentGate settings
+    default: op
+  consentgate.admin.preview:
+    description: Queue a login preview that never saves consent
+    default: op
+  consentgate.admin.document:
+    description: Read active document versions and pages
     default: op

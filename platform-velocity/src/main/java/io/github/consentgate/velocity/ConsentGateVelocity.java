@@ -4,6 +4,8 @@ import io.github.consentgate.bedrock.BedrockView;
 import io.github.consentgate.bedrock.GeyserBedrockBridge;
 
 import io.github.consentgate.core.admin.PlayerOperations;
+import io.github.consentgate.core.admin.PreviewQueue;
+import io.github.consentgate.presentation.AdminDocuments;
 
 import io.github.consentgate.presentation.SafeTextFormatter;
 import io.github.consentgate.presentation.InterfaceMessages;
@@ -91,6 +93,7 @@ public final class ConsentGateVelocity {
     private final Set<Player> admitted = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Set<UUID> resetting = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final PlayerOperations playerOperations = new PlayerOperations();
+    private final PreviewQueue previews = new PreviewQueue();
     private final Map<User, Heartbeat> lateHeartbeats = new java.util.concurrent.ConcurrentHashMap<>();
     private final PacketListenerAbstract packets = new PacketListenerAbstract(PacketListenerPriority.HIGHEST) {
         @Override public void onPacketReceive(PacketReceiveEvent event) { receiveSafely(event); }
@@ -153,6 +156,17 @@ public final class ConsentGateVelocity {
                     @Override public void configuration(boolean apply, java.util.function.Consumer<String> reply) {
                         configure(apply, reply);
                     }
+                    @Override public void preview(UUID id, String locale, java.util.function.Consumer<String> reply) {
+                        previewCommand(id, locale, reply);
+                    }
+                    @Override public void document(String[] args, java.util.function.Consumer<String> reply) {
+                        var active = runtime;
+                        if (stopping || startupFailure != null || active == null || !active.enabled()) {
+                            reply.accept("ConsentGate must be enabled and running before using this command.");
+                            return;
+                        }
+                        AdminDocuments.show(active.admissionService().orElseThrow().catalog(), active.config().defaultLocale(), args, reply);
+                    }
                 }));
     }
 
@@ -182,6 +196,9 @@ public final class ConsentGateVelocity {
                 if (rejected) {
                     sessions.remove(player, pending);
                     sessionsByUser.remove(user, pending);
+                } else {
+                    pending.preview = previews.take(player.getUniqueId()).orElse(null);
+                    if (pending.preview != null) pending.selectedLocale = pending.preview.locale();
                 }
             }
             if (rejected) {
@@ -201,7 +218,10 @@ public final class ConsentGateVelocity {
             AdmissionService service = runtime.admissionService().orElseThrow();
             String locale = pending.player.getEffectiveLocale() == null
                     ? null : pending.player.getEffectiveLocale().toLanguageTag();
-            var request = service.check(pending.player.getUniqueId(), locale);
+            if (pending.selectedLocale != null) locale = pending.selectedLocale;
+            else if (!runtime.config().useClientLocale()) locale = runtime.config().defaultLocale();
+            var request = pending.preview == null ? service.check(pending.player.getUniqueId(), locale)
+                    : java.util.Optional.of(service.preview(pending.player.getUniqueId(), locale));
             if (pending.finished.get()) return;
             if (request.isEmpty()) {
                 admit(pending);
@@ -218,7 +238,7 @@ public final class ConsentGateVelocity {
                             endOrFinish(pending, GateSession.Decision.FAILED, "Consent form could not be shown.");
                         });
             }
-            if (runtime.config().languageSelector().enabled()) showLanguageSelector(pending);
+            if (runtime.config().languageSelector().enabled() && (pending.preview == null || pending.preview.locale() == null)) showLanguageSelector(pending);
             else beginSession(pending, request.orElseThrow());
         } catch (Exception ex) {
             logger.error("Consent check failed for {}", pending.player.getUniqueId(), ex);
@@ -232,7 +252,8 @@ public final class ConsentGateVelocity {
         pending.session = session;
         session.result().whenComplete((decision, failure) -> {
             if (failure == null && decision == GateSession.Decision.ACCEPTED) {
-                executeDatabase(pending, () -> persistAcceptance(pending));
+                if (request.preview()) finishDenied(pending, PreviewQueue.COMPLETE);
+                else executeDatabase(pending, () -> persistAcceptance(pending));
             } else {
                 finishDenied(pending, message(pending, "denied"));
             }
@@ -405,7 +426,9 @@ public final class ConsentGateVelocity {
                 finishDenied(pending, "Connection ended before the consent check completed.");
                 return;
             }
-            var request = runtime.admissionService().orElseThrow().checkExactLocale(pending.player.getUniqueId(), locale);
+            var service = runtime.admissionService().orElseThrow();
+            var request = pending.preview == null ? service.checkExactLocale(pending.player.getUniqueId(), locale)
+                    : java.util.Optional.of(service.preview(pending.player.getUniqueId(), locale));
             if (request.isEmpty()) admit(pending);
             else beginSession(pending, request.orElseThrow());
         } catch (Exception ex) {
@@ -643,6 +666,7 @@ public final class ConsentGateVelocity {
                         synchronized (sessions) {
                             if (stopping) throw new IllegalStateException("ConsentGate is stopping");
                             if (apply) {
+                                previews.clear();
                                 formatter = nextFormatter;
                                 messages = nextMessages;
                                 runtime = nextRuntime;
@@ -711,6 +735,23 @@ public final class ConsentGateVelocity {
         } catch (RejectedExecutionException ex) {
             if (reset) resetting.remove(playerId);
             reply.accept("ConsentGate is busy. Please try again shortly.");
+        }
+    }
+
+    private void previewCommand(UUID id, String locale, java.util.function.Consumer<String> reply) {
+        synchronized (sessions) {
+            if (stopping || startupFailure != null || runtime == null || !runtime.enabled()) {
+                reply.accept("ConsentGate must be enabled and running before using this command.");
+                return;
+            }
+            if (reloading || resetting.contains(id)) { reply.accept("ConsentGate is busy. Please try again shortly."); return; }
+            if (!"cancel".equalsIgnoreCase(locale) && (proxy.getPlayer(id).isPresent()
+                    || sessions.keySet().stream().anyMatch(player -> player.getUniqueId().equals(id)))) {
+                reply.accept("Disconnect the player first, then queue a preview using their UUID: " + id);
+                return;
+            }
+            try { reply.accept(previews.schedule(id, locale, runtime.admissionService().orElseThrow().catalog())); }
+            catch (IllegalArgumentException ex) { reply.accept(ex.getMessage()); }
         }
     }
 
@@ -828,6 +869,7 @@ public final class ConsentGateVelocity {
         }
         lateHeartbeats.clear();
         admitted.clear();
+        previews.clear();
     }
 
     private record Heartbeat(long id, long sent) { }
@@ -845,6 +887,7 @@ public final class ConsentGateVelocity {
         final HeldConnection held;
         volatile AdmissionSession session;
         volatile BedrockView bedrock;
+        PreviewQueue.Choice preview;
         volatile String selectorToken;
         volatile String selectedLocale;
         final AtomicBoolean languageSelection = new AtomicBoolean();

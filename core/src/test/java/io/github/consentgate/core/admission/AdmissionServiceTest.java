@@ -93,6 +93,22 @@ class AdmissionServiceTest {
         }
     }
 
+    @Test void previewDoesNotCheckStorageAndCannotGrantEvenWithEveryBoxSelected() throws Exception {
+        var repository = new RecordingRepository();
+        repository.accepted = true;
+        var player = UUID.randomUUID();
+        try (var service = new AdmissionService(config(true, true), catalog(), repository)) {
+            var preview = service.preview(player, "id-ID");
+            assertTrue(preview.preview());
+            assertEquals("id-ID", preview.documents().getFirst().locale());
+            var session = new AdmissionSession(preview);
+            assertTrue(session.accept(session.token(), Map.of("rules", true)));
+            assertThrows(IllegalArgumentException.class, () -> service.grant(player, session, Instant.now(), "in-game"));
+            assertEquals(0, repository.checks);
+            assertNull(repository.granted);
+        }
+    }
+
     @Test void currentAcceptanceNeedsNoRequest() throws Exception {
         var repository = new RecordingRepository();
         repository.accepted = true;

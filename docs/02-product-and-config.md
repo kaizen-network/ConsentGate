@@ -1,6 +1,6 @@
 # Player flow and configuration
 
-Status: configuration, formatting, editable messages, documents, remote storage, and the basic administrator commands are implemented on both platforms. Native Bedrock presentation is shared, with real-client checks on Velocity and Paper delivery verification still pending. Preview and document-viewing commands remain planned. See [release progress](16-release-progress.md).
+Status: configuration, formatting, editable messages, documents, remote storage, and administrator commands are implemented on both platforms, including login preview and document viewing. Native Bedrock presentation is shared, with real-client checks on Velocity and Paper delivery verification still pending. See [release progress](16-release-progress.md).
 
 ## Player experience
 
@@ -141,14 +141,14 @@ The optional `appearance` section supplies default colors for unformatted text a
 
 Document fields support named and hex colors plus `bold`, `italic`, `underlined`, `strikethrough`, and `obfuscated`. Tags must be properly closed. Interactive, hover, insertion, font, gradient, rainbow, and external-link tags are rejected during startup validation. Use YAML line breaks instead of formatting tags for new lines.
 
-Remote settings should support host, port, database, username, password via an environment-variable reference, and verified TLS. Define that syntax during implementation. Never put passwords inside a logged JDBC URL.
+Remote settings support host, port, database, username, a password environment-variable reference, and verified TLS. See the implemented syntax in [remote storage](15-remote-storage.md). Passwords are not included in logged JDBC URLs.
 
 ## Reload and validation
 
 Validate IDs, duplicate versions, required translations, file paths, page sizes, text formatting, and platform capability before activation. Restrict document paths to the plugin directory. Use a safe YAML parser and a limited set of MiniMessage tags; acceptance never executes configurable commands.
 
-Parse a new configuration completely before swapping it in. A failed reload leaves the last valid configuration active. On successful document changes, pending sessions restart with the new revision and cleared selections. Reject stale callbacks. Check the active revision again before admission.
+Parse a new configuration completely before swapping it in. A failed reload leaves the last valid configuration active. Reload refuses while consent sessions or database jobs are pending. New connections use the new revision after successful reload. Reject stale callbacks and check the active revision again before admission.
 
 A new required document prompts players again on their next admission. Already admitted players are not kicked merely because a file was reloaded. A future explicit enforcement command can handle that separately.
 
-Preview mode must not create acceptance records. Ship an inactive example document and require administrators to supply and enable their text before the gate can run.
+Preview mode uses one test connection and disconnects without creating acceptance records. See [administrator commands](07-admin-commands.md). Bundled example documents are inactive; administrators must supply and enable their text before the gate can run.

@@ -7,6 +7,8 @@ import io.github.consentgate.bedrock.GeyserBedrockBridge;
 import io.github.consentgate.core.admin.AdminCommands;
 import io.github.consentgate.core.admin.DatabaseJobs;
 import io.github.consentgate.core.admin.PlayerOperations;
+import io.github.consentgate.core.admin.PreviewQueue;
+import io.github.consentgate.presentation.AdminDocuments;
 import io.github.consentgate.core.admission.AdmissionRequest;
 import io.github.consentgate.core.admission.AdmissionSession;
 import io.github.consentgate.core.runtime.ConsentGateRuntime;
@@ -43,6 +45,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
     private final Set<UUID> resetting = ConcurrentHashMap.newKeySet();
     private final Set<UUID> awaitingJoin = ConcurrentHashMap.newKeySet();
     private final PlayerOperations playerOperations = new PlayerOperations();
+    private final PreviewQueue previews = new PreviewQueue();
     private boolean reloading;
     private DatabaseJobs databaseJobs;
     private volatile boolean stopping;
@@ -91,10 +94,15 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
             rejected = stopping || reloading || resetting.contains(id) || awaitingJoin.contains(id)
                     || sessions.values().stream().anyMatch(active -> active.id.equals(id))
                     || sessions.size() >= runtime.config().maxPending() || sessions.putIfAbsent(connection, pending) != null;
+            if (!rejected) {
+                pending.preview = previews.take(id).orElse(null);
+                if (pending.preview != null && pending.preview.locale() != null) pending.locale = pending.preview.locale();
+            }
         }
         if (rejected) { connection.disconnect(Component.text("ConsentGate is busy. Please try again shortly.")); return; }
         execute(pending, () -> {
-            var request = runtime.admissionService().orElseThrow().check(id, pending.locale);
+            var service = runtime.admissionService().orElseThrow();
+            var request = pending.preview == null ? service.check(id, pending.locale) : Optional.of(service.preview(id, pending.locale));
             if (request.isEmpty()) finish(pending, null);
             else {
                 synchronized (pending) {
@@ -110,7 +118,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
                                     finish(pending, "Consent form could not be shown.");
                                 });
                     }
-                    if (runtime.config().languageSelector().enabled()) {
+                    if (runtime.config().languageSelector().enabled() && (pending.preview == null || pending.preview.locale() == null)) {
                         pending.selecting = true;
                         if (pending.bedrock != null) pending.bedrock.language(runtime.config().languageSelector(),
                                 selected -> selectLanguage(pending, selected));
@@ -193,7 +201,9 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
             pending.selecting = false;
             pending.locale = options.get(selected);
             execute(pending, () -> {
-                var request = runtime.admissionService().orElseThrow().checkExactLocale(pending.id, pending.locale);
+                var service = runtime.admissionService().orElseThrow();
+                var request = pending.preview == null ? service.checkExactLocale(pending.id, pending.locale)
+                        : Optional.of(service.preview(pending.id, pending.locale));
                 if (request.isEmpty()) finish(pending, null); else begin(pending, request.orElseThrow());
             });
         }
@@ -239,6 +249,12 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
             public void status(UUID id, Consumer<String> reply) { adminOperation(id, false, reply); }
             public void reset(UUID id, Consumer<String> reply) { adminOperation(id, true, reply); }
             public void configuration(boolean apply, Consumer<String> reply) { configurationCheck(apply, reply); }
+            public void preview(UUID id, String locale, Consumer<String> reply) { previewCommand(id, locale, reply); }
+            public void document(String[] args, Consumer<String> reply) {
+                if (!running(reply)) return;
+                var active = runtime;
+                AdminDocuments.show(active.admissionService().orElseThrow().catalog(), active.config().defaultLocale(), args, reply);
+            }
         });
         var command = java.util.Objects.requireNonNull(getCommand("consentgate"), "Missing consentgate command");
         command.setExecutor((sender, ignored, label, args) -> {
@@ -254,6 +270,20 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
         else {
             try { getServer().getScheduler().runTask(this, () -> { if (!stopping) sender.sendMessage(Component.text(text)); }); }
             catch (org.bukkit.plugin.IllegalPluginAccessException ignored) { }
+        }
+    }
+
+    private void previewCommand(UUID id, String locale, Consumer<String> reply) {
+        synchronized (sessions) {
+            if (!running(reply)) return;
+            if (reloading || resetting.contains(id)) { reply.accept("ConsentGate is busy. Please try again shortly."); return; }
+            if (!"cancel".equalsIgnoreCase(locale) && (getServer().getPlayer(id) != null || awaitingJoin.contains(id)
+                    || sessions.values().stream().anyMatch(pending -> pending.id.equals(id)))) {
+                reply.accept("Disconnect the player first, then queue a preview using their UUID: " + id);
+                return;
+            }
+            try { reply.accept(previews.schedule(id, locale, runtime.admissionService().orElseThrow().catalog())); }
+            catch (IllegalArgumentException ex) { reply.accept(ex.getMessage()); }
         }
     }
 
@@ -327,7 +357,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
                         var nextRuntime = runtime.reconfigured(prepared);
                         synchronized (sessions) {
                             if (stopping) throw new IllegalStateException("ConsentGate is stopping");
-                            if (apply) { dialogs = nextDialogs; runtime = nextRuntime; }
+                            if (apply) { previews.clear(); dialogs = nextDialogs; runtime = nextRuntime; }
                         }
                         reply.accept(apply ? "ConsentGate reloaded. Changes apply to new connections; existing players are not kicked."
                                 : "Validation passed. Configuration, documents, messages, and saved revisions are compatible. Nothing was applied.");
@@ -348,6 +378,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
         synchronized (sessions) { stopping = true; ending = List.copyOf(sessions.values()); }
         ending.forEach(pending -> finish(pending, "ConsentGate is stopping."));
         awaitingJoin.clear();
+        previews.clear();
         if (database != null) {
             database.shutdownNow();
             try { database.awaitTermination(5, TimeUnit.SECONDS); }
@@ -382,6 +413,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
         final String selectorToken = UUID.randomUUID().toString();
         volatile String locale;
         volatile BedrockView bedrock;
+        PreviewQueue.Choice preview;
         boolean selecting;
         boolean redisplayQueued;
         long display;

@@ -29,6 +29,11 @@ test('remote outage checks distinguish failed lookup from failed save', () => {
     assert.throws(() => parseOptions([...base, '--expect', expected, '--action', 'leave']));
   }
 });
+
+test('preview requires acceptance followed by its explicit disconnect result', () => {
+  assert.equal(parseOptions([...base, '--expect', 'preview']).expect, 'preview');
+  assert.throws(() => parseOptions([...base, '--expect', 'preview', '--action', 'leave']));
+});
 test('anonymous empty compound uses a payload length, not a presence flag', () => {
   assert.equal(encodeClick('test:a', []).toString('hex'), '0806746573743a61020a00');
 });

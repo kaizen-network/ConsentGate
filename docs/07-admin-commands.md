@@ -8,6 +8,8 @@ These commands are implemented on Velocity and Paper. ConsentGate must be enable
 | `/consentgate reset <uuid>` | `consentgate.admin.reset` | Withdraws acceptance for the current required documents in the configured scope |
 | `/consentgate validate` | `consentgate.admin.validate` | Checks whether edited files can safely replace the running configuration, without applying changes |
 | `/consentgate reload` | `consentgate.admin.reload` | Validates and applies supported changes for new connections |
+| `/consentgate preview <uuid> [locale\|cancel]` | `consentgate.admin.preview` | Queues one login preview, or cancels a queued preview; never saves consent |
+| `/consentgate document [id] [locale] [page]` | `consentgate.admin.document` | Lists active documents or reads one page in chat or console |
 
 Run these in the proxy or server console without the leading slash, or grant the relevant permission through your permissions plugin. Paper defaults these permissions to operators. Status permission does not grant reset permission. Paper resolves online names and sends command replies on the main server thread; database work stays on the worker queue.
 
@@ -24,7 +26,17 @@ No database deletion is needed. Existing acceptance events and document snapshot
 
 Use the full UUID known to the proxy or server, or stored in the consent database, for offline players. Offline names are not looked up or converted to guessed UUIDs. Authentication and forwarding changes can change player identity.
 
-Commands use the bounded database worker queue. If storage fails or the queue is full, the command reports an error. Check status before retrying an uncertain result. Administrator responses are currently English.
+Status, reset, validation, and reload use the bounded database worker queue. If storage fails or the queue is full, the command reports an error. Check status before retrying an uncertain result. Administrator responses are currently English.
+
+## Preview and document viewing
+
+Disconnect the test player, then run `consentgate preview <uuid>`. Connect within five minutes to view the normal login flow even if that player already accepted. Read, navigation, checkboxes, language selection, and native Bedrock presentation use the same code as normal admission. Continue ends the preview with a disconnect message; it never grants access or saves acceptance. Leave and timeout also disconnect. The following connection returns to normal admission.
+
+Supply an exact locale, such as `consentgate preview <uuid> id-ID`, to bypass the selector and preview that translation. Every required document must contain it. Omit the locale to follow the normal language settings. Use `consentgate preview <uuid> cancel` to remove an unused request. Cancellation does not interrupt an active preview. Requests are local to this proxy/server, expire after five minutes, and clear on successful reload or shutdown. At most 128 can be queued. Connected players cannot have a new preview queued.
+
+Use `consentgate document` to list IDs, current versions, required status, and available translations. For example, `consentgate document community-rules en-US 2` reads page two. Pages start at one. Without an explicit locale, the normal configured fallback applies and the response identifies the translation used. Unknown explicit locales and invalid pages are rejected. Formatting becomes readable plain text in chat or console.
+
+Document viewing reads the active configuration, so edited files become visible only after a successful reload. It does not query storage. Neither viewing nor preview changes acceptance history, including for players who already accepted. A preview request is marked as such in the shared admission model, and the storage entry point rejects it even after all boxes are checked.
 
 ## Validate and reload
 

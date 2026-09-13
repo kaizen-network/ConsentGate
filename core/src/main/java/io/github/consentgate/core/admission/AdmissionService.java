@@ -105,22 +105,32 @@ public final class AdmissionService implements AutoCloseable {
     }
 
     private Optional<AdmissionRequest> checkSelectedLocale(UUID playerId, String requestedLocale) throws SQLException {
-        List<AdmissionDocument> documents = catalog.required().stream().map(revision -> {
+        List<AdmissionDocument> documents = documents(requestedLocale);
+        List<ShownDocument> shown = documents.stream().map(AdmissionDocument::shown).toList();
+        if (repository.isAccepted(playerId, config.scope(), shown)) return Optional.empty();
+        return Optional.of(new AdmissionRequest(playerId, UUID.randomUUID(), documents));
+    }
+
+    /** Builds the real presentation without reading or writing acceptance records. */
+    public AdmissionRequest preview(UUID playerId, String locale) {
+        return new AdmissionRequest(playerId, UUID.randomUUID(), documents(locale), true);
+    }
+
+    private List<AdmissionDocument> documents(String requestedLocale) {
+        return catalog.required().stream().map(revision -> {
             var selected = revision.selectTranslation(requestedLocale, config.defaultLocale());
             var translation = selected.translation();
             ShownDocument shown = ShownDocument.from(revision, selected.locale(), config.defaultLocale());
             return new AdmissionDocument(revision.id(), revision.version(), selected.locale(), translation.title(),
                     translation.summary(), translation.checkbox(), translation.readButton(), translation.pages(), shown);
         }).toList();
-        List<ShownDocument> shown = documents.stream().map(AdmissionDocument::shown).toList();
-        if (repository.isAccepted(playerId, config.scope(), shown)) return Optional.empty();
-        return Optional.of(new AdmissionRequest(playerId, UUID.randomUUID(), documents));
     }
 
     public void grant(UUID playerId, AdmissionSession session, Instant decidedAt, String method) throws SQLException {
         Objects.requireNonNull(playerId, "playerId");
         Objects.requireNonNull(session, "session");
         AdmissionRequest request = session.request();
+        if (request.preview()) throw new IllegalArgumentException("A preview cannot save acceptance");
         if (!playerId.equals(request.playerId())) throw new IllegalArgumentException("Admission request belongs to another player");
         if (!session.accepted()) throw new IllegalStateException("Admission session is not accepted");
         validateCurrentRequest(request);
