@@ -1,7 +1,7 @@
 """Verify a packaged plugin against a disposable loopback SQL database and connection relay."""
 
 import argparse
-from contextlib import closing
+from contextlib import closing, ExitStack
 import json
 import os
 from pathlib import Path
@@ -16,6 +16,8 @@ import uuid
 
 import probe_velocity
 from probe_storage import RemoteFixture, TcpRelay
+from probe_process import stop_server
+from build_artifacts import platform_artifact
 from run_paper_probe import offline_uuid
 from run_velocity_probe import PROBE_DOCUMENT
 
@@ -44,6 +46,7 @@ def main():
         assert config['advanced']['compression-threshold'] == -1
     with socket.socket() as check:
         assert check.connect_ex(('127.0.0.1', port)) != 0, 'Test port already occupied'
+    artifact = platform_artifact(project, args.platform)
     data = directory / 'plugins' / ('ConsentGate' if paper else 'consentgate')
     fixture_name = 'remote-probe-fixtures/' + uuid.uuid4().hex
     fixture = data / fixture_name
@@ -51,8 +54,6 @@ def main():
     (fixture / 'documents/agreement.yml').write_text(PROBE_DOCUMENT, encoding='utf-8')
     config_file = data / 'config.yml'
     original = config_file.read_bytes() if config_file.exists() else None
-    artifact = project / f'platform-{args.platform}/build/libs/ConsentGate-{args.platform.title()}-0.1.0-prototype.jar'
-    assert artifact.is_file()
     relay = TcpRelay(os.environ['CG_TEST_DB_HOST'], int(os.environ['CG_TEST_DB_PORT']))
     process = None
     output = None
@@ -78,7 +79,8 @@ def main():
     def paper_probe(name, expected, on_dialog=None):
         args_list = ['node', str(project / 'tools/probe_paper.cjs'), '--modules', str(args.modules.resolve()),
                      '--name', name, '--expect', expected, '--hold', '1' if on_dialog else '0', '--play-seconds', '0']
-        child = subprocess.Popen(args_list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        child = subprocess.Popen(args_list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
         timer = threading.Timer(60, child.kill)
         reports = []
         lines = []
@@ -138,7 +140,8 @@ def main():
         if paper:
             process_args.append('--nogui')
         process = subprocess.Popen(process_args, cwd=directory, stdin=subprocess.PIPE, stdout=output,
-                                   stderr=subprocess.STDOUT, text=True)
+                                   stderr=subprocess.STDOUT, text=True,
+                                   creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
         deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
             if process.poll() is not None:
@@ -203,26 +206,19 @@ def main():
         assert decisions('ConsentSaveFail') == ['granted']
         print('PASS: ' + args.platform + ' failed remote save blocks admission and later recovery succeeds', flush=True)
     finally:
-        relay.set_available(True)
-        if process is not None:
-            if process.poll() is None:
-                try:
-                    process.stdin.write('stop\n' if paper else 'shutdown\n')
-                    process.stdin.flush()
-                    process.wait(timeout=25)
-                except (BrokenPipeError, subprocess.TimeoutExpired):
-                    process.terminate()
-                    process.wait(timeout=10)
-            process.stdin.close()
-        if output is not None:
-            output.close()
-        if backend is not None:
-            backend.close()
-        relay.close()
-        if original is None:
-            config_file.unlink(missing_ok=True)
-        else:
-            config_file.write_bytes(original)
+        # Stop the server before closing its resources, and restore config even if shutdown fails.
+        with ExitStack() as cleanup:
+            if original is None:
+                cleanup.callback(config_file.unlink, missing_ok=True)
+            else:
+                cleanup.callback(config_file.write_bytes, original)
+            cleanup.callback(relay.close)
+            if backend is not None:
+                cleanup.callback(backend.close)
+            if output is not None:
+                cleanup.callback(output.close)
+            cleanup.callback(stop_server, process, 'stop' if paper else 'shutdown', 25)
+            relay.set_available(True)
         print(args.platform + ' stopped; configuration restored. Fixture: ' + str(fixture), flush=True)
 
 

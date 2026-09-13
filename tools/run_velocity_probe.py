@@ -3,34 +3,20 @@
 import pathlib
 import argparse
 import hashlib
+import os
 import select
 from contextlib import closing
 import shutil
 import socket
 import sqlite3
 import subprocess
-import sys
 import time
 import tomllib
 import uuid
 
 import probe_velocity
-
-
-def clean_database(database, required=True):
-    for candidate in (database, database.with_suffix(".db-wal"), database.with_suffix(".db-shm")):
-        deadline = time.monotonic() + 5
-        while True:
-            try:
-                candidate.unlink(missing_ok=True)
-                break
-            except PermissionError:
-                if time.monotonic() >= deadline:
-                    if required:
-                        raise
-                    print(f"WARN: could not remove disposable test file {candidate}", file=sys.stderr)
-                    break
-                time.sleep(0.1)
+from probe_process import stop_server
+from build_artifacts import platform_artifact
 
 
 def main():
@@ -41,20 +27,14 @@ def main():
     print(f"Testing Java protocol {args.protocol}", flush=True)
     project = pathlib.Path(__file__).resolve().parents[1]
     directory = project / ".run" / "velocity"
-    artifact = project / "platform-velocity" / "build" / "libs" / "ConsentGate-Velocity-0.1.0-prototype.jar"
-    assert artifact.is_file(), "Build the Velocity artifact before running the probe"
-    shutil.copyfile(artifact, directory / "plugins" / "ConsentGate.jar")
+    artifact = platform_artifact(project, "velocity")
     data_directory = directory / "plugins" / "consentgate"
     config_file = data_directory / "config.yml"
     original_config = config_file.read_bytes() if config_file.exists() else None
     fixture_name = "probe-fixtures/" + uuid.uuid4().hex
     fixture = data_directory / fixture_name
     documents = fixture / "documents"
-    documents.mkdir(parents=True, exist_ok=True)
     database = fixture / "probe.db"
-    clean_database(database)
-    (data_directory / "config.yml").write_text(PROBE_CONFIG.format(fixture=fixture_name), encoding="utf-8")
-    (documents / "agreement.yml").write_text(PROBE_DOCUMENT, encoding="utf-8")
     with (directory / "velocity.toml").open("rb") as source:
         config = tomllib.load(source)
     assert config["bind"] == "127.0.0.1:25590", "Only the loopback test proxy is allowed"
@@ -64,12 +44,17 @@ def main():
     assert config["servers"]["try"] == ["backend"]
     with socket.socket() as check:
         assert check.connect_ex(("127.0.0.1", 25590)) != 0, "Test port already occupied"
-    process = subprocess.Popen(
-        ["java", "-Xms128m", "-Xmx256m", "-Dterminal.jline=false", "-jar", "velocity.jar"],
-        cwd=directory, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
-        text=True,
-    )
+    process = None
     try:
+        documents.mkdir(parents=True)
+        (documents / "agreement.yml").write_text(PROBE_DOCUMENT, encoding="utf-8")
+        shutil.copyfile(artifact, directory / "plugins" / "ConsentGate.jar")
+        config_file.write_text(PROBE_CONFIG.format(fixture=fixture_name), encoding="utf-8")
+        process = subprocess.Popen(
+            ["java", "-Xms128m", "-Xmx256m", "-Dterminal.jline=false", "-jar", "velocity.jar"],
+            cwd=directory, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
+            text=True, creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
             if process.poll() is not None:
@@ -178,19 +163,13 @@ def main():
 
         probe_velocity.main(database, admin_check)
     finally:
-        if process.poll() is None:
-            try:
-                process.stdin.write("shutdown\n")
-                process.stdin.flush()
-                process.wait(timeout=15)
-            except (BrokenPipeError, subprocess.TimeoutExpired):
-                process.terminate()
-                process.wait(timeout=10)
-        process.stdin.close()
-        if original_config is None:
-            config_file.unlink(missing_ok=True)
-        else:
-            config_file.write_bytes(original_config)
+        try:
+            stop_server(process, "shutdown", 15)
+        finally:
+            if original_config is None:
+                config_file.unlink(missing_ok=True)
+            else:
+                config_file.write_bytes(original_config)
         print("Velocity stopped; original configuration restored. Fixture: " + str(fixture), flush=True)
 
 

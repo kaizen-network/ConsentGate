@@ -13,6 +13,7 @@ import time
 import uuid
 
 from run_velocity_probe import PROBE_CONFIG, PROBE_DOCUMENT
+from build_artifacts import platform_artifact
 
 
 def main():
@@ -26,6 +27,7 @@ def main():
     parser.add_argument('--eula-from', required=True, type=Path, help='Existing test installation with an accepted eula.txt')
     args = parser.parse_args()
     project = Path(__file__).resolve().parents[1]
+    artifact = platform_artifact(project, 'paper')
     assert args.server_jar.is_file()
     assert 'eula=true' in args.eula_from.read_text(), 'Use an already accepted test installation EULA file'
     assert 1 <= args.port <= 65535
@@ -52,7 +54,7 @@ def main():
         'enforce-secure-profile=false\nview-distance=2\nsimulation-distance=2\nspawn-protection=0\n'
         'max-players=8\nlevel-type=minecraft:flat\ngenerate-structures=false\nallow-flight=true\n'
         'generator-settings={"biome":"minecraft:plains","layers":[{"block":"minecraft:bedrock","height":1},{"block":"minecraft:dirt","height":2},{"block":"minecraft:grass_block","height":1}]}\n')
-    shutil.copyfile(project / 'platform-paper/build/libs/ConsentGate-Paper-0.1.0-prototype.jar', directory / 'plugins/ConsentGate.jar')
+    shutil.copyfile(artifact, directory / 'plugins/ConsentGate.jar')
     flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
 
     @contextmanager
@@ -120,9 +122,11 @@ def main():
         print('PASS: enabled startup with a newer schema denies admission', flush=True)
     finally:
         (data / 'config.yml').write_bytes(original)
+    # The child bounds its own operations and owns server shutdown and config restoration.
+    # Killing that Python process on a parent deadline would bypass its cleanup.
     result = subprocess.run([os.sys.executable, str(project / 'tools/run_paper_probe.py'), '--directory', str(directory),
         '--modules', str(args.modules.resolve()), '--port', str(args.port), '--version', args.version, '--java', args.java],
-        cwd=project, capture_output=True, text=True, timeout=300, creationflags=flags)
+        cwd=project, capture_output=True, text=True, creationflags=flags)
     (directory / 'admission.log').write_text(result.stdout + result.stderr)
     print(result.stdout + result.stderr, flush=True)
     if result.returncode:

@@ -13,6 +13,8 @@ import uuid
 import xml.etree.ElementTree as ET
 import zipfile
 
+from build_artifacts import platform_artifact, project_version
+
 
 def checksum(path):
     with path.open('rb') as source:
@@ -33,10 +35,7 @@ def main():
     if git('status', '--porcelain').strip():
         raise RuntimeError('Commit the reviewed changes first so the source archive matches the binaries')
     revision = git('rev-parse', 'HEAD').decode().strip()
-    match = re.search(r'^\s*version = "([a-zA-Z0-9.-]+)"', (project / 'build.gradle.kts').read_text(), re.MULTILINE)
-    if not match:
-        raise RuntimeError('Cannot read the fixed project version')
-    version = match.group(1)
+    version = project_version(project)
     manifest_file = project / 'gradle/dependency-sources.json'
     sources = json.loads(manifest_file.read_text())
     cache = args.sources.resolve()
@@ -80,8 +79,7 @@ def main():
     staging = root / ('.staging-' + uuid.uuid4().hex)
     staging.mkdir()
     for platform in ('Paper', 'Velocity'):
-        filename = f'ConsentGate-{platform}-{version}.jar'
-        artifact = project / f'platform-{platform.lower()}/build/libs' / filename
+        artifact = platform_artifact(project, platform.lower())
         with zipfile.ZipFile(artifact) as jar:
             required = ['META-INF/LICENSE', 'META-INF/THIRD_PARTY_NOTICES.md',
                         'META-INF/licenses/SnakeYAML.txt', 'META-INF/licenses/MariaDB-Connector-J.txt',
@@ -93,7 +91,7 @@ def main():
             for resource in required:
                 if not jar.read(resource):
                     raise ValueError('Missing packaged notice: ' + resource)
-        shutil.copyfile(artifact, staging / filename)
+        shutil.copyfile(artifact, staging / artifact.name)
     for filename in ('LICENSE', 'README.md', 'THIRD_PARTY_NOTICES.md'):
         shutil.copyfile(project / filename, staging / filename)
     shutil.copytree(project / 'docs', staging / 'docs')

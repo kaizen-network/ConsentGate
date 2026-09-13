@@ -14,6 +14,7 @@ import uuid
 
 from probe_storage import TcpRelay
 from run_velocity_probe import PROBE_CONFIG, PROBE_DOCUMENT
+from build_artifacts import platform_artifact
 
 
 def main():
@@ -25,6 +26,7 @@ def main():
     parser.add_argument('--paper-java', default='java')
     args = parser.parse_args()
     project = Path(__file__).resolve().parents[1]
+    artifact = platform_artifact(project, 'velocity')
     for path in (args.paper_from, args.velocity_from):
         if not path.resolve().is_relative_to((project / '.run').resolve()):
             raise ValueError('Server sources must be disposable .run fixtures')
@@ -104,7 +106,7 @@ def main():
         (proxy / 'plugins/bStats/config.txt').write_text('enabled=false\n')
         shutil.copyfile(args.velocity_from / 'velocity.jar', proxy / 'velocity.jar')
         shutil.copyfile(args.velocity_from / 'plugins/packetevents.jar', proxy / 'plugins/packetevents.jar')
-        shutil.copyfile(project / 'platform-velocity/build/libs/ConsentGate-Velocity-0.1.0-prototype.jar', proxy / 'plugins/ConsentGate.jar')
+        shutil.copyfile(artifact, proxy / 'plugins/ConsentGate.jar')
         port = free_port()
         (proxy / 'velocity.toml').write_text(f'''config-version = "2.7"
 bind = "127.0.0.1:{port}"

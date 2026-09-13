@@ -4,6 +4,7 @@ import argparse
 from contextlib import closing
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import socket
@@ -14,6 +15,8 @@ import time
 import uuid
 
 from run_velocity_probe import PROBE_CONFIG, PROBE_DOCUMENT
+from probe_process import stop_server
+from build_artifacts import platform_artifact
 
 
 def offline_uuid(name):
@@ -45,8 +48,7 @@ def main():
     modules = args.modules.resolve()
     assert (modules / "minecraft-protocol").is_dir()
     assert (modules / "prismarine-nbt").is_dir()
-    artifact = project / "platform-paper/build/libs/ConsentGate-Paper-0.1.0-prototype.jar"
-    assert artifact.is_file(), "Build the Paper artifact first"
+    artifact = platform_artifact(project, "paper")
     data = directory / "plugins/ConsentGate"
     data.mkdir(parents=True, exist_ok=True)
     config_file = data / "config.yml"
@@ -58,8 +60,6 @@ def main():
     database = fixture / "probe.db"
     config = PROBE_CONFIG.format(fixture=fixture_name).replace("timeout-seconds: 300", "timeout-seconds: 30")
     (documents / "agreement.yml").write_text(PROBE_DOCUMENT, encoding="utf-8")
-    config_file.write_text(config, encoding="utf-8")
-    shutil.copyfile(artifact, directory / "plugins/ConsentGate.jar")
     log_file = directory / "logs/latest.log"
     process = None
 
@@ -84,7 +84,8 @@ def main():
                                  "--name", name, "--hold", str(hold), "--play-seconds", "1",
                                  "--port", str(args.port), "--version", args.version,
                                  "--expect", expected, "--action", action],
-                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
         reports = []
         lines = []
         timer = threading.Timer(hold + 60, child.kill)
@@ -118,10 +119,13 @@ def main():
                 "SELECT decision FROM cg_acceptance_events WHERE player_uuid=? ORDER BY decided_at", (offline_uuid(name),))]
 
     try:
+        shutil.copyfile(artifact, directory / "plugins/ConsentGate.jar")
+        config_file.write_text(config, encoding="utf-8")
         process = subprocess.Popen([args.java, "-Xms256m", "-Xmx768m", "-Dterminal.jline=false",
                                     "-Dterminal.ansi=false", "-jar", "server.jar", "--nogui"],
                                    cwd=directory, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
-                                   stderr=subprocess.STDOUT, text=True)
+                                   stderr=subprocess.STDOUT, text=True,
+                                   creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
         deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
             if process.poll() is not None:
@@ -182,20 +186,13 @@ def main():
         assert decisions("ConsentTimeout") == []
         print("PASS: Paper packaged admission, reconnect, reset history, reload, Leave, and timeout", flush=True)
     finally:
-        if process is not None:
-            if process.poll() is None:
-                try:
-                    process.stdin.write("stop\n")
-                    process.stdin.flush()
-                    process.wait(timeout=25)
-                except (BrokenPipeError, subprocess.TimeoutExpired):
-                    process.terminate()
-                    process.wait(timeout=10)
-            process.stdin.close()
-        if original_config is None:
-            config_file.unlink(missing_ok=True)
-        else:
-            config_file.write_bytes(original_config)
+        try:
+            stop_server(process, "stop", 25)
+        finally:
+            if original_config is None:
+                config_file.unlink(missing_ok=True)
+            else:
+                config_file.write_bytes(original_config)
         print("Paper stopped; original configuration restored. Fixture: " + str(fixture), flush=True)
 
 

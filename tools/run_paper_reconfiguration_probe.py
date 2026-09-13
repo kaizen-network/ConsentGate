@@ -1,6 +1,7 @@
 """Run repeated configuration with a disposable helper on a prepared loopback Paper server."""
 
 import argparse
+from contextlib import ExitStack
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,8 @@ import uuid
 import zipfile
 
 from run_velocity_probe import PROBE_CONFIG, PROBE_DOCUMENT
+from probe_process import stop_server
+from build_artifacts import platform_artifact
 
 
 def main():
@@ -26,6 +29,7 @@ def main():
     parser.add_argument('--hold', type=int, default=75, help='Initial consent wait before testing reconfiguration')
     args = parser.parse_args()
     project = Path(__file__).resolve().parents[1]
+    artifact = platform_artifact(project, 'paper')
     directory = args.directory.resolve()
     assert directory.is_relative_to((project / '.run').resolve())
     assert 0 <= args.hold <= 300
@@ -74,7 +78,7 @@ def main():
                 jar.write(path, path.relative_to(classes).as_posix())
             jar.write(project / 'tools/paper_reconfiguration/plugin.yml', 'plugin.yml')
         config.write_text(PROBE_CONFIG.format(fixture=fixture_name))
-        shutil.copyfile(project / 'platform-paper/build/libs/ConsentGate-Paper-0.1.0-prototype.jar', directory / 'plugins/ConsentGate.jar')
+        shutil.copyfile(artifact, directory / 'plugins/ConsentGate.jar')
         with log.open('wb') as output:
             process = subprocess.Popen([args.java, '-Xms256m', '-Xmx768m', '-Dterminal.jline=false', '-Dterminal.ansi=false',
                 '-jar', 'server.jar', '--nogui'], cwd=directory, stdin=subprocess.PIPE,
@@ -129,18 +133,10 @@ def main():
                 assert database.execute("SELECT COUNT(*) FROM cg_acceptance_events WHERE decision='granted'").fetchone()[0] == 2
             print('PASS: initial long hold, repeated reconfiguration without duplicate consent, and new-version consent on reconnect', flush=True)
     finally:
-        if process is not None:
-            if process.poll() is None:
-                try:
-                    process.stdin.write('stop\n')
-                    process.stdin.flush()
-                    process.wait(timeout=30)
-                except (BrokenPipeError, subprocess.TimeoutExpired):
-                    process.terminate()
-                    process.wait(timeout=10)
-            process.stdin.close()
-        config.write_bytes(original)
-        helper.unlink(missing_ok=True)
+        with ExitStack() as cleanup:
+            cleanup.callback(helper.unlink, missing_ok=True)
+            cleanup.callback(config.write_bytes, original)
+            cleanup.callback(stop_server, process, 'stop', 30)
         print('Paper stopped; configuration restored and helper removed. Fixture: ' + str(fixture), flush=True)
 
 

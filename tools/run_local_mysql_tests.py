@@ -140,7 +140,8 @@ try:
         command = [os.sys.executable, str(project / 'tools/run_remote_admission_probe.py'), '--platform', platform]
         if args.modules is not None:
             command += ['--modules', str(args.modules.resolve())]
-        result = subprocess.run(command, cwd=project, env=env, timeout=300, creationflags=flags,
+        # This child bounds its own operations and must run its server/config cleanup.
+        result = subprocess.run(command, cwd=project, env=env, creationflags=flags,
                                 capture_output=True, text=True)
         (fixture / (platform + '-admission.log')).write_text(result.stdout + result.stderr)
         print(result.stdout + result.stderr, flush=True)
