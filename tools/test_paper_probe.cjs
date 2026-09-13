@@ -23,6 +23,12 @@ test('leave and accepted rejoin require explicit expectations', () => {
   assert.equal(parseOptions([...base, '--action', 'leave', '--expect', 'denied']).action, 'leave');
   assert.equal(parseOptions([...base, '--expect', 'rejoin']).expect, 'rejoin');
 });
+test('remote outage checks distinguish failed lookup from failed save', () => {
+  for (const expected of ['unavailable', 'save-failed']) {
+    assert.equal(parseOptions([...base, '--expect', expected]).expect, expected);
+    assert.throws(() => parseOptions([...base, '--expect', expected, '--action', 'leave']));
+  }
+});
 test('anonymous empty compound uses a payload length, not a presence flag', () => {
   assert.equal(encodeClick('test:a', []).toString('hex'), '0806746573743a61020a00');
 });

@@ -1,6 +1,6 @@
 # Storage and database upgrades
 
-Status: SQLite and remote SQL/cache implementations are available in the prototype. MariaDB 11.8.6 and MySQL 8.4.8 have repository integration tests. Live remote-storage admission and load testing remain open. See [setup and exact behavior](15-remote-storage.md).
+Status: SQLite and remote SQL/cache implementations are available in the prototype. MariaDB 11.8.6 and MySQL 8.4.8 have repository integration tests. MySQL admission and outage checks pass on both platforms; MariaDB runtime and load testing remain open. See [setup and exact behavior](15-remote-storage.md).
 
 ## Database choices
 

@@ -51,7 +51,7 @@ client.on('success', () => report('authenticated', {uuid: client.uuid}));
 client.on('login', () => {
   joined = true;
   report('play', {acceptanceSent, dialogWaitSeconds: firstDialogAt ? (Date.now() - firstDialogAt) / 1000 : null});
-  if ((expected !== 'rejoin' && !acceptanceSent) || expected === 'denied') {
+  if ((expected !== 'rejoin' && !acceptanceSent) || ['denied', 'unavailable', 'save-failed'].includes(expected)) {
     hadError = true;
     report('failure', {reason: 'Unexpected admission'}); client.end('Probe failed'); return;
   }
@@ -64,6 +64,8 @@ client.on('end', reason => {
   clearTimeout(timer);
   const matched = expected === 'accepted' ? joined && acceptanceSent && finished
     : expected === 'rejoin' ? joined && !firstDialogAt && !acceptanceSent && finished
+    : expected === 'unavailable' ? !joined && !firstDialogAt && !acceptanceSent
+    : expected === 'save-failed' ? !joined && !!firstDialogAt && acceptanceSent
     : expected === 'denied' ? !!firstDialogAt && !joined && !acceptanceSent && (options.action !== 'leave' || left)
     : joined && acceptanceSent && !finished && pings > 0;
   const passed = matched && !hadError;

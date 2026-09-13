@@ -1,6 +1,6 @@
 # Remote storage implementation
 
-Status: repository tests pass on MariaDB 11.8.6 and MySQL 8.4.8. SQLite remains the default. Live platform admission and broader load tests remain open. Setup is documented in [the remote storage guide](15-remote-storage.md).
+Status: repository tests pass on MariaDB 11.8.6 and MySQL 8.4.8. MySQL admission and outage checks pass on both platforms. SQLite remains the default. Broader MariaDB runtime and load tests remain open. Setup is documented in [the remote storage guide](15-remote-storage.md).
 
 ## This slice
 
@@ -43,7 +43,7 @@ Tested artifact SHA-256 values: Paper `d3c6187342be8e3b26be4786325d5b1394ba811b1
 
 ## Still open
 
-- Exercise remote storage through live Paper and Velocity admission and administrator flows.
+- Repeat the platform admission and outage checks against MariaDB.
 - Repeat the new certificate and socket-failure checks against MariaDB.
 - Measure sustained connection load and decide whether a small pool is justified.
 - Broader review of multi-instance reset timing and clock-skew handling before release.
@@ -58,3 +58,11 @@ MySQL Community Server 8.4.8 passed all 15 repository tests, with no failures or
 The ordinary connection used `verify-full` TLS and MySQL's default account authentication. Both shaded plugin drivers connected successfully. Tests confirmed negotiated encryption, rejection of an unrelated CA, and rejection of a hostname mismatch while the same endpoint worked with CA-only verification.
 
 A test-only plaintext TCP proxy cut one connection before COMMIT and dropped another connection's successful COMMIT reply. The first operation left no grant or audit record. The second raised a storage failure while leaving one durable grant; replay did not duplicate it. These were actual socket interruptions on disposable loopback connections. They do not prove every network failure or live platform admission path.
+
+## MySQL platform checks, 2026-09-13
+
+The packaged Velocity and Paper plugins passed headless admission through a local TLS relay to MySQL 8.4.8. Both passed new acceptance, accepted rejoin, authoritative status, offline reset with preserved history, and acceptance after reset. Database inspection verified the grant and withdrawal events in unique test scopes.
+
+With only the relay disabled, fresh cached acceptance still admitted the known player. Unknown players were denied, administrator status failed instead of reporting cached data, and the known player was denied after cache expiry. Restoring the relay allowed rejoin. Disconnecting the relay after showing a new agreement prevented a failed save from admitting that player; restoring it allowed a new confirmed grant.
+
+The first relay fixture used a one-second connection timeout and failed during Velocity startup. The final fixture first verifies a complete TLS query through the relay and uses the plugin's default three-second connection and five-second socket timeouts. Both final platform runs passed. The proxy, server, database, and relays stopped afterward, and original ConsentGate configurations were restored. No graphical client or external deployment was used.

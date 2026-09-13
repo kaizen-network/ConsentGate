@@ -6,7 +6,7 @@ Both platforms implement documents, translations, versioned acceptance, bounded 
 
 ## Design decisions
 
-Remote SQL and a local SQLite cache are implemented. Dedicated MariaDB and MySQL repository checks pass, including MySQL TLS and socket-failure tests. Live remote-storage admission, broader TLS deployment, and load tests remain open. Shared-storage milestone 3 is not complete. See [remote storage progress](14-remote-storage-progress.md).
+Remote SQL and a local SQLite cache are implemented. Dedicated MariaDB and MySQL repository checks pass, including MySQL TLS and socket-failure tests. MySQL admission and outage checks pass on both platforms. Broader MariaDB, TLS deployment, and load tests remain open. Shared-storage milestone 3 is not complete. See [remote storage progress](14-remote-storage-progress.md).
 
 | Area | Decision |
 | --- | --- |

@@ -1,6 +1,6 @@
 # MySQL, MariaDB, and the local cache
 
-Prototype feature. MariaDB 11.8.6 and MySQL 8.4.8 have dedicated repository integration tests. MySQL checks include verified TLS, certificate rejection, and actual socket interruptions around commit. Neither is a production support claim. Live Paper/Velocity admission with remote storage, broader certificate deployment, and load testing remain open.
+Prototype feature. MariaDB 11.8.6 and MySQL 8.4.8 have dedicated repository tests. MySQL also has verified TLS, socket-failure, and live platform admission checks. Neither is a production support claim. Broader MariaDB runtime, certificate deployment, and load testing remain open.
 
 ## Set up the database
 
@@ -96,5 +96,7 @@ The suite covers atomic grants, shared acceptance, replay conflicts, immutable r
 Additional TLS checks use `CG_TEST_DB_UNTRUSTED_CERTIFICATE` (a valid unrelated CA) and `CG_TEST_DB_WRONG_HOST` (an alias reaching the same server but absent from its certificate). `CG_TEST_DB_SOCKET_FAULTS=true` enables a loopback-only plaintext protocol proxy that cuts its own connection before COMMIT or drops the server's successful COMMIT reply. These targeted socket checks leave the database service running; ordinary repository checks still use the configured TLS connection.
 
 On Windows, `python tools/run_local_mysql_tests.py --server C:/path/to/extracted/mysql` prepares a disposable database with generated credentials and test certificates, runs all checks, then stops its process. It requires Python's `cryptography` package and an already extracted official MySQL ZIP distribution. It does not download software, install a service, or launch a desktop app. Test data, certificates, credentials, and logs remain in the ignored `.run/` fixture for inspection.
+
+Add `--platforms velocity paper --modules C:/path/to/node_modules` to exercise both prepared headless platform fixtures against that database. The [development guide](05-development.md) describes the required local servers and Node dependencies. These checks temporarily replace only their ConsentGate configuration and JAR, verify acceptance and reset history, interrupt a dedicated TLS relay to test cache expiry and failed writes, then restore the original configuration. The primary database stays running until its owning test runner shuts it down.
 
 Run the suite separately against each supported MariaDB and MySQL version before claiming support. Repository tests and isolated driver loading do not replace live client admission, certificate setup, network fault, or load testing.

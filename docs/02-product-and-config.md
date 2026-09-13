@@ -1,6 +1,6 @@
 # Player flow and configuration
 
-Status: the initial schema, restricted MiniMessage formatting, editable interface messages, and optional native Bedrock forms are implemented and used by Velocity. Paper integration, remote storage, and commands remain proposed.
+Status: configuration, formatting, editable messages, documents, remote storage, and the basic administrator commands are implemented on both platforms. Native Bedrock presentation is shared, with real-client checks on Velocity and Paper delivery verification still pending. Preview and document-viewing commands remain planned. See [release progress](16-release-progress.md).
 
 ## Player experience
 
@@ -31,7 +31,7 @@ Save a hash and snapshot of the document text shown. Reject changed text under a
 
 ## Bedrock presentation
 
-Velocity offers optional native forms when Geyser is installed on the same proxy:
+Both platforms offer optional native forms when Geyser is installed on the same proxy/server. Paper uses Geyser-Spigot and still needs Bedrock delivery verification:
 
 ```yaml
 bedrock:
@@ -76,7 +76,7 @@ plugins/ConsentGate/
     remote-cache.db
 ```
 
-Velocity loads editable UTF-8 interface text from `messages/en-US.properties` and `messages/id-ID.properties`. Add another `<locale>.properties` file for another interface language. Missing entries fall back to the configured default language, then English. Current files use Java properties syntax. `remote-cache.db` stores short-lived confirmed checks when optional remote storage is enabled; see [remote configuration](15-remote-storage.md).
+Both platforms load editable UTF-8 interface text from `messages/en-US.properties` and `messages/id-ID.properties`. Add another `<locale>.properties` file for another interface language. Missing entries fall back to the configured default language, then English. Current files use Java properties syntax. `remote-cache.db` stores short-lived confirmed checks when optional remote storage is enabled; see [remote configuration](15-remote-storage.md).
 
 The language selector title, prompt, labels, and order are configurable under `language.selector`. It accepts two to eight choices. Document files support up to 32 translations. A valid acceptance in any current translation skips the selector on reconnect, even when the client's language differs. Changed versions, changed accepted content, and withdrawals still require consent.
 

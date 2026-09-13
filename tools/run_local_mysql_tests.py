@@ -19,7 +19,11 @@ from cryptography.x509.oid import NameOID, ExtendedKeyUsageOID
 project = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--server', required=True, type=Path, help='Root of an extracted MySQL Windows ZIP distribution')
+parser.add_argument('--platforms', nargs='*', choices=('paper', 'velocity'), default=[])
+parser.add_argument('--modules', type=Path, help='Local Node dependency directory, required for Paper checks')
 args = parser.parse_args()
+if 'paper' in args.platforms and args.modules is None:
+    parser.error('Paper checks require --modules')
 base = args.server.resolve()
 assert (base / 'bin/mysqld.exe').is_file(), 'Provide the extracted MySQL server directory'
 fixture = project / '.run' / ('mysql-test-' + uuid.uuid4().hex)
@@ -102,6 +106,7 @@ try:
                CG_TEST_DB_SSL_MODE='verify-full', CG_TEST_DB_SERVER_CERTIFICATE=str(fixture / 'ca.pem'))
     env.update(CG_TEST_DB_UNTRUSTED_CERTIFICATE=str(fixture / 'untrusted-ca.pem'), CG_TEST_DB_WRONG_HOST='127.0.0.1')
     env['CG_TEST_DB_SOCKET_FAULTS'] = 'true'
+    env['CG_TEST_DB_CLIENT'] = str(bin_dir / 'mysql.exe')
     print('Running MySQL repository tests with verified TLS on loopback port ' + str(port), flush=True)
     result = subprocess.run([str(project / 'gradlew.bat'), '--offline', ':core:remoteDatabaseTest', '--console=plain'],
                             cwd=project, env=env, timeout=240, creationflags=flags, capture_output=True, text=True)
@@ -109,6 +114,16 @@ try:
     print(result.stdout[-3500:] + result.stderr[-1000:], flush=True)
     if result.returncode:
         raise RuntimeError('MySQL integration tests failed')
+    for platform in args.platforms:
+        command = [os.sys.executable, str(project / 'tools/run_remote_admission_probe.py'), '--platform', platform]
+        if args.modules is not None:
+            command += ['--modules', str(args.modules.resolve())]
+        result = subprocess.run(command, cwd=project, env=env, timeout=300, creationflags=flags,
+                                capture_output=True, text=True)
+        (fixture / (platform + '-admission.log')).write_text(result.stdout + result.stderr)
+        print(result.stdout + result.stderr, flush=True)
+        if result.returncode:
+            raise RuntimeError(platform + ' remote admission checks failed')
 finally:
     if server_process is not None and server_process.poll() is None:
         if client_file.exists():
