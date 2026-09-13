@@ -48,10 +48,7 @@ class RemoteAcceptanceRepositoryTest {
     }
 
     static ShownDocument shown(String id, String version, String text) {
-        try {
-            String hash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(text.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-            return new ShownDocument(id, version, "en-US", hash, "Example document", text);
-        } catch (Exception ex) { throw new IllegalStateException(ex); }
+        return StorageFixtures.shown(id, version, text);
     }
     RemoteAcceptanceRepository repository() throws SQLException { return new RemoteAcceptanceRepository(settings); }
 
@@ -67,6 +64,35 @@ class RemoteAcceptanceRepositoryTest {
             assertEquals(1, count("cg_audit_events"));
             assertEquals(2, count("cg_acceptance_events"));
             assertThrows(SQLException.class, () -> second.grant(player, scope, List.of(document), request, at, "in-game"));
+        }
+    }
+
+    @Test void maximumLocaleBatchUsesOneConnectionAndReturnsPartialCurrentState() throws Exception {
+        var variants = new ArrayList<ShownDocument>();
+        var granted = new ArrayList<ShownDocument>();
+        for (int document = 0; document < 32; document++) {
+            for (int locale = 0; locale < 32; locale++) {
+                var shown = StorageFixtures.variant("rules" + document, "v1", "en-x" + locale);
+                variants.add(shown);
+                if (locale == 31) granted.add(shown);
+            }
+        }
+        var requirements = new AcceptanceRequirements(variants);
+        var connections = new java.util.concurrent.atomic.AtomicInteger();
+        try (var repository = new RemoteAcceptanceRepository(() -> {
+            connections.incrementAndGet();
+            return RemoteAcceptanceRepository.openConnection(settings);
+        })) {
+            repository.grant(player, scope, granted, UUID.randomUUID(), at, "test");
+            connections.set(0);
+            assertEquals(requirements.documentIds(), repository.acceptedDocuments(player, scope, requirements));
+            assertEquals(1, connections.get());
+            repository.withdraw(player, scope, List.of("rules0"), UUID.randomUUID(), at.plusSeconds(1), "test");
+            connections.set(0);
+            var accepted = repository.acceptedDocumentsAuthoritatively(player, scope, requirements);
+            assertEquals(31, accepted.size());
+            assertFalse(accepted.contains("rules0"));
+            assertEquals(1, connections.get());
         }
     }
 

@@ -68,7 +68,7 @@ Revision keys are byte-sensitive, including case and trailing spaces. Reusing a 
 
 | Situation | Result |
 | --- | --- |
-| Exact positive primary check younger than the freshness limit | Admission may use the cache, including during a brief outage |
+| Complete positive primary check younger than the freshness limit | Admission may use the cache, including during a brief outage |
 | Missing, expired, or different revision | Check the primary; a primary failure denies admission |
 | New acceptance or reset | Always contact the primary; never queue offline writes |
 | Primary status command | Bypass the cache and report the primary result |
@@ -76,6 +76,10 @@ Revision keys are byte-sensitive, including case and trailing spaces. Reusing a 
 | Plugin startup | Require a reachable primary and valid schema; a cache cannot bypass initialization |
 
 Cache hits never extend freshness. The timestamp starts before the successful primary query, so a slow response does not gain a new full freshness window. Only positive checks are stored. A known negative primary check invalidates the player's cached checks for that scope. Grant/reset attempts invalidate locally before the primary write, even if its outcome becomes unknown. Per-player locking prevents a local reset from racing an older cache fill.
+
+Normal admission and administrator status read all required document decisions together. Any current translation can satisfy its document, so changing client language does not require another database read while the complete check remains fresh. Explicit language selection still checks the selected translations. Partial matches are never cached as complete acceptance.
+
+The batch-read update uses new cache keys and ignores entries from earlier candidates. Each player needs a successful primary check to populate the new entries. Acceptance records and history are unchanged.
 
 With the default 60 seconds, another instance's reset can take up to 60 seconds to become visible through this cache. Set `freshness-seconds: 0` or `enabled: false` for a primary query on every admission. The maximum configurable freshness is 300 seconds. No immediate cross-instance invalidation is promised.
 

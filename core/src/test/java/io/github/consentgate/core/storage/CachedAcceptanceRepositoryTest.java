@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class CachedAcceptanceRepositoryTest {
     @TempDir Path directory;
     final UUID player = UUID.randomUUID();
-    final ShownDocument document = RemoteAcceptanceRepositoryTest.shown("rules", "v1", "example");
+    final ShownDocument document = StorageFixtures.shown("rules", "v1", "example");
     final MutableClock clock = new MutableClock();
     final Primary primary = new Primary();
     StorageConfig.Cache config(int ttl, int capacity) { return new StorageConfig.Cache(true, directory.resolve("cache.db"), ttl, capacity); }
@@ -25,6 +25,42 @@ class CachedAcceptanceRepositoryTest {
             clock.advance(59); assertTrue(cache.isAccepted(player, "main", List.of(document)));
             clock.advance(1); assertThrows(SQLException.class, () -> cache.isAccepted(player, "main", List.of(document)));
             assertEquals(2, primary.reads);
+        }
+    }
+
+    @Test void alternateLocaleBatchSurvivesReorderingButExactLocaleStatusAndExpiryStayStrict() throws Exception {
+        var english = StorageFixtures.variant("rules", "v1", "en-US");
+        var indonesian = StorageFixtures.variant("rules", "v1", "id-ID");
+        var requirements = new AcceptanceRequirements(List.of(english, indonesian));
+        var database = new SqliteAcceptanceRepository(directory.resolve("primary.db"));
+        var available = new AvailablePrimary(database);
+        try (var cache = new CachedAcceptanceRepository(available, config(60, 10), "source", clock, ignored -> { })) {
+            cache.grant(player, "main", List.of(indonesian), UUID.randomUUID(), clock.instant(), "test");
+            assertEquals(Set.of("rules"), cache.acceptedDocuments(player, "main", requirements));
+            available.offline = true;
+            clock.advance(59);
+            assertEquals(Set.of("rules"), cache.acceptedDocuments(player, "main", new AcceptanceRequirements(List.of(indonesian, english))));
+            assertEquals(1, available.reads);
+            assertThrows(SQLException.class, () -> cache.isAccepted(player, "main", List.of(english)));
+            assertThrows(SQLException.class, () -> cache.acceptedDocumentsAuthoritatively(player, "main", requirements));
+            clock.advance(1);
+            assertThrows(SQLException.class, () -> cache.acceptedDocuments(player, "main", requirements));
+        }
+    }
+
+    @Test void incompleteAuthoritativeBatchInvalidatesACompleteCachedCheck() throws Exception {
+        var rules = StorageFixtures.variant("rules", "v1", "en-US");
+        var privacy = StorageFixtures.variant("privacy", "v1", "id-ID");
+        var requirements = new AcceptanceRequirements(List.of(rules, privacy));
+        var database = new SqliteAcceptanceRepository(directory.resolve("primary.db"));
+        var available = new AvailablePrimary(database);
+        try (var cache = new CachedAcceptanceRepository(available, config(60, 10), "source", clock, ignored -> { })) {
+            cache.grant(player, "main", List.of(rules, privacy), UUID.randomUUID(), clock.instant(), "test");
+            assertEquals(requirements.documentIds(), cache.acceptedDocuments(player, "main", requirements));
+            database.withdraw(player, "main", List.of("privacy"), UUID.randomUUID(), clock.instant().plusSeconds(1), "test");
+            assertEquals(Set.of("rules"), cache.acceptedDocumentsAuthoritatively(player, "main", requirements));
+            available.offline = true;
+            assertThrows(SQLException.class, () -> cache.acceptedDocuments(player, "main", requirements));
         }
     }
 
@@ -42,7 +78,7 @@ class CachedAcceptanceRepositoryTest {
             assertTrue(cache.isAccepted(player, "main", List.of(document)));
             primary.offline = true;
             assertThrows(SQLException.class, () -> cache.isAccepted(player, "other", List.of(document)));
-            assertThrows(SQLException.class, () -> cache.isAccepted(player, "main", List.of(RemoteAcceptanceRepositoryTest.shown("rules", "v2", "example"))));
+            assertThrows(SQLException.class, () -> cache.isAccepted(player, "main", List.of(StorageFixtures.shown("rules", "v2", "example"))));
         }
         try (var cache = new CachedAcceptanceRepository(primary, config(60, 10), "different-primary", clock, ignored -> { })) {
             assertThrows(SQLException.class, () -> cache.isAccepted(player, "main", List.of(document)));
@@ -206,9 +242,25 @@ class CachedAcceptanceRepositoryTest {
         int reads;
         Runnable onRead = () -> { };
         void available() throws SQLException { if (offline) throw new SQLException("Simulated unavailable primary"); }
-        @Override public boolean isAccepted(UUID player, String scope, Collection<ShownDocument> documents) throws SQLException { reads++; available(); onRead.run(); return accepted; }
+        @Override public Set<String> acceptedDocuments(UUID player, String scope, AcceptanceRequirements documents) throws SQLException { reads++; available(); onRead.run(); return accepted ? documents.documentIds() : Set.of(); }
         @Override public void validateRevisions(String scope, Collection<ShownDocument> documents) throws SQLException { available(); }
         @Override public void grant(UUID player, String scope, List<ShownDocument> documents, UUID request, Instant at, String method) throws SQLException { available(); accepted = true; }
         @Override public void withdraw(UUID player, String scope, Collection<String> documents, UUID request, Instant at, String method) throws SQLException { available(); accepted = false; }
+    }
+
+    private static final class AvailablePrimary implements AcceptanceRepository {
+        private final AcceptanceRepository delegate;
+        boolean offline;
+        int reads;
+        AvailablePrimary(AcceptanceRepository delegate) { this.delegate = delegate; }
+        @Override public Set<String> acceptedDocuments(UUID player, String scope, AcceptanceRequirements required) throws SQLException {
+            reads++;
+            if (offline) throw new SQLException("Simulated unavailable primary");
+            return delegate.acceptedDocuments(player, scope, required);
+        }
+        @Override public void validateRevisions(String scope, Collection<ShownDocument> documents) throws SQLException { delegate.validateRevisions(scope, documents); }
+        @Override public void grant(UUID player, String scope, List<ShownDocument> shown, UUID request, Instant at, String method) throws SQLException { delegate.grant(player, scope, shown, request, at, method); }
+        @Override public void withdraw(UUID player, String scope, Collection<String> ids, UUID request, Instant at, String method) throws SQLException { delegate.withdraw(player, scope, ids, request, at, method); }
+        @Override public void close() throws SQLException { delegate.close(); }
     }
 }

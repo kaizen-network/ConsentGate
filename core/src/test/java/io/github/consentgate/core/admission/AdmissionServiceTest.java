@@ -6,6 +6,7 @@ import io.github.consentgate.core.document.DocumentPage;
 import io.github.consentgate.core.document.DocumentRevision;
 import io.github.consentgate.core.document.DocumentTranslation;
 import io.github.consentgate.core.storage.AcceptanceRepository;
+import io.github.consentgate.core.storage.AcceptanceRequirements;
 import io.github.consentgate.core.storage.ShownDocument;
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +16,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -114,7 +116,49 @@ class AdmissionServiceTest {
         repository.accepted = true;
         try (var service = new AdmissionService(config(true, true), catalog(), repository)) {
             assertTrue(service.check(UUID.randomUUID(), "id-ID").isEmpty());
-            assertEquals("id-ID", repository.required.getFirst().locale());
+            assertEquals(Set.of("en-US", "id-ID"), repository.required.stream().map(ShownDocument::locale)
+                    .collect(java.util.stream.Collectors.toSet()));
+        }
+    }
+
+    @Test void maximumCatalogUsesOneBatchForAdmissionAndOneAuthoritativeBatchForStatus() throws Exception {
+        var translations = new java.util.LinkedHashMap<String, DocumentTranslation>();
+        for (int locale = 0; locale < 32; locale++) {
+            translations.put("en-x" + locale, translation("Rules", "a"));
+        }
+        var documents = new java.util.ArrayList<DocumentRevision>();
+        for (int index = 0; index < 32; index++) {
+            documents.add(new DocumentRevision("rules" + index, "v1", true, index, translations));
+        }
+        var repository = new RecordingRepository();
+        repository.accepted = true;
+        try (var service = new AdmissionService(config(true, true), new DocumentCatalog(documents), repository)) {
+            var player = UUID.randomUUID();
+            assertTrue(service.check(player, "en-x31").isEmpty());
+            assertEquals(1, repository.checks);
+            assertEquals(1024, repository.required.size());
+            assertEquals(0, repository.authoritativeChecks);
+            assertEquals(32, service.status(player).stream().filter(AdmissionService.DocumentStatus::accepted).count());
+            assertEquals(2, repository.checks);
+            assertEquals(1, repository.authoritativeChecks);
+        }
+    }
+
+    @Test void changedClientLanguageUsesFreshCompleteCacheWhileStatusStillNeedsPrimary() throws Exception {
+        var primary = new RecordingRepository();
+        primary.accepted = true;
+        var cacheConfig = new io.github.consentgate.core.config.StorageConfig.Cache(true, databaseDirectory.resolve("locale-cache.db"), 60, 10);
+        var cache = new io.github.consentgate.core.storage.CachedAcceptanceRepository(primary, cacheConfig, "source",
+                java.time.Clock.systemUTC(), ignored -> { });
+        try (var service = new AdmissionService(config(true, true), catalog(), cache)) {
+            var player = UUID.randomUUID();
+            assertTrue(service.check(player, "en-US").isEmpty());
+            assertEquals(1, primary.checks);
+            primary.offline = true;
+            assertTrue(service.check(player, "id-ID").isEmpty());
+            assertEquals(1, primary.checks);
+            assertThrows(SQLException.class, () -> service.status(player));
+            assertThrows(SQLException.class, () -> service.check(UUID.randomUUID(), "id-ID"));
         }
     }
 
@@ -182,15 +226,23 @@ class AdmissionServiceTest {
     private static final class RecordingRepository implements AcceptanceRepository {
         @Override public void validateRevisions(String scope, Collection<ShownDocument> documents) { }
         boolean accepted;
+        boolean offline;
         int checks;
+        int authoritativeChecks;
         List<ShownDocument> required;
         List<ShownDocument> granted;
         UUID requestId;
 
-        @Override public boolean isAccepted(UUID playerId, String scope, Collection<ShownDocument> required) {
+        @Override public Set<String> acceptedDocuments(UUID playerId, String scope, AcceptanceRequirements required) throws SQLException {
             checks++;
-            this.required = List.copyOf(required);
-            return accepted;
+            if (offline) throw new SQLException("Simulated unavailable primary");
+            this.required = required.documents();
+            return accepted ? required.documentIds() : Set.of();
+        }
+
+        @Override public Set<String> acceptedDocumentsAuthoritatively(UUID playerId, String scope, AcceptanceRequirements required) throws SQLException {
+            authoritativeChecks++;
+            return acceptedDocuments(playerId, scope, required);
         }
 
         @Override public void grant(UUID playerId, String scope, List<ShownDocument> shown, UUID requestId,

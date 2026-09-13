@@ -14,7 +14,6 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -52,37 +51,17 @@ public final class SqliteAcceptanceRepository implements AcceptanceRepository {
     }
 
     @Override
-    public boolean isAccepted(UUID playerId, String scope, Collection<ShownDocument> required) throws SQLException {
+    public Set<String> acceptedDocuments(UUID playerId, String scope, AcceptanceRequirements required) throws SQLException {
         Objects.requireNonNull(playerId, "playerId");
         Objects.requireNonNull(required, "required");
         validateScope(scope);
-        if (required.isEmpty()) return true;
-        Map<String, ShownDocument> expected = uniqueDocuments(required);
-        try (Connection connection = connection()) { return accepted(connection, playerId, scope, expected); }
+        if (required.documentIds().isEmpty()) return Set.of();
+        try (Connection connection = connection()) { return AcceptanceRead.accepted(connection, playerId, scope, required); }
     }
 
     private static boolean accepted(Connection connection, UUID playerId, String scope, Map<String, ShownDocument> expected) throws SQLException {
-        String placeholders = String.join(",", java.util.Collections.nCopies(expected.size(), "?"));
-        String sql = "SELECT document_id, version, content_hash, decision FROM cg_acceptance_state "
-                + "WHERE player_uuid=? AND scope=? AND document_id IN (" + placeholders + ")";
-        Set<String> accepted = new HashSet<>();
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, playerId.toString());
-            statement.setString(2, scope);
-            int index = 3;
-            for (String id : expected.keySet()) statement.setString(index++, id);
-            try (ResultSet rows = statement.executeQuery()) {
-                while (rows.next()) {
-                    ShownDocument requirement = expected.get(rows.getString("document_id"));
-                    if (requirement != null && "granted".equals(rows.getString("decision"))
-                            && requirement.version().equals(rows.getString("version"))
-                            && requirement.contentHash().equals(rows.getString("content_hash"))) {
-                        accepted.add(requirement.documentId());
-                    }
-                }
-            }
-        }
-        return accepted.size() == expected.size();
+        return AcceptanceRead.accepted(connection, playerId, scope, AcceptanceRequirements.exact(expected.values()))
+                .containsAll(expected.keySet());
     }
 
     @Override

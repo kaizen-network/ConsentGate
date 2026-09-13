@@ -72,22 +72,22 @@ public final class CachedAcceptanceRepository implements AcceptanceRepository {
         } catch (SQLException | IOException | ClassNotFoundException | RuntimeException ex) { disable(); }
     }
 
-    @Override public boolean isAccepted(UUID player, String scope, Collection<ShownDocument> required) throws SQLException {
+    @Override public Set<String> acceptedDocuments(UUID player, String scope, AcceptanceRequirements required) throws SQLException {
         synchronized (playerLock(player)) {
             String fingerprint = fingerprint(required);
-            if (hit(player, scope, fingerprint)) return true;
+            if (hit(player, scope, fingerprint)) return required.documentIds();
             return verify(player, scope, required, fingerprint);
         }
     }
 
-    @Override public boolean isAcceptedAuthoritatively(UUID player, String scope, Collection<ShownDocument> required) throws SQLException {
+    @Override public Set<String> acceptedDocumentsAuthoritatively(UUID player, String scope, AcceptanceRequirements required) throws SQLException {
         synchronized (playerLock(player)) { return verify(player, scope, required, fingerprint(required)); }
     }
 
-    private boolean verify(UUID player, String scope, Collection<ShownDocument> required, String fingerprint) throws SQLException {
+    private Set<String> verify(UUID player, String scope, AcceptanceRequirements required, String fingerprint) throws SQLException {
         long started = clock.millis();
-        boolean accepted = primary.isAcceptedAuthoritatively(player, scope, required);
-        if (accepted) remember(player, scope, fingerprint, started);
+        var accepted = Set.copyOf(primary.acceptedDocumentsAuthoritatively(player, scope, required));
+        if (accepted.equals(required.documentIds())) remember(player, scope, fingerprint, started);
         else invalidate(player, scope);
         return accepted;
     }
@@ -166,17 +166,13 @@ public final class CachedAcceptanceRepository implements AcceptanceRepository {
         return now;
     }
 
-    private String fingerprint(Collection<ShownDocument> documents) {
-        var unique = new TreeMap<String, ShownDocument>();
-        for (var document : documents) {
-            var old = unique.putIfAbsent(document.documentId(), document);
-            if (old != null && !old.equals(document)) throw new IllegalArgumentException("Conflicting document requirement");
-        }
-        if (unique.size() > 32) throw new IllegalArgumentException("At most 32 documents are allowed");
+    private String fingerprint(AcceptanceRequirements required) {
         try {
             var digest = MessageDigest.getInstance("SHA-256");
             field(digest, source);
-            for (var document : unique.values()) for (String value : List.of(document.documentId(), document.version(), document.locale(), document.contentHash(), document.contentSnapshot())) field(digest, value);
+            // Version the key format for sets of valid translation alternatives.
+            field(digest, "alternatives-v1");
+            for (var document : required.documents()) for (String value : List.of(document.documentId(), document.version(), document.locale(), document.contentHash(), document.contentSnapshot())) field(digest, value);
             return HexFormat.of().formatHex(digest.digest());
         } catch (java.security.NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
     }

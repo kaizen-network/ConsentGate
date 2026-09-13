@@ -33,7 +33,7 @@ Velocity checks admission again on every backend connection request. It maintain
 
 Native Bedrock form tests exercise Cumulus response parsing, menu and page navigation, unchecked defaults, partial selections, malformed payloads, stale responses, close behavior, and failed delivery. The Java wire probe runs without Geyser installed to check that the optional integration does not break Java admission.
 
-Run `python -m unittest discover -s tools -p "test_*.py"` for the dialog payload framing fixtures. These use fixed expected bytes backed by the official client codec inspection, including absent tags, empty compounds, checkbox data, and multi-byte lengths.
+Run `python -m unittest discover -s tools -p "test_*.py"` for dialog framing and runner cleanup checks. Framing fixtures use fixed expected bytes backed by the official client codec inspection. Failure checks use fake processes to verify configuration restoration, owned-process shutdown, and rejection of stale artifact versions without starting a server.
 
 `core:test` checks unchecked and foreign actions, timeout, concurrent repeated clicks, shutdown, runtime bootstrap, configuration paths and bounds, document loading and hashing, locale selection, multi-document state, SQLite transactions, repeated requests, changed content under an unchanged version, and withdrawal ordering.
 
@@ -112,8 +112,8 @@ The runner verifies the local proxy configuration, stages the current plugin art
 | --- | --- |
 | Shared session core | Automated session lifecycle checks |
 | Configuration, documents, admission, and SQLite | Automated loading, acceptance, withdrawal, and history checks |
-| MariaDB 11.8.6, Connector/J 3.5.10 | All 17 repository checks pass, including TLS, socket interruptions, reset ordering, and two-instance load; dump/restore also passes |
-| MySQL 8.4.8, Connector/J 3.5.10 | All 17 repository checks pass, including TLS, socket interruptions, reset ordering, and two-instance load; dump/restore also passes |
+| MariaDB 11.8.6, Connector/J 3.5.10 | All 18 repository checks pass, including TLS, socket interruptions, reset ordering, bounded translation batches, and two-instance load; dump/restore also passes |
+| MySQL 8.4.8, Connector/J 3.5.10 | All 18 repository checks pass, including TLS, socket interruptions, reset ordering, bounded translation batches, and two-instance load; dump/restore also passes |
 | MySQL 8.4.8 and MariaDB 11.8.6 with packaged Paper and Velocity | Each database passed headless acceptance, accepted rejoin, status, reset history, fresh-cache outage, expired-cache denial, failed save, and recovery through a local TLS relay |
 | Velocity formatting and administration | Automated formatting, command permissions, target parsing, and save/reset ordering checks |
 | Stock Paper 1.21.7 build 32, Java 21.0.2, synthetic Java protocol 772 | Fresh disabled installation, unsupported-schema denial, full packaged admission, preview, administration, pressure rejection, Leave, and timeout pass; no optional plugins installed |

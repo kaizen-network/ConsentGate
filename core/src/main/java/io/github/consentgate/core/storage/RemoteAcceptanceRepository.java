@@ -69,27 +69,15 @@ public final class RemoteAcceptanceRepository implements AcceptanceRepository {
         }
     }
 
-    @Override public boolean isAccepted(UUID playerId, String scope, Collection<ShownDocument> required) throws SQLException {
+    @Override public Set<String> acceptedDocuments(UUID playerId, String scope, AcceptanceRequirements required) throws SQLException {
         validatePlayer(playerId, scope);
-        var documents = unique(required);
-        if (documents.isEmpty()) return true;
-        try (var connection = connections.open()) { return accepted(connection, playerId, scope, documents); }
+        if (required.documentIds().isEmpty()) return Set.of();
+        try (var connection = connections.open()) { return AcceptanceRead.accepted(connection, playerId, scope, required); }
     }
 
     private static boolean accepted(Connection connection, UUID player, String scope, Map<String, ShownDocument> documents) throws SQLException {
-        String placeholders = String.join(",", Collections.nCopies(documents.size(), "?"));
-        var args = new ArrayList<String>(List.of(player.toString(), scope));
-        args.addAll(documents.keySet());
-        try (var query = prepare(connection, "SELECT document_id,version,content_hash,decision FROM cg_acceptance_state WHERE player_uuid=? AND scope=? AND document_id IN (" + placeholders + ")", args.toArray(String[]::new));
-             var rows = query.executeQuery()) {
-            int count = 0;
-            while (rows.next()) {
-                var expected = documents.get(rows.getString(1));
-                if (expected != null && expected.version().equals(rows.getString(2)) && expected.contentHash().equals(rows.getString(3))
-                        && "granted".equals(rows.getString(4))) count++;
-            }
-            return count == documents.size();
-        }
+        return AcceptanceRead.accepted(connection, player, scope, AcceptanceRequirements.exact(documents.values()))
+                .containsAll(documents.keySet());
     }
 
     @Override public void validateRevisions(String scope, Collection<ShownDocument> documents) throws SQLException {
@@ -216,7 +204,6 @@ public final class RemoteAcceptanceRepository implements AcceptanceRepository {
     private static Map<String, ShownDocument> unique(Collection<ShownDocument> documents) {
         var result = new TreeMap<String, ShownDocument>();
         for (var document : documents) {
-            if (document.locale().length() > 64) throw new IllegalArgumentException("Locale exceeds 64 characters");
             var previous = result.putIfAbsent(document.documentId(), document);
             if (previous != null && !previous.equals(document)) throw new IllegalArgumentException("Conflicting document requirement");
         }

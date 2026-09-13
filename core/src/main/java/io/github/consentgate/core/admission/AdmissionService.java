@@ -3,6 +3,7 @@ package io.github.consentgate.core.admission;
 import io.github.consentgate.core.config.ConsentGateConfig;
 import io.github.consentgate.core.document.DocumentCatalog;
 import io.github.consentgate.core.storage.AcceptanceRepository;
+import io.github.consentgate.core.storage.AcceptanceRequirements;
 import io.github.consentgate.core.storage.ShownDocument;
 
 import java.sql.SQLException;
@@ -16,6 +17,7 @@ public final class AdmissionService implements AutoCloseable {
     private final ConsentGateConfig config;
     private final DocumentCatalog catalog;
     private final AcceptanceRepository repository;
+    private final AcceptanceRequirements requirements;
 
     public AdmissionService(ConsentGateConfig config, DocumentCatalog catalog, AcceptanceRepository repository) {
         this.config = Objects.requireNonNull(config, "config");
@@ -24,6 +26,9 @@ public final class AdmissionService implements AutoCloseable {
         if (config.enabled() && catalog.required().isEmpty()) {
             throw new IllegalArgumentException("An enabled gate needs at least one required document");
         }
+        requirements = new AcceptanceRequirements(catalog.required().stream().flatMap(revision ->
+                revision.translations().keySet().stream().map(locale -> ShownDocument.from(revision, locale, config.defaultLocale())))
+                .toList());
     }
 
     public ConsentGateConfig config() { return config; }
@@ -56,17 +61,10 @@ public final class AdmissionService implements AutoCloseable {
 
     public List<DocumentStatus> status(UUID playerId) throws SQLException {
         Objects.requireNonNull(playerId, "playerId");
+        var accepted = repository.acceptedDocumentsAuthoritatively(playerId, config.scope(), requirements);
         var result = new java.util.ArrayList<DocumentStatus>();
         for (var revision : catalog.required()) {
-            boolean accepted = false;
-            for (String locale : revision.translations().keySet()) {
-                if (repository.isAcceptedAuthoritatively(playerId, config.scope(),
-                        List.of(ShownDocument.from(revision, locale, config.defaultLocale())))) {
-                    accepted = true;
-                    break;
-                }
-            }
-            result.add(new DocumentStatus(revision.id(), revision.version(), accepted));
+            result.add(new DocumentStatus(revision.id(), revision.version(), accepted.contains(revision.id())));
         }
         return List.copyOf(result);
     }
@@ -80,23 +78,12 @@ public final class AdmissionService implements AutoCloseable {
     public Optional<AdmissionRequest> check(UUID playerId, String clientLocale) throws SQLException {
         Objects.requireNonNull(playerId, "playerId");
         if (!config.enabled()) return Optional.empty();
+        // Any current translation may satisfy a document, independently of the client language.
+        var accepted = repository.acceptedDocuments(playerId, config.scope(), requirements);
+        if (accepted.containsAll(requirements.documentIds())) return Optional.empty();
         String requestedLocale = config.useClientLocale() && clientLocale != null && !clientLocale.isBlank()
                 ? clientLocale : config.defaultLocale();
-        var request = checkSelectedLocale(playerId, requestedLocale);
-        if (request.isEmpty()) return request;
-        // A previously accepted translation remains valid regardless of the client language.
-        for (var revision : catalog.required()) {
-            boolean accepted = false;
-            for (String locale : revision.translations().keySet()) {
-                if (repository.isAccepted(playerId, config.scope(),
-                        List.of(ShownDocument.from(revision, locale, config.defaultLocale())))) {
-                    accepted = true;
-                    break;
-                }
-            }
-            if (!accepted) return request;
-        }
-        return Optional.empty();
+        return Optional.of(new AdmissionRequest(playerId, UUID.randomUUID(), documents(requestedLocale)));
     }
 
     public Optional<AdmissionRequest> checkExactLocale(UUID playerId, String locale) throws SQLException {
