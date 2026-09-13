@@ -34,7 +34,7 @@ Interface text comes from editable UTF-8 `messages/<locale>.properties` files. E
 
 ## Remaining validation
 
-- Exercise selector actions, including stale tokens and repeated clicks, in the wire probe.
+- Confirm language selection and repeated invalid submissions in the final unmodified-client check.
 - Extend real Java client checks for translated navigation and rapid validation errors.
 - Validate native Bedrock forms before backend admission, including scrolling, closure, preserved selections, reconnects, and storage failures.
 - Verify the shared Bedrock flow through Paper's configuration connection.

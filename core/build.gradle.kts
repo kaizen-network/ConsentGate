@@ -8,6 +8,10 @@ dependencies {
 
 tasks.test { useJUnitPlatform { excludeTags("remote-database") } }
 
+tasks.processResources {
+    from(rootProject.file("THIRD_PARTY_NOTICES.md")) { into("META-INF") }
+}
+
 tasks.register<Test>("remoteDatabaseTest") {
     dependsOn(":platform-paper:shadowJar", ":platform-velocity:shadowJar")
     description = "Run opt-in integration tests against a dedicated MySQL/MariaDB database."

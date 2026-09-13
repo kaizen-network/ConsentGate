@@ -6,7 +6,7 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":presentation"))
     implementation(project(":integration-bedrock"))
-    compileOnly("io.papermc.paper:paper-api:1.21.7-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.21.7-R0.1-20250716.201120-28")
     implementation("net.kyori:adventure-nbt:4.26.1") { isTransitive = false }
     implementation("net.kyori:examination-api:1.3.0") { isTransitive = false }
     implementation("net.kyori:examination-string:1.3.0") { isTransitive = false }

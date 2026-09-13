@@ -94,7 +94,7 @@ Record the outcome in the development validation matrix. Commit and push remain 
 
 1. **Paper parity:** reuse the shared document, locale, admission, SQLite, and admin behavior. Adapt native dialogs and bounded asynchronous storage to Paper's lifecycle. Keep platform types out of the shared core.
 2. **Paper admission proof:** measure configuration completion, world/player creation, and first world entry. Test accepted reconnect, version changes, timeout, disconnect, shutdown, database failure, and reload. Do not claim before-world-entry support from compilation alone.
-3. **Storage expansion:** define cross-instance withdrawal and cache consistency before implementing MySQL/MariaDB. Test both real database products, outages, recovery, stale cache, and uncertain commits. Keep H2 deferred.
+3. **Shared storage:** implemented and checked against both MySQL and MariaDB, including cache expiry, withdrawals, outages, recovery, TLS, and uncertain commits. Keep H2 deferred.
 4. **Release preparation:** pin dependencies, finish permissions and compatibility documentation, review dependency licenses, and produce local checksummed artifacts. Public distribution remains a separate decision.
 
 Each stage should produce a tested, documented local change before moving to the next. A finding that changes the platform or compatibility promise needs an explicit decision rather than a silent change in scope.

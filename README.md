@@ -8,7 +8,7 @@ Fresh installations include inactive Terms of Service and Privacy Policy starter
 
 ## Status
 
-Early development. Both platforms support local documents, translations, SQLite acceptance, and administrator commands. Native Bedrock forms share one renderer, with real-client checks on Velocity and initial integration on Paper. Paper Bedrock runtime checks, broader failure testing, and real-client version coverage remain open. Neither artifact is a production release. See the [release progress](docs/16-release-progress.md).
+Core features are implemented on Paper and Velocity. Automated checks cover admission, administration, SQLite, both remote databases, outages, and recovery. Native Bedrock forms share one renderer, with real-client checks on Velocity. Final client-version, layout, and Paper Bedrock checks remain. Neither artifact is a production release. See the [release progress](docs/16-release-progress.md).
 
 ## Requirements
 
@@ -17,10 +17,10 @@ Test installations only. Use Java 21 or newer, or the newer Java version require
 | Installation | Plugin JAR | Additional requirement |
 | --- | --- | --- |
 | Velocity | `ConsentGate-Velocity-0.1.0-prototype.jar` | PacketEvents 2.13.0 for Velocity, installed on the same proxy |
-| Paper | `ConsentGate-Paper-0.1.0-prototype.jar` | No separate plugin dependency for Java dialogs; Paper API 1.21.7 is the current compile target |
+| Paper | `ConsentGate-Paper-0.1.0-prototype.jar` | No separate plugin dependency for Java dialogs; stock Paper 1.21.7 build 32 passed headless admission checks |
 | Native Bedrock forms | Matching platform JAR | Geyser on the same proxy/server; optional and disabled by default. Paper runtime verification remains open |
 
-SQLite is the default, with its driver bundled. Optional MySQL/MariaDB storage and a local SQLite cache are implemented. Both database products passed repository, TLS, socket-failure, and headless admission and outage checks on both platforms. Sustained load testing remains open. No website or GrimAC is required. BungeeCord and plain Spigot are not implemented yet. [Dependency details](docs/13-installation.md#requirements-and-dependencies) and [remote storage setup](docs/15-remote-storage.md).
+SQLite is the default, with its driver bundled. Optional MySQL/MariaDB storage and a local SQLite cache are implemented. Both database products passed repository, TLS, socket-failure, and headless admission and outage checks on both platforms. An initial 30-second workload across two instances also passed. No website or GrimAC is required. BungeeCord and plain Spigot are not implemented yet. [Dependency details](docs/13-installation.md#requirements-and-dependencies) and [remote storage setup](docs/15-remote-storage.md).
 
 ## Quick start
 
@@ -63,6 +63,7 @@ Connection handling must pass prototype tests before these guarantees are advert
 - [MySQL, MariaDB, and cache setup](docs/15-remote-storage.md)
 - [Backups and recovery](docs/17-backups-and-recovery.md)
 - [Release progress and remaining checks](docs/16-release-progress.md)
+- [Local packages, fixed build inputs, and sources](docs/18-local-distribution.md)
 - [Administrator commands](docs/07-admin-commands.md)
 - [Paper implementation progress](docs/10-paper-progress.md)
 - [Paper anticheat compatibility](docs/12-paper-anticheat-compatibility.md)

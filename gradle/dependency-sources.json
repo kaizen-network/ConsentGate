@@ -1,0 +1,67 @@
+[
+  {
+    "file": "snakeyaml-2.7-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/org/yaml/snakeyaml/2.7/snakeyaml-2.7-sources.jar",
+    "sha256": "f7b972dfc3d51ad08af2f6a6e828b4ed449c718ab6b57673238e6d0460a1a626"
+  },
+  {
+    "file": "snakeyaml-2.7.pom",
+    "url": "https://repo.maven.apache.org/maven2/org/yaml/snakeyaml/2.7/snakeyaml-2.7.pom",
+    "sha256": "59e8bbfd43e3541c1a3e26f168c95ec8fee0076db91acfa4d78ede95509f26b4"
+  },
+  {
+    "file": "sqlite-jdbc-3.53.4.0-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/org/xerial/sqlite-jdbc/3.53.4.0/sqlite-jdbc-3.53.4.0-sources.jar",
+    "sha256": "6f3fca1257fd02891e9b17b296b4e888cdd6af6d3e077ff7e50991657d69ed46"
+  },
+  {
+    "file": "sqlite-jdbc-3.53.4.0.pom",
+    "url": "https://repo.maven.apache.org/maven2/org/xerial/sqlite-jdbc/3.53.4.0/sqlite-jdbc-3.53.4.0.pom",
+    "sha256": "ff588556ba06aa68a568062f2cb9d243dde1f631eafd2010cfef23cab06a7ab9"
+  },
+  {
+    "file": "mariadb-java-client-3.5.10-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/org/mariadb/jdbc/mariadb-java-client/3.5.10/mariadb-java-client-3.5.10-sources.jar",
+    "sha256": "72f28882a0f60a299c07272d573aebef171380d23ea3ee21860ad76807ee7982"
+  },
+  {
+    "file": "mariadb-java-client-3.5.10.pom",
+    "url": "https://repo.maven.apache.org/maven2/org/mariadb/jdbc/mariadb-java-client/3.5.10/mariadb-java-client-3.5.10.pom",
+    "sha256": "343f75be969182eb577f7730ca2656d9b7b8cc82d61d19ead63ab2301a7417f2"
+  },
+  {
+    "file": "adventure-nbt-4.26.1-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/adventure-nbt/4.26.1/adventure-nbt-4.26.1-sources.jar",
+    "sha256": "be29a3f8964b63067e627dabb7bb9761fbc0387262fa18607a760de4bd7dfe7c"
+  },
+  {
+    "file": "adventure-nbt-4.26.1.pom",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/adventure-nbt/4.26.1/adventure-nbt-4.26.1.pom",
+    "sha256": "557e832dcda0b1b377fd8410adf0abc587f8c318c392abd0fb43019ead0b07ad"
+  },
+  {
+    "file": "examination-api-1.3.0-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/examination-api/1.3.0/examination-api-1.3.0-sources.jar",
+    "sha256": "9b12fe0aad9017e1bbbeb3b4c8e0e0094dd3596d028e229057fc092ba4747f99"
+  },
+  {
+    "file": "examination-api-1.3.0.pom",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/examination-api/1.3.0/examination-api-1.3.0.pom",
+    "sha256": "c122186bb74364add5e93471bbd1c5e738e52939bd2bb1f40b19e0a3b8b7c82e"
+  },
+  {
+    "file": "examination-string-1.3.0-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/examination-string/1.3.0/examination-string-1.3.0-sources.jar",
+    "sha256": "ec922af37b1d4538de715697a938a6c74bda9482adaea2e6ba09e70a500b4d03"
+  },
+  {
+    "file": "examination-string-1.3.0.pom",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/examination-string/1.3.0/examination-string-1.3.0.pom",
+    "sha256": "5ee00410822f36e9019d94762ce01bcd6039569765351bef0660945cd4f9a56e"
+  },
+  {
+    "file": "mariadb-connector-j-3.5.10.tar.gz",
+    "url": "https://codeload.github.com/mariadb-corporation/mariadb-connector-j/tar.gz/refs/tags/3.5.10",
+    "sha256": "1f548021beb8465a586db420b0dedfd621fdba3983c2c193eafc7444a6504fe7"
+  }
+]

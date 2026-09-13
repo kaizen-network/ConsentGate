@@ -122,7 +122,7 @@ try:
     env['CG_TEST_DB_CLIENT'] = str(client_binary)
     env['CG_TEST_DB_TYPE'] = args.engine
     print('Running ' + args.engine + ' repository tests with verified TLS on loopback port ' + str(port), flush=True)
-    result = subprocess.run([str(project / 'gradlew.bat'), '--offline', ':core:remoteDatabaseTest', '--console=plain'],
+    result = subprocess.run([str(project / 'gradlew.bat'), ':core:remoteDatabaseTest', '--console=plain'],
                             cwd=project, env=env, timeout=240, creationflags=flags, capture_output=True, text=True)
     (fixture / 'gradle.log').write_text(result.stdout + result.stderr)
     if result.returncode:

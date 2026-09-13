@@ -43,7 +43,7 @@ Tested artifact SHA-256 values: Paper `d3c6187342be8e3b26be4786325d5b1394ba811b1
 
 ## Still open
 
-- Prepare corresponding dependency source materials before any binary publication.
+- Final publication remains gated on the client checks and explicit approval. Pinned dependency source materials and local packaging are described in [the distribution guide](18-local-distribution.md).
 
 References: [MariaDB Connector/J](https://mariadb.com/docs/connectors/mariadb-connector-j/about-mariadb-connector-j), [InnoDB locking reads](https://dev.mysql.com/doc/refman/8.4/en/innodb-locking-reads.html).
 

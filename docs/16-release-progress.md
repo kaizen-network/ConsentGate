@@ -1,6 +1,6 @@
 # Release progress
 
-Status: implementation and verification in progress. Neither artifact is a production release.
+Status: core implementation is complete. Final real-client checks remain. Neither artifact is a production release.
 
 ## Current implementation
 
@@ -15,23 +15,24 @@ Status: implementation and verification in progress. Neither artifact is a produ
 - SQLite now rejects older and replayed saves after withdrawal, including resets before first acceptance. Both stores reject resets that leave a newer grant active. Five failing SQLite cases were reproduced before the fix. Existing version-1 history and a restored closed-file backup pass regression checks.
 - MySQL and MariaDB dumps were each restored into a separate empty database, with every row compared across all six tables. Recovery procedures are documented in the [backup guide](17-backups-and-recovery.md).
 - Both packaged platforms passed MySQL and MariaDB admission, status, reset history, fresh-cache outage, expired-cache denial, failed-save denial, and recovery through a local TLS relay.
+- Stock Paper 1.21.7 build 32 with Java 21 passed clean disabled startup, unsupported-schema denial, and the full packaged admission flow. Its older Adventure API exposed an unnecessary dialog-close call, which was removed and retested.
+- A fresh Velocity installation passed disabled-mode world entry and invalid-schema denial. Two real Paper backends passed normal entry, server switching, accepted rejoin, forced-host routing, and fallback. Timestamped relays confirmed no backend connection before acceptance.
+- A real restored-primary regression verifies that a replacement cache reads the restored decisions. A still-fresh old cache can retain decisions made after the backup, so recovery requires new cache paths.
+- Exact tested API builds, transitive dependency versions, and verification hashes are pinned. The local package builder includes both JARs, source materials, dependency notices, documentation, and checksums. See [local distribution](18-local-distribution.md).
+- Paper passed a 75-second initial hold and three reconfiguration cycles with official Grim `2.3.74-8eb5f28`. Reconfiguration preserves the accepted connection; changed document versions request consent on the next login, which also passed.
 
 ## Remaining release work
 
-1. Finish Paper runtime admission, administrator, connection-pressure, and reconfiguration checks. Verify native Bedrock form delivery and fallback at the held configuration stage.
-2. Finish clean packaged installation and upgrade checks, including startup rejection of invalid schemas and replacement of old caches after recovery.
-3. Verify supported Java client and platform boundaries, long waits, routing, GUI layout, and Bedrock navigation. Synthetic clients do not replace final unmodified-client checks.
-4. Reconcile older planning documents with verified behavior.
-5. Pin build dependencies and prepare local release artifacts, checksums, dependency notices, corresponding sources, and release notes.
+Complete the [final real-client check](19-final-client-check.md): Java version boundaries and visible layout, plus Paper native Bedrock forms and Geyser-translated dialogs. Record those results before declaring a release. The local package builder verifies required notices, dependency sources, the source archive, and distribution checksums.
 
 Later BungeeCord and plain Spigot support, external imports, and provider migration tools remain outside the initial release scope. Publishing requires separate approval.
 
 ## Local validation commands
 
-On 2026-09-13, the full build passed 138 JVM tests with no failures or skips. The Python framing suite passed four tests, and the Node helper suite passed ten. All 15 Velocity protocol-771 check groups passed after the storage fix; protocol 772 passed after the preview change. The packaged Paper JAR passed preview, document viewing, capacity and busy-command checks, acceptance, accepted rejoin, reset history, invalid and valid reload, Leave, and the gate's own timeout. Both platforms passed the updated remote admission checks. Test processes stopped afterward and original configurations were restored.
+On 2026-09-13, the full build passed 139 JVM tests with no failures or skips. The Python framing suite passed four tests, and the Node helper suite passed eleven. All 15 Velocity protocol-771 check groups passed after the storage fix; protocol 772 passed after the preview change. The packaged Paper JAR passed preview, document viewing, capacity and busy-command checks, acceptance, accepted rejoin, reset history, invalid and valid reload, Leave, and the gate's own timeout. Both platforms passed the updated remote admission checks. Test processes stopped afterward and original configurations were restored.
 
 ```powershell
-.\gradlew.bat --offline build
+.\gradlew.bat build
 python -m unittest discover -s tools -p "test_*.py"
 node --test tools/test_paper_probe.cjs
 python tools/run_velocity_probe.py

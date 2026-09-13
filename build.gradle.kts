@@ -15,6 +15,23 @@ allprojects {
 
 subprojects {
     apply(plugin = "java-library")
+    dependencyLocking {
+        lockAllConfigurations()
+        // Gradle stores timestamped Maven builds under their base SNAPSHOT version in lock files.
+        // These five coordinates are fixed explicitly and checked by verification-metadata.xml.
+        ignoredDependencies.addAll("io.papermc.paper:paper-api", "com.velocitypowered:velocity-api",
+            "com.velocitypowered:velocity-brigadier", "org.geysermc.geyser:api", "org.geysermc.event:events")
+    }
+    configurations.configureEach {
+        resolutionStrategy.eachDependency {
+            val pinned = when ("${requested.group}:${requested.name}") {
+                "org.geysermc.event:events" -> "1.1-20230815.153219-4"
+                "com.velocitypowered:velocity-brigadier" -> "1.0.0-20210613.082804-10"
+                else -> null
+            }
+            if (pinned != null) useVersion(pinned)
+        }
+    }
     extensions.configure<JavaPluginExtension> {
         toolchain.languageVersion.set(JavaLanguageVersion.of(25))
     }
