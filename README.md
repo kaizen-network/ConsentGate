@@ -20,7 +20,7 @@ Test installations only. Use Java 21 or newer, or the newer Java version require
 | Paper | `ConsentGate-Paper-0.1.0-prototype.jar` | No separate plugin dependency for Java dialogs; Paper API 1.21.7 is the current compile target |
 | Native Bedrock forms | Matching platform JAR | Geyser on the same proxy/server; optional and disabled by default. Paper runtime verification remains open |
 
-SQLite is the default, with its driver bundled. Optional MySQL/MariaDB storage and a local SQLite cache are implemented; MariaDB has repository integration tests, while MySQL server verification and live remote-storage admission remain open. No website or GrimAC is required. BungeeCord and plain Spigot are not implemented yet. [Dependency details](docs/13-installation.md#requirements-and-dependencies) and [remote storage setup](docs/15-remote-storage.md).
+SQLite is the default, with its driver bundled. Optional MySQL/MariaDB storage and a local SQLite cache are implemented. Both database products have repository integration tests; live remote-storage admission remains open. No website or GrimAC is required. BungeeCord and plain Spigot are not implemented yet. [Dependency details](docs/13-installation.md#requirements-and-dependencies) and [remote storage setup](docs/15-remote-storage.md).
 
 ## Quick start
 

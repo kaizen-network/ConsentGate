@@ -1,6 +1,6 @@
 # MySQL, MariaDB, and the local cache
 
-Prototype feature. MariaDB 11.8.6 has dedicated repository integration tests. MySQL uses the same implementation but has not been tested against a MySQL server yet. Neither is a production support claim. Live Paper/Velocity admission with remote storage, TLS certificate deployment, and load testing remain open.
+Prototype feature. MariaDB 11.8.6 and MySQL 8.4.8 have dedicated repository integration tests. MySQL checks include verified TLS, certificate rejection, and actual socket interruptions around commit. Neither is a production support claim. Live Paper/Velocity admission with remote storage, broader certificate deployment, and load testing remain open.
 
 ## Set up the database
 
@@ -85,12 +85,16 @@ One process owns each cache file. Do not share it between servers. Oldest entrie
 
 The normal `build` runs local tests only. Real database tests require explicit opt-in and a database whose name starts with `consentgate_test_`. The task initializes the supplied schema only when that database has no tables. It never drops the database. Tests retain synthetic records under unique scopes and temporarily change and restore the test schema version to check rejection.
 
-Set these environment variables privately: `CG_TEST_DB_HOST`, `CG_TEST_DB_PORT`, `CG_TEST_DB_DATABASE`, `CG_TEST_DB_USERNAME`, `CG_TEST_DB_PASSWORD`, and `CG_TEST_DB_ALLOW_WRITES=true`. `CG_TEST_DB_SSL_MODE` defaults to `verify-full`; use `disable` only for a protected test connection. Then run:
+Set these environment variables privately: `CG_TEST_DB_HOST`, `CG_TEST_DB_PORT`, `CG_TEST_DB_DATABASE`, `CG_TEST_DB_USERNAME`, `CG_TEST_DB_PASSWORD`, and `CG_TEST_DB_ALLOW_WRITES=true`. `CG_TEST_DB_SSL_MODE` defaults to `verify-full`; set `CG_TEST_DB_SERVER_CERTIFICATE` to a local CA file when needed. Use `disable` only for a protected test connection. Then run:
 
 ```powershell
 .\gradlew.bat :core:remoteDatabaseTest --no-daemon --console=plain
 ```
 
-The suite covers atomic grants, shared acceptance, replay conflicts, immutable revisions, initially missing withdrawal state, concurrent instances, lost commit replies, fresh-cache outages, expiry, recovery, and newer-schema rejection. Outages are injected at the client connection boundary. Never stop a shared database service or change its firewall for these tests.
+The suite covers atomic grants, shared acceptance, replay conflicts, immutable revisions, initially missing withdrawal state, concurrent instances, lost commit replies, fresh-cache outages, expiry, recovery, and newer-schema rejection. Never stop a shared database service or change its firewall for these tests.
+
+Additional TLS checks use `CG_TEST_DB_UNTRUSTED_CERTIFICATE` (a valid unrelated CA) and `CG_TEST_DB_WRONG_HOST` (an alias reaching the same server but absent from its certificate). `CG_TEST_DB_SOCKET_FAULTS=true` enables a loopback-only plaintext protocol proxy that cuts its own connection before COMMIT or drops the server's successful COMMIT reply. These targeted socket checks leave the database service running; ordinary repository checks still use the configured TLS connection.
+
+On Windows, `python tools/run_local_mysql_tests.py --server C:/path/to/extracted/mysql` prepares a disposable database with generated credentials and test certificates, runs all checks, then stops its process. It requires Python's `cryptography` package and an already extracted official MySQL ZIP distribution. It does not download software, install a service, or launch a desktop app. Test data, certificates, credentials, and logs remain in the ignored `.run/` fixture for inspection.
 
 Run the suite separately against each supported MariaDB and MySQL version before claiming support. Repository tests and isolated driver loading do not replace live client admission, certificate setup, network fault, or load testing.

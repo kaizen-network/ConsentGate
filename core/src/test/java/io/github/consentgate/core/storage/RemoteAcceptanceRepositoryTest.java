@@ -25,9 +25,11 @@ class RemoteAcceptanceRepositoryTest {
         assertEquals("true", System.getenv("CG_TEST_DB_ALLOW_WRITES"));
         String database = System.getenv("CG_TEST_DB_DATABASE");
         assertTrue(database != null && database.startsWith("consentgate_test_"));
+        String certificate = System.getenv("CG_TEST_DB_SERVER_CERTIFICATE");
         settings = new RemoteStorageConfig(System.getenv("CG_TEST_DB_HOST"), Integer.parseInt(System.getenv("CG_TEST_DB_PORT")), database,
                 System.getenv("CG_TEST_DB_USERNAME"), System.getenv("CG_TEST_DB_PASSWORD"),
-                Objects.requireNonNullElse(System.getenv("CG_TEST_DB_SSL_MODE"), "verify-full"), null, 3000, 5000);
+                Objects.requireNonNullElse(System.getenv("CG_TEST_DB_SSL_MODE"), "verify-full"),
+                certificate == null || certificate.isBlank() ? null : Path.of(certificate), 3000, 5000);
         try (var connection = RemoteAcceptanceRepository.openConnection(settings); var statement = connection.createStatement()) {
             try (var rows = statement.executeQuery("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()")) {
                 rows.next();
@@ -163,6 +165,76 @@ class RemoteAcceptanceRepositoryTest {
         assertThrows(SQLException.class, () -> new RemoteAcceptanceRepository(() -> { throw new SQLException("Simulated outage"); }));
     }
 
+    @Test
+    @org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "CG_TEST_DB_SOCKET_FAULTS", matches = "true")
+    void socketLossBeforeCommitRollsBackTheWholeGrant() throws Exception {
+        try (var proxy = new SqlFaultProxy(settings.host(), settings.port(), SqlFaultProxy.Fault.BEFORE_COMMIT);
+             var interrupted = new RemoteAcceptanceRepository(through(proxy)); var primary = repository()) {
+            proxy.arm();
+            assertThrows(SQLException.class, () -> interrupted.grant(player, scope, List.of(document), UUID.randomUUID(), at, "in-game"));
+            assertTrue(proxy.wasCut());
+            assertFalse(primary.isAccepted(player, scope, List.of(document)));
+            assertEquals(0, count("cg_audit_events"));
+            assertEquals(0, count("cg_acceptance_events"));
+        }
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "CG_TEST_DB_SOCKET_FAULTS", matches = "true")
+    void lostCommitReplyOnTheSocketDeniesTheAttemptAndKeepsOneDurableGrant() throws Exception {
+        var request = UUID.randomUUID();
+        try (var proxy = new SqlFaultProxy(settings.host(), settings.port(), SqlFaultProxy.Fault.COMMIT_REPLY);
+             var interrupted = new RemoteAcceptanceRepository(through(proxy)); var primary = repository()) {
+            proxy.arm();
+            assertThrows(SQLException.class, () -> interrupted.grant(player, scope, List.of(document), request, at, "in-game"));
+            assertTrue(proxy.wasCut());
+            assertTrue(proxy.sawCommittedReply(), "The server must confirm commit to the proxy before the reply is dropped");
+            assertTrue(primary.isAccepted(player, scope, List.of(document)));
+            primary.grant(player, scope, List.of(document), request, at, "in-game");
+            assertEquals(1, count("cg_audit_events"));
+            assertEquals(1, count("cg_acceptance_events"));
+        }
+    }
+
+    private RemoteStorageConfig through(SqlFaultProxy proxy) {
+        return new RemoteStorageConfig(java.net.InetAddress.getLoopbackAddress().getHostAddress(), proxy.port(), settings.database(),
+                settings.username(), settings.password(), "disable", null, 3000, 5000);
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "CG_TEST_DB_SERVER_CERTIFICATE", matches = ".+")
+    void verifiedTlsConnectionUsesEncryption() throws Exception {
+        assertEquals("verify-full", settings.sslMode());
+        try (var connection = RemoteAcceptanceRepository.openConnection(settings);
+             var query = connection.createStatement(); var rows = query.executeQuery("SHOW SESSION STATUS LIKE 'Ssl_cipher'")) {
+            assertTrue(rows.next());
+            assertFalse(rows.getString(2).isBlank(), "The database connection must negotiate a TLS cipher");
+        }
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "CG_TEST_DB_UNTRUSTED_CERTIFICATE", matches = ".+")
+    void untrustedCertificateRejectsTheConnectionWithoutChangingRecords() throws Exception {
+        var untrusted = new RemoteStorageConfig(settings.host(), settings.port(), settings.database(), settings.username(),
+                settings.password(), "verify-ca", Path.of(System.getenv("CG_TEST_DB_UNTRUSTED_CERTIFICATE")), 3000, 5000);
+        assertThrows(SQLException.class, () -> RemoteAcceptanceRepository.openConnection(untrusted));
+        try (var primary = repository()) { assertFalse(primary.isAccepted(player, scope, List.of(document))); }
+        assertEquals(0, count("cg_audit_events"));
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "CG_TEST_DB_WRONG_HOST", matches = ".+")
+    void hostnameMismatchFailsOnlyWhenHostnameVerificationIsRequired() throws Exception {
+        String alias = System.getenv("CG_TEST_DB_WRONG_HOST");
+        var trusted = new RemoteStorageConfig(alias, settings.port(), settings.database(), settings.username(), settings.password(),
+                "verify-ca", settings.serverCertificate(), 3000, 5000);
+        try (var ignored = RemoteAcceptanceRepository.openConnection(trusted)) { }
+        var mismatch = new RemoteStorageConfig(alias, settings.port(), settings.database(), settings.username(), settings.password(),
+                "verify-full", settings.serverCertificate(), 3000, 5000);
+        assertThrows(SQLException.class, () -> RemoteAcceptanceRepository.openConnection(mismatch));
+        try (var primary = repository()) { assertFalse(primary.isAccepted(player, scope, List.of(document))); }
+    }
+
     @Test void bothIsolatedPlatformDriversCanConnectAndReadTheRealDatabase() throws Exception {
         for (String platform : List.of("paper", "velocity")) {
             var artifact = Path.of(System.getProperty("consentgate." + platform + "Artifact"));
@@ -171,6 +243,7 @@ class RemoteAcceptanceRepositoryTest {
                 var properties = new Properties();
                 properties.setProperty("user", settings.username()); properties.setProperty("password", settings.password());
                 properties.setProperty("sslMode", settings.sslMode()); properties.setProperty("connectTimeout", "3000"); properties.setProperty("socketTimeout", "5000");
+                if (settings.serverCertificate() != null) properties.setProperty("serverSslCert", settings.serverCertificate().toString());
                 properties.setProperty("allowLocalInfile", "false");
                 try (var connection = driver.connect("jdbc:mariadb://" + settings.host() + ":" + settings.port() + "/" + settings.database(), properties);
                      var query = connection.createStatement(); var rows = query.executeQuery("SELECT version FROM cg_schema_history")) {

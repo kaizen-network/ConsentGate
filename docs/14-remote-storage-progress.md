@@ -1,6 +1,6 @@
 # Remote storage implementation
 
-Status: first implementation and MariaDB repository tests complete. SQLite remains the default. MySQL needs its own database tests; MariaDB results must not be presented as MySQL coverage. Setup is documented in [the remote storage guide](15-remote-storage.md).
+Status: repository tests pass on MariaDB 11.8.6 and MySQL 8.4.8. SQLite remains the default. Live platform admission and broader load tests remain open. Setup is documented in [the remote storage guide](15-remote-storage.md).
 
 ## This slice
 
@@ -43,11 +43,18 @@ Tested artifact SHA-256 values: Paper `d3c6187342be8e3b26be4786325d5b1394ba811b1
 
 ## Still open
 
-- Run the same suite against MySQL, including its authentication and TLS paths.
 - Exercise remote storage through live Paper and Velocity admission and administrator flows.
-- Test certificate trust/hostname failures and real socket interruption around commit.
+- Repeat the new certificate and socket-failure checks against MariaDB.
 - Measure sustained connection load and decide whether a small pool is justified.
 - Broader review of multi-instance reset timing and clock-skew handling before release.
 - Prepare corresponding dependency source materials before any binary publication.
 
 References: [MariaDB Connector/J](https://mariadb.com/docs/connectors/mariadb-connector-j/about-mariadb-connector-j), [InnoDB locking reads](https://dev.mysql.com/doc/refman/8.4/en/innodb-locking-reads.html).
+
+## MySQL verification, 2026-09-13
+
+MySQL Community Server 8.4.8 passed all 15 repository tests, with no failures or skips. The official Windows ZIP was extracted into the ignored local workspace, and its server executable had a valid Authenticode signature. The test process used a new data directory, a loopback listener, generated credentials, and a generated test CA. It stopped after the suite; no Windows service or desktop application was installed or launched.
+
+The ordinary connection used `verify-full` TLS and MySQL's default account authentication. Both shaded plugin drivers connected successfully. Tests confirmed negotiated encryption, rejection of an unrelated CA, and rejection of a hostname mismatch while the same endpoint worked with CA-only verification.
+
+A test-only plaintext TCP proxy cut one connection before COMMIT and dropped another connection's successful COMMIT reply. The first operation left no grant or audit record. The second raised a storage failure while leaving one durable grant; replay did not duplicate it. These were actual socket interruptions on disposable loopback connections. They do not prove every network failure or live platform admission path.
