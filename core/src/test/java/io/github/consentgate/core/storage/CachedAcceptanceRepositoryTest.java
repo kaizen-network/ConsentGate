@@ -49,6 +49,34 @@ class CachedAcceptanceRepositoryTest {
         }
     }
 
+    @Test void restoredPrimaryUsesANewCacheInsteadOfAcceptanceFromAfterTheBackup() throws Exception {
+        var live = directory.resolve("primary.db");
+        var backup = directory.resolve("backup.db");
+        try (var repository = new SqliteAcceptanceRepository(live)) {
+            assertFalse(repository.isAccepted(player, "main", List.of(document)));
+        }
+        Files.copy(live, backup);
+        try (var cache = new CachedAcceptanceRepository(new SqliteAcceptanceRepository(live), config(60, 10),
+                "same-primary-address", clock, ignored -> { })) {
+            cache.grant(player, "main", List.of(document), UUID.randomUUID(), clock.instant(), "in-game");
+            assertTrue(cache.isAccepted(player, "main", List.of(document)));
+        }
+        var restored = directory.resolve("restored.db");
+        Files.copy(backup, restored);
+        clock.advance(10);
+        // An unchanged source address cannot reveal a restored backup to a still-fresh cache.
+        try (var oldCache = new CachedAcceptanceRepository(new SqliteAcceptanceRepository(restored), config(60, 10),
+                "same-primary-address", clock, ignored -> { })) {
+            assertTrue(oldCache.isAccepted(player, "main", List.of(document)));
+        }
+        var replacement = new StorageConfig.Cache(true, directory.resolve("replacement-cache.db"), 60, 10);
+        try (var newCache = new CachedAcceptanceRepository(new SqliteAcceptanceRepository(restored), replacement,
+                "same-primary-address", clock, ignored -> { })) {
+            assertFalse(newCache.isAccepted(player, "main", List.of(document)));
+            assertFalse(newCache.isAcceptedAuthoritatively(player, "main", List.of(document)));
+        }
+    }
+
     @Test void successfulOrFailedResetInvalidatesLocalAcceptance() throws Exception {
         try (var cache = cache(60, 10)) {
             cache.isAccepted(player, "main", List.of(document));

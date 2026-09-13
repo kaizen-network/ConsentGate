@@ -157,6 +157,14 @@ The probe selects the first language and checks every required agreement after t
 
 An `accepted` result requires admission after the probe submits acceptance and staying connected for the full observation time. `denied` checks disconnection before submission and without play entry. `play-timeout` checks disconnection after admission while pings are withheld. Disconnect-only results do not identify the responsible plugin: correlate them with the server's reason and timing. Transport/parser errors fail the probe. The raw custom-click encoder is restricted to Java 26.1 and covered by fixed-byte tests.
 
+## Reconfiguration check, 2026-09-13
+
+The same official Grim `2.3.74-8eb5f28` build passed a 75-second initial consent wait followed by three PLAY-to-configuration-to-PLAY cycles. A disposable helper used Paper's public `reenterConfiguration()` and `completeReconfiguration()` APIs. The synthetic client reached four PLAY stages, answered pings, and recorded only its initial acceptance during that connection.
+
+Paper's consent event runs on initial login in this tested path. Reloading new document versions during an accepted connection does not interrupt it during later reconfiguration. After disconnect, a new login displayed the latest version and saved a second acceptance. That matches the documented next-login reload behavior. The helper was removed and the original configuration restored after shutdown.
+
+Reproduce with `python tools/run_paper_reconfiguration_probe.py --directory .run/paper-minimal --modules C:/path/to/node_modules --version 26.1`. The runner compiles the helper against the prepared server's libraries and requires `javac` on PATH. This check does not cover another plugin deliberately holding reconfiguration for a long time after PLAY; ConsentGate does not create that hold.
+
 ## Visual checks
 
 This is a protocol bot, not a graphical Minecraft client. It cannot capture a rendered dialog screenshot. No Minecraft client or launcher was opened or controlled during this investigation. Screenshots and checks of wrapping, GUI scale, button appearance, and touch/controller navigation remain manual. A protocol trace is not visual evidence.

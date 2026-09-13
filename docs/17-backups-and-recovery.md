@@ -22,6 +22,8 @@ Restore into a new, empty database using a setup account. Check all six tables, 
 
 When restoring an older primary backup, stop every ConsentGate instance first and give each instance a new empty cache path. Old cached positives may describe decisions absent from the restored backup. Restore matching document versions and configuration, then restart the instances. Storage settings require restart.
 
+A regression check restores a real database backup made before acceptance. Reopening the still-fresh old cache retains that later acceptance; using a new cache correctly reads the restored denial. A primary restore is not automatically detectable when its connection address stays the same.
+
 ## Failed installation or upgrade
 
 An unknown newer schema is an error. Do not edit its version marker to force the plugin to start. Restore a matching backup into a separate location or use the compatible plugin version.

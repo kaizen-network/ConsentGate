@@ -1,0 +1,12 @@
+name: ConsentGateStageProbe
+version: test
+main: io.github.consentgate.probe.StageProbe
+api-version: '1.21.7'
+softdepend: [ConsentGate]
+commands:
+  stageprobe:
+    description: Reconfigure a player in a disposable test server
+    permission: stageprobe.console
+permissions:
+  stageprobe.console:
+    default: op

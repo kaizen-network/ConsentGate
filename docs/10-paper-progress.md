@@ -36,11 +36,9 @@ Live testing on 2026-09-12 used a Paper-compatible 26.2 server with protocol tra
 
 The older GrimAC revision `63a684d` caused a configuration timeout around 60 seconds. Official build `2.3.74-8eb5f28` includes upstream's fix and passes the initial-login long-wait, play-timeout, consent-timeout, and reconnect checks. Use the exact tested revision, not the broad `2.3.74` label. See [administration results](11-paper-administration-test-results.md) and the [controlled anticheat investigation](12-paper-anticheat-compatibility.md).
 
-1. Expand Paper command testing to admission races, queue rejection, and storage failures. Console status/reset/reload and in-game permission/reply checks now pass.
-2. Validate the shared native Bedrock renderer at Paper's configuration connection with Geyser and Bedrock clients.
-3. Expand automated lifecycle coverage: disconnect/save races, shutdown, full queue, locked SQLite, timeouts, and connection limits. Reconfiguration after a previous PLAY session needs a separate Grim compatibility check.
-4. Measure world-entry timing with native Paper events and real clients, including protocol translation and reconnects.
-5. Verify the oldest supported Paper build and client versions. Compilation against the 1.21.7 API is not a complete compatibility claim.
+1. Validate native Bedrock forms and the translated-dialog path on Paper with real clients.
+2. Check unmodified Java clients, visible world-entry timing, long text, large GUI scale, and reconnects on the advertised versions.
+3. Other plugins that deliberately hold reconfiguration after PLAY need their own compatibility checks. ConsentGate's normal reconfiguration and next-login version behavior pass with the exact Grim build below.
 
 The Paper event's [API documentation](https://jd.papermc.io/paper/1.21.7/io/papermc/paper/event/connection/configuration/AsyncPlayerConnectionConfigureEvent.html) places it before world entry and resumes the connection after the handler finishes. Runtime testing must still check that callbacks arrive while the event is held and that no play login is sent before acceptance.
 
@@ -48,7 +46,7 @@ The Paper event's [API documentation](https://jd.papermc.io/paper/1.21.7/io/pape
 
 The shared command implementation passes permission, target parsing, save/reset ordering, and queued/running job accounting tests. Paper presentation tests cover bundled defaults, optional native-form configuration, unsafe markup, missing messages, and preserving the runtime after failed validation. Eleven Paper admission tests cover commit-before-release, queued cancellation, full queues, locked SQLite, save/reset ordering after disconnect, shutdown, timeout, rendering failures, and native callback lock ordering. Earlier console and in-game checks are recorded in the [test results](11-paper-administration-test-results.md).
 
-Keep the following checklist for regression testing; the race and failure cases are not all covered yet:
+Keep the following covered behaviors in the regression checklist:
 
 1. Console and authorized players receive status and validation replies; each command rejects users without its own permission.
 2. Reset refuses a player reading documents, an accepted connection not yet in the world, and an online player. After disconnect, reset keeps history and requires consent on reconnect.
