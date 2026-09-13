@@ -1,12 +1,12 @@
 # Paper implementation progress
 
-Status: Java admission passes on stock Paper 1.21.7 and the newer test server. Native Bedrock delivery on Paper still needs a real-client check. Current work is tracked in [release progress](16-release-progress.md).
+Status: Java admission passes on stock Paper 1.21.7 and the newer test server. A real Bedrock client passed native acceptance, world entry, and reconnect on a Paper-compatible 26.2 server. Current work is tracked in [release progress](16-release-progress.md).
 
 ## Implemented
 
 - Shared configuration, local documents, versions, translations, and SQLite acceptance.
 - Native Paper dialogs with summary checkboxes, optional language selection, full reading pages, and two-column navigation.
-- Optional native Bedrock forms through local Geyser-Spigot, using the same renderer as Velocity. Real Paper Bedrock delivery remains unverified.
+- Optional native Bedrock forms through local Geyser-Spigot, using the same renderer as Velocity. The [client test results](19-final-client-check.md#findings-from-september-13-2026) record the verified Paper setup.
 - Accepted reconnects use the shared acceptance rules, including accepted translations.
 - Two database workers with a bounded queue and the configured pending-connection limit.
 - Only the asynchronous configuration event waits for completion. The main server thread does not wait for storage or player input.
@@ -22,7 +22,7 @@ The `presentation` module supplies the safe text formatter, interface messages, 
 
 Use `ConsentGate-Paper-0.1.0-prototype.jar` on a disposable Paper-compatible server. Fresh installations are disabled and create inactive example documents. Adapt the examples, rename selected documents to `.yml`, then enable the gate and restart.
 
-Keep `bedrock.native-forms: false` for the initial Java check. For native Bedrock testing, install Geyser-Spigot on the same server and enable the option. Paper declares Geyser as an optional dependency. Java-only installations still load without it. Geyser-translated dialogs and native Paper form delivery need separate Bedrock runtime checks.
+Keep `bedrock.native-forms: false` for the initial Java check. For native Bedrock testing, install Geyser-Spigot on the same server and enable the option. Paper declares Geyser as an optional dependency. Java-only installations still load without it. Verify native delivery on your selected server build; Geyser-translated dialogs require a separate check.
 
 Do not install the gate on both a proxy and its backend for the same admission requirement. Direct backend access and proxy forwarding need their own network configuration.
 
@@ -36,7 +36,7 @@ Live testing on 2026-09-12 used a Paper-compatible 26.2 server with protocol tra
 
 The older GrimAC revision `63a684d` caused a configuration timeout around 60 seconds. Official build `2.3.74-8eb5f28` includes upstream's fix and passes the initial-login long-wait, play-timeout, consent-timeout, and reconnect checks. Use the exact tested revision, not the broad `2.3.74` label. See [administration results](11-paper-administration-test-results.md) and the [controlled anticheat investigation](12-paper-anticheat-compatibility.md).
 
-1. Validate native Bedrock forms and the translated-dialog path on Paper with real clients.
+1. Finish detailed native Bedrock layout/close checks and validate the translated-dialog path on Paper with real clients. Native acceptance, world entry, and reconnect passed on the documented test installation.
 2. Check unmodified Java clients, visible world-entry timing, long text, large GUI scale, and reconnects on the advertised versions.
 3. Other plugins that deliberately hold reconfiguration after PLAY need their own compatibility checks. ConsentGate's normal reconfiguration and next-login version behavior pass with the exact Grim build below.
 

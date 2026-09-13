@@ -18,3 +18,13 @@ Use Geyser-Spigot on the same test server. Enable native forms and repeat readin
 Then disable native forms, restart, reset the offline test UUID, and check the Geyser-translated dialog path. Confirm that text is readable and acceptance stays explicit. Record a failure if either path cannot deliver the form before world entry; do not allow admission as a workaround.
 
 Report the platform build, Java or Bedrock version, Geyser build, and which step passed or failed. A screenshot is useful only if text, buttons, or the disconnect screen look wrong. These are the remaining real-client checks before declaring the candidate a release.
+
+## Bedrock on Velocity
+
+Repeat the native-form checks with Geyser on the proxy, including acceptance, normal authentication, backend entry, and reconnect. A saved acceptance only proves the consent step finished. Check failures in authentication and backend routing separately.
+
+## Findings from September 13, 2026
+
+- After installing the renderer fix, Java bots again passed document reading, incomplete-acceptance rejection, valid acceptance, and play entry on both servers.
+- Paper native forms failed with a Cumulus class-loader conflict, reported to the player as a consent-record processing error. The renderer now uses Geyser's actual Cumulus provider. Regression checks cover two independent providers, form responses, rejected incomplete acceptance, and delivery failure. Both packaged platform JARs passed the same checks.
+- After the fix, real Bedrock acceptance, world entry, and reconnect passed on a Paper-compatible 26.2 server with Geyser-Spigot 2.11.2 build 1235 and Floodgate 2.2.5 build 138. The client version was not recorded. This confirms the native path on that installation; the translated-dialog path and detailed layout/close checks remain open.

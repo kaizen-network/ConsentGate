@@ -1,6 +1,6 @@
 # Development
 
-Both platforms use shared configuration, documents, admission, and storage. They support checkboxes, language selection, reading pages, formatting, durable acceptance, and administrator commands. Native Cumulus forms share one renderer, with real-client checks on Velocity and initial integration on Paper. Remote SQL and a local cache have MariaDB and MySQL repository tests. Final real-client version, layout, and Paper Bedrock delivery checks remain open. See [release progress](16-release-progress.md). Do not install either artifact on a production server or proxy.
+Both platforms use shared configuration, documents, admission, and storage. They support checkboxes, language selection, reading pages, formatting, durable acceptance, and administrator commands. Native Cumulus forms share one renderer. A real Paper Bedrock client passed acceptance, world entry, and reconnect on the documented test installation. Remote SQL and a local cache have MariaDB and MySQL repository tests. Remaining client checks are tracked in [release progress](16-release-progress.md). Do not install either artifact on a production server or proxy.
 
 ## Build
 
@@ -31,7 +31,7 @@ Velocity checks admission again on every backend connection request. It maintain
 
 `build` never contacts a remote database. The opt-in `:core:remoteDatabaseTest` task requires a dedicated test database and explicit environment settings; see [integration instructions](15-remote-storage.md#integration-tests). MySQL and MariaDB require separate runs. Local tests cover cache expiry, persistence, reset, capacity, corrupt files, failed invalidation, clock movement, and bounded stalled connection setup.
 
-Native Bedrock form tests exercise Cumulus response parsing, menu and page navigation, unchecked defaults, partial selections, malformed payloads, stale responses, close behavior, and failed delivery. The Java wire probe runs without Geyser installed to check that the optional integration does not break Java admission.
+Native Bedrock form tests exercise Cumulus response parsing, menu and page navigation, unchecked defaults, partial selections, malformed payloads, stale responses, close behavior, and failed delivery. Normal `check` and `build` also run `:integration-bedrock:paperArtifactTest` and `:integration-bedrock:velocityArtifactTest` against the actual shaded JARs. These repeat the independent-provider regression and assert that the bridge loads from the requested artifact, without loose renderer classes on the classpath. The Java wire probe runs without Geyser installed to check that the optional integration does not break Java admission.
 
 Run `python -m unittest discover -s tools -p "test_*.py"` for dialog framing and runner cleanup checks. Framing fixtures use fixed expected bytes backed by the official client codec inspection. Failure checks use fake processes to verify configuration restoration, owned-process shutdown, and rejection of stale artifact versions without starting a server.
 
@@ -122,8 +122,9 @@ The runner verifies the local proxy configuration, stages the current plugin art
 | Velocity 3.4.0 build 563 with two stock Paper 1.21.7 backends, synthetic protocol 772 | Clean disabled startup, unsupported-schema denial, full world entry, server switch through configuration, accepted rejoin, forced host, and unavailable-primary fallback pass. Timestamped relays show no backend connection before acceptance |
 | Java protocols 771 and 772 | All 15 wire/console check groups passed for both protocols after preview was added; protocol 771 passed again after the storage fix. Four golden framing tests also pass |
 | Velocity 4.1.0 snapshot, PacketEvents 2.13.0, Minecraft 26.2 | Styled two-document acceptance and accepted reconnect reached a backend on 2026-09-10 |
-| Geyser-translated dialogs | Real Bedrock acceptance tested; translated action dropdown prompted native form support |
-| Native Cumulus with local Geyser | Real Bedrock menu, reading, acceptance, close/back behavior, and formatting tested; automated response tests pass |
+| Geyser-translated dialogs on Velocity | Real Bedrock acceptance tested; translated action dropdown prompted native form support. Paper's translated path remains unverified |
+| Native Cumulus with local Geyser on Velocity | Real Bedrock menu, reading, acceptance, close/back behavior, and formatting tested; automated response tests pass. |
+| Native Cumulus with Geyser-Spigot 2.11.2 build 1235 on a Paper-compatible 26.2 server | Real Bedrock acceptance, world entry, and accepted reconnect passed after the provider-binding fix. Detailed layout and close checks remain open |
 | Velocity 4.1.0 snapshot, live proxy bot check | Reload refused an active dialog; a temporary new document version prompted consent, saved acceptance, and bypassed the gate on accepted reconnect; original documents were restored |
 
 PacketEvents test artifact SHA-256: `e797f84abc349c137396e511ce4f0d7b85e385727a2e82e2ffb6bed0d2fe5c05`.

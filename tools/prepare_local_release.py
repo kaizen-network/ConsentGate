@@ -62,6 +62,11 @@ def main():
     if git('status', '--porcelain').strip() or git('rev-parse', 'HEAD').decode().strip() != revision:
         raise RuntimeError('Source changed during the build; create a fresh package after reviewing it')
     reports = list(project.glob('*/build/test-results/test/TEST-*.xml'))
+    for task in ('paperArtifactTest', 'velocityArtifactTest'):
+        packaged_reports = list((project / 'integration-bedrock/build/test-results' / task).glob('TEST-*.xml'))
+        if not packaged_reports:
+            raise RuntimeError('Missing required packaged Bedrock test report: ' + task)
+        reports.extend(packaged_reports)
     count = 0
     for report in reports:
         suite = ET.parse(report).getroot()

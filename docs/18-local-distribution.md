@@ -38,4 +38,4 @@ This candidate implements pre-admission documents, explicit acceptance, translat
 
 The stock Paper 1.21.7 check found and fixed an unavailable Adventure dialog-close method. Storage checks found and fixed older or replayed decisions that could otherwise report success without changing current state. The shared session now completes callbacks outside its lock to avoid a native-response and timeout deadlock.
 
-Final unmodified-client checks remain necessary for the advertised version boundary, GUI layout, and Paper Bedrock delivery. BungeeCord, plain Spigot, and external import tools are outside this candidate.
+Final unmodified-client checks remain necessary for the advertised version boundary, GUI layout, and Geyser-translated dialogs. Paper native Bedrock acceptance, world entry, and reconnect passed on the documented test installation. See the [client test results](19-final-client-check.md) for remaining checks. BungeeCord, plain Spigot, and external import tools are outside this candidate.

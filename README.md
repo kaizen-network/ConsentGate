@@ -4,11 +4,11 @@ Configurable in-game agreements for Minecraft servers and networks.
 
 ConsentGate lets administrators present rules, policies, and other documents before players are admitted. Documents live in local files with custom titles, full text, and independent versions. No website or additional hosting is required.
 
-Fresh installations include inactive Terms of Service and Privacy Policy starter templates. Administrators must review and adapt them before use. Velocity also offers optional native Bedrock forms through a local Geyser installation, with separate document buttons and agreement toggles.
+Fresh installations include inactive Terms of Service and Privacy Policy starter templates. Administrators must review and adapt them before use. Both platforms offer optional native Bedrock forms through a local Geyser installation, with separate document buttons and agreement toggles.
 
 ## Status
 
-Core features are implemented on Paper and Velocity. Automated checks cover admission, administration, SQLite, both remote databases, outages, and recovery. Native Bedrock forms share one renderer, with real-client checks on Velocity. Final client-version, layout, and Paper Bedrock checks remain. Neither artifact is a production release. See the [release progress](docs/16-release-progress.md).
+Core features are implemented on Paper and Velocity. Automated checks cover admission, administration, SQLite, both remote databases, outages, and recovery. Native Bedrock acceptance and reconnect passed on the documented Paper test installation. Final version, layout, and translated-dialog checks remain. Neither artifact is a production release. See the [release progress](docs/16-release-progress.md).
 
 ## Requirements
 
@@ -18,7 +18,7 @@ Test installations only. Use Java 21 or newer, or the newer Java version require
 | --- | --- | --- |
 | Velocity | `ConsentGate-Velocity-0.1.0-prototype.jar` | PacketEvents 2.13.0 for Velocity, installed on the same proxy |
 | Paper | `ConsentGate-Paper-0.1.0-prototype.jar` | No separate plugin dependency for Java dialogs; stock Paper 1.21.7 build 32 passed headless admission checks |
-| Native Bedrock forms | Matching platform JAR | Geyser on the same proxy/server; optional and disabled by default. Paper runtime verification remains open |
+| Native Bedrock forms | Matching platform JAR | Geyser on the same proxy/server; optional and disabled by default. See the [verified setups and remaining checks](docs/19-final-client-check.md) |
 
 SQLite is the default, with its driver bundled. Optional MySQL/MariaDB storage and a local SQLite cache are implemented. Both database products passed repository, TLS, socket-failure, and headless admission and outage checks on both platforms. An initial 30-second workload across two instances also passed. No website or GrimAC is required. BungeeCord and plain Spigot are not implemented yet. [Dependency details](docs/13-installation.md#requirements-and-dependencies) and [remote storage setup](docs/15-remote-storage.md).
 
@@ -28,7 +28,7 @@ SQLite is the default, with its driver bundled. Optional MySQL/MariaDB storage a
 2. Stop the test proxy/server. Put that JAR in `plugins/`, along with its required dependency above. Install the gate on the proxy or the standalone server, not both for the same requirement.
 3. Start once to generate files, then stop again. The gate starts disabled. Its folder is `plugins/consentgate/` on Velocity or `plugins/ConsentGate/` on Paper.
 4. Adapt `documents/terms.yml.example` and `documents/privacy.yml.example`, including all translations and bracketed placeholders. Choose document versions and rename the selected files to end in `.yml`.
-5. Set `enabled: true` in the generated `config.yml`, then start. Confirm ConsentGate enabled successfully. On Paper, keep `bedrock.native-forms: false`.
+5. Set `enabled: true` in the generated `config.yml`, then start. Confirm ConsentGate enabled successfully. Keep `bedrock.native-forms: false` for the initial Java check.
 6. In the console, run `consentgate validate`, then test first acceptance, Leave, and accepted rejoin. Use [offline reset](docs/07-admin-commands.md#reset-for-testing-or-administration) to repeat testing without deleting the database.
 
 See the [installation guide](docs/13-installation.md) for platform setup, Bedrock, backups, and troubleshooting. The starter documents need administrator review; they are not a guarantee of legal compliance.

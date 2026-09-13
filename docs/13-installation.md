@@ -12,7 +12,7 @@ ConsentGate is a prototype, not a production release. Use a disposable test serv
 | Velocity | A compatible Velocity build and the Velocity distribution of PacketEvents 2.13.0 on the same proxy. ConsentGate compiles against Velocity 3.4.0. |
 | Paper | A Paper-compatible build with the native dialog and asynchronous configuration APIs. Current compile target and plugin API declaration are 1.21.7; the oldest supported runtime is not yet verified. No separate PacketEvents plugin is required by ConsentGate on Paper. |
 | SQLite | Included in both JARs, including JDBC and native libraries. The plugin data folder must be writable. |
-| Geyser | Optional for Bedrock access. Native consent forms require Geyser on the same proxy/server, using Geyser-Spigot for Paper. Configure its authentication, forwarding, and Bedrock UDP listener separately. Paper Bedrock runtime verification remains open. |
+| Geyser | Optional for Bedrock access. Native consent forms require Geyser on the same proxy/server, using Geyser-Spigot for Paper. Configure its authentication, forwarding, and Bedrock UDP listener separately. See the [Bedrock test results](19-final-client-check.md#findings-from-september-13-2026) for the verified setup and remaining checks. |
 
 Use the complete server/proxy distribution of a dependency, not a thin Maven API JAR. Get dependencies through their projects' official channels: [PacketEvents](https://github.com/retrooper/packetevents), [Velocity](https://papermc.io/software/velocity), [Paper](https://papermc.io/software/paper), and [Geyser](https://geysermc.org/download).
 
@@ -46,7 +46,9 @@ The default language is `en-US`. Matching the client's locale is enabled by defa
 
 For native Bedrock forms, first configure Geyser on the same proxy/server and verify normal Bedrock connectivity. Then set `bedrock.native-forms: true`, validate, and reload when no consent sessions or database jobs are pending. Geyser handles Cumulus delivery; no additional web service is needed. A separate Geyser instance on another server is not the current native integration path.
 
-Paper now uses the shared native renderer through Geyser-Spigot, declared as an optional dependency. Native delivery and Geyser-translated dialogs still need separate Paper Bedrock testing. Java tests do not establish Paper Bedrock compatibility.
+Paper uses the shared native renderer through Geyser-Spigot, declared as an optional dependency. A real Bedrock client passed native acceptance, world entry, and reconnect on the documented Paper-compatible 26.2 test installation. Geyser-translated dialogs and detailed layout/close checks remain open. Java tests do not establish Paper Bedrock compatibility.
+
+Geyser and Floodgate can expose different copies of Cumulus. ConsentGate binds its native renderer to the copy required by Geyser's connection API. It does not bundle Cumulus or change another plugin's class loader.
 
 ## Administration and backups
 
@@ -65,7 +67,8 @@ See [backups and recovery](17-backups-and-recovery.md) for restore checks and sc
 | No dialog | Is the gate enabled? Did startup succeed? Are active documents named `.yml`? Has this UUID already accepted the current required versions? |
 | Velocity reports PacketEvents missing | Install the full Velocity PacketEvents plugin on the proxy, then restart. |
 | Paper fails with a missing API method | Verify the exact Paper build against the tested matrix. An API compile target does not prove runtime compatibility. |
-| Native forms fail on Paper | Check that Geyser-Spigot is enabled on the same server and inspect the log. Paper Bedrock runtime verification is still in progress. |
+| Native forms fail on Paper | Check that Geyser-Spigot is enabled on the same server, inspect the log, and compare the setup with the documented Bedrock test results. |
+| Bedrock reports End of stream after accepting | Inspect the server log for the disconnect cause. A `LinkageError` at nLogin's `FloodgatePlayer.sendForm` is a separate login-form conflict. Check the authentication plugin's compatibility; resetting consent records does not fix it. |
 | Edited documents fail validation | Check the reported locale, field, formatting, and version. Existing revisions cannot silently change text. |
 | Disconnect around 60 seconds while reading | If GrimAC is installed, check the exact build revision. Older builds have a configuration-timeout bug; see [Grim compatibility findings](12-paper-anticheat-compatibility.md). Do not disable anticheat or shorten reading time to conceal it. |
 | Backend is unreachable after accepting | Check the proxy route, forced hostname, forwarding settings, and backend availability separately. |

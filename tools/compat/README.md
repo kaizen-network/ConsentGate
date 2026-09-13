@@ -1,4 +1,6 @@
-# Historical compatibility patch
+# Compatibility tools
+
+## Historical Grim patch
 
 `grim-63a684d-configuration-timeout.patch` is a tested temporary patch for Grim revision `63a684d`. It is not part of the ConsentGate runtime and is not an official Grim release.
 
