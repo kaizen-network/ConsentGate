@@ -23,7 +23,7 @@ The shaded platform JARs contain the shared core, relocated SnakeYAML and MariaD
 
 The [build workflow](https://github.com/kaizen-network/ConsentGate/blob/main/.github/workflows/build.yml) runs on pushes to `main`, pull requests targeting `main`, and manual dispatch. It uses Ubuntu 24.04, Temurin JDK 25, Python 3.13, and Node 24. Each run checks the Python and Node tools, runs the Gradle build including both packaged Bedrock tests, and prepares the complete distribution with verified dependency sources.
 
-Successful runs retain the distribution and its SHA-256 file for 14 days. JVM reports are retained for seven days, including after a failed build when reports exist. Actions are pinned to full commit hashes, repository permissions are read-only, and checkout does not retain credentials. No database credentials or live-server fixtures are needed. Dedicated database, routing, and real-client checks remain separate.
+Successful runs retain the distribution and its SHA-256 file for 14 days. JVM test and dependency-verification reports are retained for seven days, including after a failed build when reports exist. Actions are pinned to full commit hashes, repository permissions are read-only, and checkout does not retain credentials. No database credentials or live-server fixtures are needed. Dedicated database, routing, and real-client checks remain separate.
 
 The workflow does not create tags or publish releases. After reviewing a successful run for the intended commit, a maintainer can publish its exact package and checksum through GitHub Releases. Repository access controls also apply to its artifacts and releases.
 

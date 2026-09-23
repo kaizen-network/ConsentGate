@@ -20,6 +20,8 @@ Build with `./gradlew build` or `.\gradlew.bat build`. A network connection is r
 
 The verification file records reviewed local build inputs. An intentionally incorrect Paper API hash rejected the build, including for that timestamped snapshot; the original hash was then restored. This is not a claim that every upstream artifact has an authenticated publisher signature. Do not regenerate it to silence a checksum mismatch. For an intentional dependency change, review its source and metadata, update the fixed version, regenerate locks and hashes, and repeat the affected checks.
 
+Fresh GitHub and local caches exposed missing metadata checksums for existing dependencies. The Log4j parent and BOM, imported Groovy and Jackson BOMs, Jackson parents, and JUnit module metadata were reviewed against Maven Central and its published checksums before their SHA-256 entries were added. Existing dependency versions and checksums were retained, and strict verification remains enabled.
+
 ## Create the package
 
 For a committed package, run from a clean source tree after the build checks pass:
