@@ -1,6 +1,6 @@
 # Installation and setup
 
-ConsentGate is a prototype, not a production release. Use a disposable test server or proxy first. There is no public release download yet; [build from source](05-development.md#build) to produce the platform JARs.
+Download the `0.1.0` package from [GitHub Releases](https://github.com/kaizen-network/ConsentGate/releases/tag/v0.1.0), or [build from source](05-development.md#build). Release access follows repository visibility. Use a disposable test server or proxy first.
 
 ## Requirements and dependencies
 
@@ -10,9 +10,9 @@ ConsentGate is a prototype, not a production release. Use a disposable test serv
 | Build tools | JDK 25 and the included Gradle wrapper. Not needed on a server when a built JAR is supplied. |
 | Java client | Dialog feature minimum: Minecraft Java 1.21.6. Tested versions are listed in the [validation matrix](05-development.md#validation-matrix), not a blanket promise of all newer versions. |
 | Velocity | A compatible Velocity build and the Velocity distribution of PacketEvents 2.13.0 on the same proxy. ConsentGate compiles against Velocity 3.4.0. |
-| Paper | A Paper-compatible build with the native dialog and asynchronous configuration APIs. Current compile target and plugin API declaration are 1.21.7; the oldest supported runtime is not yet verified. No separate PacketEvents plugin is required by ConsentGate on Paper. |
+| Paper | A Paper-compatible build with the native dialog and asynchronous configuration APIs. Current compile target and plugin API declaration are 1.21.7; stock Paper 1.21.7 build 32 passed the documented headless checks. Older runtimes are not verified. No separate PacketEvents plugin is required by ConsentGate on Paper. |
 | SQLite | Included in both JARs, including JDBC and native libraries. The plugin data folder must be writable. |
-| Geyser | Optional for Bedrock access. Native consent forms require Geyser on the same proxy/server, using Geyser-Spigot for Paper. Configure its authentication, forwarding, and Bedrock UDP listener separately. See the [Bedrock test results](19-final-client-check.md#findings-from-september-13-2026) for the verified setup and remaining checks. |
+| Geyser | Optional for Bedrock access. Native consent forms require Geyser on the same proxy/server, using Geyser-Spigot for Paper. Configure its authentication, forwarding, and Bedrock UDP listener separately. See the [Bedrock test results](19-final-client-check.md#findings-from-september-13-2026) for the verified setup. |
 
 Use the complete server/proxy distribution of a dependency, not a thin Maven API JAR. Get dependencies through their projects' official channels: [PacketEvents](https://github.com/retrooper/packetevents), [Velocity](https://papermc.io/software/velocity), [Paper](https://papermc.io/software/paper), and [Geyser](https://geysermc.org/download).
 
@@ -23,7 +23,7 @@ Optional MySQL/MariaDB storage and a local SQLite cache are implemented. Both pr
 ## Choose the admission point
 
 - With Velocity, install ConsentGate and PacketEvents on the proxy. ConsentGate handles acceptance before opening a backend connection. The backend needs its normal forwarding and access restrictions, not another ConsentGate installation for the same requirement.
-- Without a proxy, install the Paper artifact on the standalone server. It holds the configuration stage before play entry. Wider plugin-stack and world-entry checks remain on the [Paper checklist](10-paper-progress.md).
+- Without a proxy, install the Paper artifact on the standalone server. It holds the configuration stage before play entry. See the [Paper compatibility results](10-paper-progress.md) and test any additional plugins in your own installation.
 
 Do not copy Velocity's PacketEvents JAR into Paper or the Paper ConsentGate JAR into Velocity. Do not change authentication or turn off forwarding security just to make the dialog work. A proxy gate cannot protect a backend that players can reach directly.
 
@@ -46,7 +46,7 @@ The default language is `en-US`. Matching the client's locale is enabled by defa
 
 For native Bedrock forms, first configure Geyser on the same proxy/server and verify normal Bedrock connectivity. Then set `bedrock.native-forms: true`, validate, and reload when no consent sessions or database jobs are pending. Geyser handles Cumulus delivery; no additional web service is needed. A separate Geyser instance on another server is not the current native integration path.
 
-Paper uses the shared native renderer through Geyser-Spigot, declared as an optional dependency. A real Bedrock client passed native acceptance, world entry, and reconnect on the documented Paper-compatible 26.2 test installation. Geyser-translated dialogs and detailed layout/close checks remain open. Java tests do not establish Paper Bedrock compatibility.
+Paper uses the shared native renderer through Geyser-Spigot, declared as an optional dependency. A real Bedrock client passed native acceptance, world entry, and reconnect on the documented Paper-compatible 26.2 test installation. Java tests do not establish Paper Bedrock compatibility.
 
 Geyser and Floodgate can expose different copies of Cumulus. ConsentGate binds its native renderer to the copy required by Geyser's connection API. It does not bundle Cumulus or change another plugin's class loader.
 

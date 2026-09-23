@@ -1,6 +1,6 @@
 # Development
 
-Both platforms use shared configuration, documents, admission, and storage. They support checkboxes, language selection, reading pages, formatting, durable acceptance, and administrator commands. Native Cumulus forms share one renderer. A real Paper Bedrock client passed acceptance, world entry, and reconnect on the documented test installation. Remote SQL and a local cache have MariaDB and MySQL repository tests. Remaining client checks are tracked in [release progress](16-release-progress.md). Do not install either artifact on a production server or proxy.
+Both platforms use shared configuration, documents, admission, and storage. They support checkboxes, language selection, reading pages, formatting, durable acceptance, and administrator commands. Native Cumulus forms share one renderer. A real Paper Bedrock client passed acceptance, world entry, and reconnect on the documented test installation. Remote SQL and a local cache have MariaDB and MySQL repository tests. Release status is tracked in [release progress](16-release-progress.md). Validate the package on a test installation first.
 
 ## Build
 
@@ -14,10 +14,18 @@ On Linux or macOS, run `./gradlew build`. The wrapper verifies its Gradle distri
 
 Outputs:
 
-- `platform-paper/build/libs/ConsentGate-Paper-0.1.0-prototype.jar`
-- `platform-velocity/build/libs/ConsentGate-Velocity-0.1.0-prototype.jar`
+- `platform-paper/build/libs/ConsentGate-Paper-0.1.0.jar`
+- `platform-velocity/build/libs/ConsentGate-Velocity-0.1.0.jar`
 
 The shaded platform JARs contain the shared core, relocated SnakeYAML and MariaDB Connector/J, SQLite JDBC, and SQLite native libraries. The remote schema and driver license notices are bundled. Paper uses its native API. Velocity currently requires PacketEvents 2.13.0 installed separately. Separate artifacts keep platform dependencies clear; combined packaging remains a later decision.
+
+## GitHub Actions
+
+The [build workflow](https://github.com/kaizen-network/ConsentGate/blob/main/.github/workflows/build.yml) runs on pushes to `main`, pull requests targeting `main`, and manual dispatch. It uses Ubuntu 24.04, Temurin JDK 25, Python 3.13, and Node 24. Each run checks the Python and Node tools, runs the Gradle build including both packaged Bedrock tests, and prepares the complete distribution with verified dependency sources.
+
+Successful runs retain the distribution and its SHA-256 file for 14 days. JVM reports are retained for seven days, including after a failed build when reports exist. Actions are pinned to full commit hashes, repository permissions are read-only, and checkout does not retain credentials. No database credentials or live-server fixtures are needed. Dedicated database, routing, and real-client checks remain separate.
+
+The workflow does not create tags or publish releases. After reviewing a successful run for the intended commit, a maintainer can publish its exact package and checksum through GitHub Releases. Repository access controls also apply to its artifacts and releases.
 
 ## Current behavior
 
@@ -122,16 +130,16 @@ The runner verifies the local proxy configuration, stages the current plugin art
 | Velocity 3.4.0 build 563 with two stock Paper 1.21.7 backends, synthetic protocol 772 | Clean disabled startup, unsupported-schema denial, full world entry, server switch through configuration, accepted rejoin, forced host, and unavailable-primary fallback pass. Timestamped relays show no backend connection before acceptance |
 | Java protocols 771 and 772 | All 15 wire/console check groups passed for both protocols after preview was added; protocol 771 passed again after the storage fix. Four golden framing tests also pass |
 | Velocity 4.1.0 snapshot, PacketEvents 2.13.0, Minecraft 26.2 | Styled two-document acceptance and accepted reconnect reached a backend on 2026-09-10 |
-| Geyser-translated dialogs on Velocity | Real Bedrock acceptance tested; translated action dropdown prompted native form support. Paper's translated path remains unverified |
+| Geyser-translated dialogs on Velocity | Real Bedrock acceptance tested; translated action dropdown prompted native form support. |
 | Native Cumulus with local Geyser on Velocity | Real Bedrock menu, reading, acceptance, close/back behavior, and formatting tested; automated response tests pass. |
-| Native Cumulus with Geyser-Spigot 2.11.2 build 1235 on a Paper-compatible 26.2 server | Real Bedrock acceptance, world entry, and accepted reconnect passed after the provider-binding fix. Detailed layout and close checks remain open |
+| Native Cumulus with Geyser-Spigot 2.11.2 build 1235 on a Paper-compatible 26.2 server | Real Bedrock acceptance, world entry, and accepted reconnect passed after the provider-binding fix. |
 | Velocity 4.1.0 snapshot, live proxy bot check | Reload refused an active dialog; a temporary new document version prompted consent, saved acceptance, and bypassed the gate on accepted reconnect; original documents were restored |
 
 PacketEvents test artifact SHA-256: `e797f84abc349c137396e511ce4f0d7b85e385727a2e82e2ffb6bed0d2fe5c05`.
 
 The exact tested API builds, transitive versions, and artifact hashes are pinned. See [build inputs and local distribution](18-local-distribution.md). Builds currently require network access because Gradle cannot reliably resolve these timestamped snapshots offline.
 
-The live proxy bot used a custom dialog response encoder because the installed bot library's response encoding was rejected by the packet layer. [Independent official-client bytecode inspection](09-protocol-compatibility-findings.md) confirmed the length-prefixed format and identified the installed bot definition as incorrect. This resolves the reproduced framing mismatch, not visual layout or all client compatibility. Unmodified clients at the advertised version boundary still need testing before release.
+The live proxy bot used a custom dialog response encoder because the installed bot library's response encoding was rejected by the packet layer. [Independent official-client bytecode inspection](09-protocol-compatibility-findings.md) confirmed the length-prefixed format and identified the installed bot definition as incorrect. This resolves the reproduced framing mismatch, not visual layout or all client compatibility.
 
 ## Before expanding the feature set
 

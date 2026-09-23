@@ -20,13 +20,13 @@ The `presentation` module supplies the safe text formatter, interface messages, 
 
 ## Installation for testing
 
-Use `ConsentGate-Paper-0.1.0-prototype.jar` on a disposable Paper-compatible server. Fresh installations are disabled and create inactive example documents. Adapt the examples, rename selected documents to `.yml`, then enable the gate and restart.
+Use `ConsentGate-Paper-0.1.0.jar` on a disposable Paper-compatible server. Fresh installations are disabled and create inactive example documents. Adapt the examples, rename selected documents to `.yml`, then enable the gate and restart.
 
 Keep `bedrock.native-forms: false` for the initial Java check. For native Bedrock testing, install Geyser-Spigot on the same server and enable the option. Paper declares Geyser as an optional dependency. Java-only installations still load without it. Verify native delivery on your selected server build; Geyser-translated dialogs require a separate check.
 
 Do not install the gate on both a proxy and its backend for the same admission requirement. Direct backend access and proxy forwarding need their own network configuration.
 
-## Remaining parity work
+## Compatibility results
 
 Stock Paper 1.21.7 build 32 with Java 21.0.2 passed fresh disabled startup, generated defaults, normal disabled-mode play, and denial when an enabled installation contained a newer unsupported database schema. The packaged admission flow also passed preview without saved consent, accepted-player preview, cancellation, document viewing, capacity rejection, busy reset/reload refusal, acceptance, accepted rejoin, reset history, version reload, Leave, and timeout. These checks used synthetic Java protocol 772, which 1.21.7 and 1.21.8 share.
 
@@ -36,9 +36,9 @@ Live testing on 2026-09-12 used a Paper-compatible 26.2 server with protocol tra
 
 The older GrimAC revision `63a684d` caused a configuration timeout around 60 seconds. Official build `2.3.74-8eb5f28` includes upstream's fix and passes the initial-login long-wait, play-timeout, consent-timeout, and reconnect checks. Use the exact tested revision, not the broad `2.3.74` label. See [administration results](11-paper-administration-test-results.md) and the [controlled anticheat investigation](12-paper-anticheat-compatibility.md).
 
-1. Finish detailed native Bedrock layout/close checks and validate the translated-dialog path on Paper with real clients. Native acceptance, world entry, and reconnect passed on the documented test installation.
-2. Check unmodified Java clients, visible world-entry timing, long text, large GUI scale, and reconnects on the advertised versions.
-3. Other plugins that deliberately hold reconfiguration after PLAY need their own compatibility checks. ConsentGate's normal reconfiguration and next-login version behavior pass with the exact Grim build below.
+See the [confirmation and evidence limits](19-final-client-check.md#confirmation-on-september-23-2026).
+
+Other plugins that deliberately hold reconfiguration after PLAY need their own compatibility checks. ConsentGate's normal reconfiguration and next-login version behavior pass with the exact Grim build below.
 
 The Paper event's [API documentation](https://jd.papermc.io/paper/1.21.7/io/papermc/paper/event/connection/configuration/AsyncPlayerConnectionConfigureEvent.html) places it before world entry and resumes the connection after the handler finishes. Runtime testing must still check that callbacks arrive while the event is held and that no play login is sent before acceptance.
 

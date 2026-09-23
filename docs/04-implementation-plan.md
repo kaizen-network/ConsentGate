@@ -1,8 +1,8 @@
 # Architecture and roadmap
 
-Status: core implementation is complete; final compatibility and release checks are tracked in [release progress](16-release-progress.md).
+Status: core implementation is complete; client checks are confirmed and release status is tracked in [release progress](16-release-progress.md).
 
-Both platforms implement documents, translations, versioned acceptance, bounded storage work, and administrator commands. Native Bedrock forms now share one renderer, with real-client checks on Velocity and initial integration on Paper. Official Grim build `8eb5f28` passes initial-login timeout checks. Final unmodified-client version and layout checks remain, including Paper Bedrock delivery. See [release progress](16-release-progress.md). Milestones 1 and 2 are not complete yet.
+Both platforms implement documents, translations, versioned acceptance, bounded storage work, and administrator commands. Native Bedrock forms share one renderer, with real-client acceptance and reconnect checks on both platforms. Official Grim build `8eb5f28` passes initial-login timeout checks. See [release progress](16-release-progress.md) for the release process and the confirmation's evidence limits.
 
 ## Design decisions
 

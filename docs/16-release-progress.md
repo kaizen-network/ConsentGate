@@ -1,6 +1,6 @@
 # Release progress
 
-Status: core implementation is complete. Final real-client checks remain. Neither artifact is a production release.
+Status: core implementation is complete. Version `0.1.0` is the first release. Packages are distributed through [GitHub Releases](https://github.com/kaizen-network/ConsentGate/releases/tag/v0.1.0), with access following repository visibility.
 
 ## Current implementation
 
@@ -24,13 +24,15 @@ Status: core implementation is complete. Final real-client checks remain. Neithe
 - Local test runners restore configuration after startup and shutdown errors, stop their owned server processes, and launch hidden on Windows. Artifact paths follow the configured project version.
 - Paper passed a 75-second initial hold and three reconfiguration cycles with official Grim `2.3.74-8eb5f28`. Reconfiguration preserves the accepted connection; changed document versions request consent on the next login, which also passed.
 
-## Remaining release work
+## Release process
 
-Complete the [final real-client check](19-final-client-check.md): Java version boundaries and visible layout, detailed Paper native Bedrock layout/close checks, and Geyser-translated dialogs. Record the remaining results before declaring a release. The local package builder verifies required notices, dependency sources, the source archive, and distribution checksums.
+The [final real-client checks](19-final-client-check.md#confirmation-on-september-23-2026) are closed. Existing exact-version evidence is unchanged because no additional build numbers or per-step logs were supplied. The [release notes](20-release-notes-0.1.0.md) describe `0.1.0`. GitHub Actions runs the automated checks and builds a complete package for each push to `main` and pull request. Publication remains a separate manual action after the target commit passes. The local package builder verifies required notices, dependency sources, the source archive, and distribution checksums.
 
 Later BungeeCord and plain Spigot support, external imports, and provider migration tools remain outside the initial release scope. Publishing requires separate approval.
 
 ## Local validation commands
+
+On 2026-09-23, the `0.1.0` build reran all 154 JVM test executions with no failures, errors, or skips. All 15 Python tests and 11 Node tests passed. The three new Python checks cover working-tree source snapshots, ignored files, source changes, and preservation of the normal Git index. Both JAR descriptors report `0.1.0`. Dedicated database and live-server checks were not rerun for this release-preparation change; their earlier results remain below.
 
 On 2026-09-13, the full build after the Bedrock fixes passed 150 JVM tests plus four executions of the provider regression against the two packaged JARs, with no failures or skips. The Python suite passed 12 tests, and the Node helper suite passed eleven. The local package builder now requires both packaged Bedrock reports and includes their results in its validation count.
 

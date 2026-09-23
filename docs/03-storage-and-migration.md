@@ -1,6 +1,6 @@
 # Storage and database upgrades
 
-Status: SQLite and remote SQL/cache implementations are available in the prototype. MariaDB 11.8.6 and MySQL 8.4.8 passed repository, TLS, and admission/outage checks on both platforms. See [setup and exact behavior](15-remote-storage.md) and [release progress](16-release-progress.md).
+Status: SQLite and remote SQL/cache support are implemented for `0.1.0`. MariaDB 11.8.6 and MySQL 8.4.8 passed repository, TLS, and admission/outage checks on both platforms. See [setup and exact behavior](15-remote-storage.md) and [release progress](16-release-progress.md).
 
 ## Database choices
 

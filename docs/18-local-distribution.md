@@ -1,6 +1,6 @@
 # Local distribution and reproducible inputs
 
-The package is for final testing. It is not a published or production release. See [release progress](16-release-progress.md) for the remaining client checks.
+The `0.1.0` package contains both platform JARs, project and dependency sources, notices, documentation, and checksums. Download it from [GitHub Releases](https://github.com/kaizen-network/ConsentGate/releases/tag/v0.1.0) with repository access, or build locally. See [release progress](16-release-progress.md) and the [release notes](20-release-notes-0.1.0.md).
 
 ## Build inputs
 
@@ -22,7 +22,7 @@ The verification file records reviewed local build inputs. An intentionally inco
 
 ## Create the package
 
-Run from a clean committed source tree after the build checks pass:
+For a committed package, run from a clean source tree after the build checks pass:
 
 ```powershell
 python tools/prepare_local_release.py --sources .run/release-sources --fetch-sources
@@ -30,12 +30,20 @@ python tools/prepare_local_release.py --sources .run/release-sources --fetch-sou
 
 The optional `--fetch-sources` flag downloads the exact source materials listed in `gradle/dependency-sources.json` and verifies their hashes. Omit it when those files already exist. The script builds locally, packages the two JARs, project source ZIP, dependency source files, documentation, notices, and checksums under `build/distributions/`. It makes no upload, commit, push, or deployment.
 
+To prepare reviewed uncommitted changes without committing, add `--working-tree`:
+
+```powershell
+python tools/prepare_local_release.py --sources .run/release-sources --working-tree
+```
+
+This snapshots tracked and non-ignored new files through a temporary Git index. It leaves the normal index unchanged, checks that sources did not change during the build, and archives that exact source tree. Review all non-ignored files first. The package name and `BUILD.json` mark it as a working-tree snapshot, with the base commit and source tree recorded separately. Rebuild from a clean committed tree for later publication.
+
 Keep the source and notice materials with the binaries when preparing a later distribution. The project source includes the wrapper and the transformations needed to rebuild the shaded JARs. For a modified MariaDB driver, use the included complete upstream source archive and its Maven build file, then update the project dependency and verification entries before rebuilding ConsentGate.
 
-## Candidate notes
+## Release scope
 
 This candidate implements pre-admission documents, explicit acceptance, translations, Java dialogs, optional native Bedrock forms, SQLite and remote SQL storage, outage caching, preserved withdrawal history, administrator preview, document viewing, status, reset, validation, and reload.
 
 The stock Paper 1.21.7 check found and fixed an unavailable Adventure dialog-close method. Storage checks found and fixed older or replayed decisions that could otherwise report success without changing current state. The shared session now completes callbacks outside its lock to avoid a native-response and timeout deadlock.
 
-Final unmodified-client checks remain necessary for the advertised version boundary, GUI layout, and Geyser-translated dialogs. Paper native Bedrock acceptance, world entry, and reconnect passed on the documented test installation. See the [client test results](19-final-client-check.md) for remaining checks. BungeeCord, plain Spigot, and external import tools are outside this candidate.
+Paper native Bedrock acceptance, world entry, and reconnect passed on the documented test installation. See the [client test results](19-final-client-check.md) for the confirmation and its evidence limits. BungeeCord, plain Spigot, and external import tools are outside this candidate.

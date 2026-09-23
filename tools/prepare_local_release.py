@@ -1,4 +1,4 @@
-"""Build a local test distribution with source materials and checksums. Never uploads."""
+"""Build a local release package with source materials and checksums. Never uploads."""
 
 import argparse
 import hashlib
@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import tempfile
 import urllib.request
 import uuid
 import xml.etree.ElementTree as ET
@@ -21,10 +22,27 @@ def checksum(path):
         return hashlib.file_digest(source, 'sha256').hexdigest()
 
 
+def snapshot_working_tree(project, revision):
+    """Snapshot non-ignored sources without changing the user's index or making a commit."""
+    flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+    with tempfile.TemporaryDirectory(prefix='consentgate-index-') as temporary:
+        environment = dict(os.environ, GIT_INDEX_FILE=str(Path(temporary) / 'index'))
+
+        def git(*arguments):
+            return subprocess.check_output(['git', *arguments], cwd=project,
+                                           env=environment, creationflags=flags)
+
+        git('read-tree', revision)
+        git('add', '--all', '--', '.')
+        return git('write-tree').decode().strip()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sources', type=Path, required=True, help='Local cache for the pinned dependency source files')
     parser.add_argument('--fetch-sources', action='store_true', help='Download missing source files and verify their pinned hashes')
+    parser.add_argument('--working-tree', action='store_true',
+                        help='Package reviewed uncommitted sources using a temporary Git index; never commits')
     args = parser.parse_args()
     project = Path(__file__).resolve().parents[1]
     flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
@@ -32,9 +50,10 @@ def main():
     def git(*arguments):
         return subprocess.check_output(['git', *arguments], cwd=project, creationflags=flags)
 
-    if git('status', '--porcelain').strip():
-        raise RuntimeError('Commit the reviewed changes first so the source archive matches the binaries')
+    if git('status', '--porcelain').strip() and not args.working_tree:
+        raise RuntimeError('Use a clean committed tree, or --working-tree for a reviewed local snapshot')
     revision = git('rev-parse', 'HEAD').decode().strip()
+    source_tree = snapshot_working_tree(project, revision) if args.working_tree else git('rev-parse', 'HEAD^{tree}').decode().strip()
     version = project_version(project)
     manifest_file = project / 'gradle/dependency-sources.json'
     sources = json.loads(manifest_file.read_text())
@@ -59,7 +78,9 @@ def main():
     print('Dependency source checksums verified', flush=True)
     wrapper = project / ('gradlew.bat' if os.name == 'nt' else 'gradlew')
     subprocess.run([str(wrapper), 'build', '--console=plain'], cwd=project, check=True, creationflags=flags)
-    if git('status', '--porcelain').strip() or git('rev-parse', 'HEAD').decode().strip() != revision:
+    changed = (snapshot_working_tree(project, revision) != source_tree if args.working_tree
+               else bool(git('status', '--porcelain').strip()))
+    if changed or git('rev-parse', 'HEAD').decode().strip() != revision:
         raise RuntimeError('Source changed during the build; create a fresh package after reviewing it')
     reports = list(project.glob('*/build/test-results/test/TEST-*.xml'))
     for task in ('paperArtifactTest', 'velocityArtifactTest'):
@@ -78,6 +99,8 @@ def main():
     root = project / 'build/distributions'
     root.mkdir(parents=True, exist_ok=True)
     name = f'ConsentGate-{version}-{revision[:12]}'
+    if args.working_tree:
+        name += '-working-tree-' + source_tree[:12]
     directory = root / name
     if directory.exists() or (root / (name + '.zip')).exists():
         raise FileExistsError('This revision already has a local package: ' + str(directory))
@@ -107,14 +130,15 @@ def main():
     for entry in sources:
         shutil.copyfile(cache / entry['file'], source_directory / entry['file'])
     source_zip = staging / f'ConsentGate-{version}-source.zip'
-    git('archive', '--format=zip', '--output=' + str(source_zip), revision)
+    git('archive', '--format=zip', '--output=' + str(source_zip), source_tree)
     with zipfile.ZipFile(source_zip) as archive:
         if 'gradle/verification-metadata.xml' not in archive.namelist() or 'tools/prepare_local_release.py' not in archive.namelist():
             raise ValueError('The project source archive is incomplete')
         if any(n.startswith(('.run/', '.env', '.git/')) or '/build/' in n for n in archive.namelist()):
             raise ValueError('Private or generated files must not enter the source archive')
     (staging / 'BUILD.json').write_text(json.dumps({'version': version, 'commit': revision,
-        'jvmTests': count, 'status': 'test candidate; final real-client checks remain'}, indent=2) + '\n')
+        'sourceTree': source_tree, 'sourceState': 'working-tree' if args.working_tree else 'committed',
+        'jvmTests': count, 'status': 'local candidate' if args.working_tree else 'release package'}, indent=2) + '\n')
     files = sorted(path for path in staging.rglob('*') if path.is_file())
     (staging / 'SHA256SUMS').write_text(''.join(checksum(path) + '  ' + path.relative_to(staging).as_posix() + '\n' for path in files))
     staging.rename(directory)

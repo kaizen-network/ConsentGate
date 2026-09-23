@@ -1,6 +1,6 @@
 # Dialog compatibility investigation
 
-Status: the encoding cause is identified from official client bytecode. See [findings](09-protocol-compatibility-findings.md) for the bot-library defect, evidence, and remaining client checks. The plan below remains the verification checklist; a custom test encoder alone is not proof of standard-client compatibility.
+Status: the encoding cause is identified from official client bytecode. See [findings](09-protocol-compatibility-findings.md) for the bot-library defect, evidence, and the client checklist. The plan below remains the verification checklist; a custom test encoder alone is not proof of standard-client compatibility.
 
 ## What is known
 
