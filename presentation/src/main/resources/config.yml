@@ -1,18 +1,28 @@
+# Updates keep this file. New settings and comments are not added automatically.
 # Config format version. Leave unchanged.
 config-version: 1
 # Set true after adding your documents, then run /consentgate reload to enable.
+# Use commands without / in the console. Disabling an active gate requires a restart.
 enabled: false
-# Use the same scope on servers that should share consent records.
+# Consent group for this whole proxy/server, not a Velocity backend name.
+# Sharing needs the same database, scope, document IDs/versions/text, and player UUIDs.
+# Separate example: network on Velocity, survival on Paper. Players can be asked at both gates.
+# 1-64 characters: lowercase letters, numbers, _, -, or .; start with a letter or number.
+# Changing an active gate's scope requires a restart and does not move old records.
 scope: main
 
 # Time allowed to accept, and maximum players waiting at once.
 gate:
+  # 30-1800 seconds to accept. Timeout disconnects the player.
   timeout-seconds: 300
+  # 1-10000 players waiting at once. Extra connections are rejected. Restart after changes.
   max-pending: 128
+
 # Default language and optional player language selection.
 language:
   default: en-US
   use-client-locale: true
+  # 2-8 choices, each present in every required document; columns must be 1 or 2.
   selector:
     enabled: false
     title: "<gold><bold>Language / Bahasa</bold></gold>"
@@ -21,6 +31,7 @@ language:
     options:
       en-US: "English"
       id-ID: "Bahasa Indonesia"
+
 # Text colors used in the Java consent screen.
 appearance:
   title-color: gold
@@ -29,13 +40,19 @@ appearance:
   muted-color: gray
   error-color: red
   button-color: white
+
 # Enable native forms when Geyser is installed on this server or proxy.
 bedrock:
   native-forms: false
   button-color: dark_gray
+
 # Folder containing your consent documents, inside this plugin folder.
+# Load .yml/.yaml files directly in this folder. Rename starter .yml.example files to .yml.
+# required: false hides a document from the consent screen; at least one must be true.
+# Bump a document's version when editing its active text, labels, or formatting.
 documents:
   directory: documents
+
 # Where player consent records are saved. SQLite works without extra setup.
 storage:
   # sqlite (local file), mysql, or mariadb. Restart after changes.
@@ -53,17 +70,20 @@ storage:
     port: 3306
     database: consentgate
     username: consentgate
+    # Literal password. Environment-variable references are not expanded.
     password: "replace-this-password"
     # Checks the database certificate and hostname. Use disable only for a protected connection.
     ssl-mode: verify-full
     # Optional PEM certificate file inside this plugin folder. Usually leave empty.
     server-certificate: ""
+    # Each timeout allows 100-30000 milliseconds.
     connect-timeout-millis: 3000
     socket-timeout-millis: 5000
   # MySQL/MariaDB only. Saves recent checks locally to reduce database requests.
   cache:
     enabled: true
     file: data/remote-cache.db
-    # Resets on other servers may take 60 seconds to appear. Use 0 to always check the database.
+    # 0-300 seconds. Resets on other servers may take this long to appear. Use 0 to always check the database.
     freshness-seconds: 60
+    # 1-1000000 cached checks. Each server needs its own cache file.
     max-entries: 100000

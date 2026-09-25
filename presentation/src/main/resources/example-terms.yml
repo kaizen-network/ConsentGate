@@ -1,5 +1,8 @@
+# Keep this ID stable. Rename this file to .yml after replacing the starter text.
 id: terms-of-service
+# Use a new quoted version when changing active text, titles, labels, or formatting.
 version: "draft-2"
+# false hides this document from the consent screen; it does not add an optional checkbox.
 required: true
 order: 10
 translations:

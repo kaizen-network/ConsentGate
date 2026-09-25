@@ -42,7 +42,7 @@ storage:
 
 The `sqlite` path is retained for compatibility and is not opened as primary storage in remote mode. The cache must use a different file. Cache defaults apply when its entire section is omitted: enabled for remote storage, 60-second freshness, and 100,000 entries. Existing SQLite-only configurations still work.
 
-All storage settings require restart, including credentials, endpoint, TLS, and cache settings. Reload refuses those changes and keeps the running settings. Configuration objects redact remote connection details in their string representation. Keep the configuration and backups private; passwords are stored in the administrator's local configuration, not in acceptance records or the cache.
+While the gate is enabled, changing storage settings requires a restart, including credentials, endpoint, TLS, and cache settings. After a disabled startup, you can fill in storage settings and enable the gate with `consentgate reload`. Configuration objects redact remote connection details in their string representation. Keep the configuration and backups private. Enter the literal password in `storage.remote.password`; environment-variable references are not expanded. Passwords are not stored in acceptance records or the cache.
 
 ## Connections and TLS
 

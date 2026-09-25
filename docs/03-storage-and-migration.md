@@ -7,10 +7,10 @@ Status: SQLite and remote SQL/cache support are implemented for `0.1.0`. MariaDB
 | Choice | Use | Tradeoff |
 | --- | --- | --- |
 | SQLite | Default local store and remote cache file | Simple installation; one process owns each file. |
-| MySQL / MariaDB | Shared primary store for multiple proxies or servers | Needs credentials, migrations, and outage handling. Test both products. |
+| MySQL / MariaDB | Shared primary store for multiple proxies or servers | Needs an empty database and credentials; ConsentGate creates its tables automatically. |
 | H2 | Deferred optional backend | Pure Java embedded storage, but another SQL dialect and migration path to maintain. |
 
-SQLite supports this local application use, but sharing its file across machines is unsuitable. H2 is a valid embedded alternative; supporting both initially adds maintenance without a clear user benefit. MariaDB Connector/J supports MariaDB and MySQL and is a candidate for the remote driver. [SQLite guidance](https://www.sqlite.org/whentouse.html), [H2 overview](https://h2database.com/html/main.html), [MariaDB Connector/J](https://mariadb.com/docs/connectors/mariadb-connector-j/about-mariadb-connector-j)
+SQLite supports this local application use, but sharing its file across machines is unsuitable. H2 is a valid embedded alternative; supporting both initially adds maintenance without a clear user benefit. MariaDB Connector/J is bundled for both MariaDB and MySQL. [SQLite guidance](https://www.sqlite.org/whentouse.html), [H2 overview](https://h2database.com/html/main.html), [MariaDB Connector/J](https://mariadb.com/docs/connectors/mariadb-connector-j/about-mariadb-connector-j)
 
 Use prepared statements, bounded background database work, and transactions. For new acceptance, commit the acceptance records and their audit event together before admitting the player. Repeated clicks and retries must be idempotent.
 
@@ -27,9 +27,9 @@ Both implementations use independent documents and versions. Remote SQL types an
 | `cg_audit_events` | Administrative changes and acceptance actions, linked by request ID |
 | `cg_player_locks` | Remote-only serialization of decision writes for each UUID and scope |
 
-Use a canonical UUID representation, UTC timestamps, and database uniqueness constraints. Store IP addresses only when enabled. Do not require player names. An admin reset invalidates acceptance, while deleting records is a distinct operation.
+Consent records use player UUIDs and UTC timestamps. They do not store player names or IP addresses. An admin reset invalidates acceptance, while deleting records is a distinct operation.
 
-Multiple installations share acceptance only when they use the same scope, document IDs, and versions. Detect conflicting content for the same revision. Keep event insertion and current-state changes consistent under concurrent requests from different proxies.
+Multiple installations share acceptance when they use the same database, scope, player UUIDs, and matching document IDs, versions, and text. Separate scopes keep consent separate, even within one database. The database does not synchronize document files. See [scope examples](../README.md#shared-or-separate-consent).
 
 ## Remote cache behavior
 
@@ -54,9 +54,9 @@ Defer offline write queues: they would allow admission without a primary commit 
 
 ## Database upgrades and portability
 
-Validate the plugin's schema at startup and refuse unsupported newer schemas. Remote version 1 requires manual installation in an empty dedicated database. There are no remote upgrade scripts yet. A primary outage or invalid schema blocks startup, even when a cache file exists.
+ConsentGate creates remote version-1 tables automatically in an empty dedicated database and checks existing tables before use. No SQL import is needed. Existing tables are not overwritten or upgraded; incomplete or unsupported schemas block startup. A database outage also blocks startup, even when a cache file exists.
 
-Provide documented SQL migrations for administrators using a separate setup account. Runtime credentials should only need permissions for normal plugin operations. Database administrator credentials do not belong in plugin configuration.
+Initial setup needs `CREATE`, `REFERENCES`, `SELECT`, `INSERT`, and `UPDATE` on the dedicated database. After setup, only `SELECT`, `INSERT`, and `UPDATE` are needed. Use a plugin-specific account, not a database administrator account. There are no automatic remote schema upgrades yet.
 
 Before upgrading, document backups and whether rollback is supported. Account for database-specific DDL behavior; do not assume failed schema changes roll back identically on every provider. Test upgrades from every supported previous schema version.
 

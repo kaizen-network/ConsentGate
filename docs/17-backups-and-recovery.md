@@ -28,6 +28,6 @@ A regression check restores a real database backup made before acceptance. Reope
 
 An unknown newer schema is an error. Do not edit its version marker to force the plugin to start. Restore a matching backup into a separate location or use the compatible plugin version.
 
-Remote schema version 1 is installed manually in an empty dedicated database. There are no remote upgrade scripts yet. If installation stopped partway through, leave that database intact, create another empty database, apply the full supplied schema there, and verify startup. Do not rerun the installation script over acceptance data.
+ConsentGate creates its remote tables automatically only when the database is empty. If first setup stopped partway through, keep that database intact for inspection, correct the reported problem, and point the plugin at a new empty database to retry. Check the [setup permissions](15-remote-storage.md#set-up-the-database). For an existing installation with consent records, restore a matching backup instead of starting over. There are no automatic remote schema upgrades; existing tables are never overwritten to repair a failed installation.
 
 No automatic acceptance-history deletion or erasure command is included. Cache cleanup does not erase primary acceptance history. A reset preserves history and requests consent again; it is not a backup, restore, or deletion operation.

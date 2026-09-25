@@ -24,14 +24,36 @@ SQLite is the default, with its driver bundled. Optional MySQL/MariaDB storage a
 
 ## Quick start
 
-1. Download the complete package from [GitHub Releases](https://github.com/kaizen-network/ConsentGate/releases/tag/v0.1.0), verify its SHA-256 checksum, and choose the JAR for your platform. You can also [build from source](docs/05-development.md#build).
-2. Stop the test proxy/server. Put that JAR in `plugins/`, along with its required dependency above. Install the gate on the proxy or the standalone server, not both for the same requirement.
-3. Start once to generate files, then stop again. The gate starts disabled. Its folder is `plugins/consentgate/` on Velocity or `plugins/ConsentGate/` on Paper.
+These steps describe the current source build. The `v0.1.0` tag predates automatic database setup and enabling through reload. If using that release, follow its packaged instructions instead.
+
+1. [Build the current source](docs/05-development.md#build) and choose the JAR for your platform.
+2. Stop the test proxy/server. Put that JAR in `plugins/`, along with its required dependency above. Use Velocity for network consent, Paper for server consent, or both for separate requirements as explained below.
+3. Start once to generate files. The gate starts disabled. Its folder is `plugins/consentgate/` on Velocity or `plugins/ConsentGate/` on Paper.
 4. Adapt `documents/terms.yml.example` and `documents/privacy.yml.example`, including all translations and bracketed placeholders. Choose document versions and rename the selected files to end in `.yml`.
-5. Set `enabled: true` in the generated `config.yml`, then start. Confirm ConsentGate enabled successfully. Keep `bedrock.native-forms: false` for the initial Java check.
-6. In the console, run `consentgate validate`, then test first acceptance, Leave, and accepted rejoin. Use [offline reset](docs/07-admin-commands.md#reset-for-testing-or-administration) to repeat testing without deleting the database.
+5. Keep SQLite for local storage, or enter your MySQL/MariaDB details using the steps in `config.yml`. An empty remote database gets its tables automatically. Set `enabled: true` and keep `bedrock.native-forms: false` for the initial Java check.
+6. In the console, run `consentgate validate`, then `consentgate reload`. Test first acceptance, Leave, and accepted rejoin. Use [offline reset](docs/07-admin-commands.md#reset-for-testing-or-administration) to repeat testing without deleting the database. Add `/` before commands when running them in game; see [permissions](docs/07-admin-commands.md).
 
 See the [installation guide](docs/13-installation.md) for platform setup, Bedrock, backups, and troubleshooting. The starter documents need administrator review; they are not a guarantee of legal compliance.
+
+## Shared or separate consent
+
+`scope` names a consent group for the whole plugin instance. It does not select a Velocity backend by name.
+
+| Goal | Example setup |
+| --- | --- |
+| Share consent across proxies | Use `scope: network` on each proxy, the same MySQL/MariaDB database, matching document IDs, versions and text, and the same player UUIDs. |
+| Separate network and Survival consent | Use `scope: network` on Velocity and `scope: survival` on the Survival Paper server. Players can be asked once at each gate, even with a shared database. |
+
+Scope names allow 1–64 characters: lowercase letters, numbers, `_`, `-`, and `.`. Start with a letter or number. Changing scope does not move existing consent records. Keep document files in sync yourself when sharing consent; the database does not copy them between servers. Separate SQLite files do not share consent.
+
+## Editing and updating
+
+- Keep each document's `id` stable. Change its quoted `version` when editing active or previously saved document text, including titles, summaries, labels, page text, or formatting inside those fields. Players accept the new version on their next connection. Changing global `appearance` colors does not need a document version bump.
+- `required: false` removes a document from the consent screen. Optional checkboxes and informational-only login documents are not supported. At least one required document is needed to enable the gate.
+- Reload can enable a disabled gate and apply document, message, language, color, and timeout edits. Disabling an active gate, changing its scope or storage, or changing `max-pending` requires a restart. Reload refuses while sessions or database jobs are active; retry after they finish.
+- Updates preserve existing config, messages, and templates. New settings and comments are not added automatically. Back up your folder and compare with the [current default config](presentation/src/main/resources/config.yml), copying needed settings without replacing your credentials or documents. Replacing the JAR requires a restart.
+
+For setting limits and document rules, see the [configuration guide](docs/02-product-and-config.md#setting-limits). Moving from SQLite to MySQL/MariaDB does not transfer old consent records; players must accept again. See [database setup](docs/15-remote-storage.md).
 
 ## Implemented features
 

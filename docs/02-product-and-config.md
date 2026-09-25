@@ -1,6 +1,6 @@
 # Player flow and configuration
 
-Status: configuration, formatting, editable messages, documents, remote storage, and administrator commands are implemented on both platforms, including login preview and document viewing. Native Bedrock presentation is shared, with real-client checks on Velocity and Paper delivery verification still pending. See [release progress](16-release-progress.md).
+Configuration, editable messages, documents, storage, and administrator commands are available on Velocity and Paper. Native Bedrock forms have recorded client checks on both platforms; see the [tested setups and results](19-final-client-check.md).
 
 ## Player experience
 
@@ -12,7 +12,7 @@ Status: configuration, formatting, editable messages, documents, remote storage,
 6. Continue validates the required checkboxes and saves the acceptance.
 7. Only a confirmed save releases the connection. Leave disconnects without granting acceptance.
 
-Unchecked boxes stay unchecked by default. Preserve selections across Read and Back using validated session state. A document screen may offer “Accept and return” for that document. Optional informational documents require no checkbox.
+Checkboxes start unchecked and keep their state while reading and returning to the summary. Only documents with `required: true` appear in the consent flow. `required: false` hides a document from that flow; it does not create an optional checkbox or an informational page. Such files are still loaded and validated.
 
 Leave is the summary exit action. Reading screens use Back and do not repeat Leave. Escape, client disconnect, and timeout never count as acceptance. Screen closure is not the gate: server-side connection state is the gate.
 
@@ -21,17 +21,23 @@ Leave is the summary exit action. Reading screens use Back and do not repeat Lea
 - Any document title, summary, button label, checkbox wording, and order.
 - Stable document IDs and independent string versions, such as `2026-09` or `v3`.
 - Full text stored locally with optional pages and restricted MiniMessage formatting.
-- Required agreements. Informational documents and separate optional opt-in choices can follow later.
+- Required agreements. Optional opt-in choices and informational-only login documents are not supported.
 - Configurable language files, default language, timeouts, and unsupported-client messages.
 - Commands for validation, safe reload, preview, status, document viewing, and withdrawal/reset with clear permissions.
 
-Use exact version equality, not numeric or alphabetical ordering. A different version requires acceptance. Changing a title does not change document identity.
+Keep `id` stable: it identifies the document, independently of its filename or title. Versions are quoted strings, such as `"v2"`, compared exactly rather than numerically. Use a new version when changing an active or previously saved translation, including its title, summary, checkbox label, Read label, page titles, page text, or formatting inside those fields. Even a spelling or color-tag edit counts. Changing global `appearance` colors or document order does not change the stored document text.
 
-Save a hash and snapshot of the document text shown. Reject changed text under an already registered version and ask the admin to bump that version. This prevents silently rewriting what an older acceptance meant. Language variants belong to the same revision; record which variant was shown.
+A new required version requests consent on the next connection. Reload rejects edits under the same active version even before anyone has accepted it. Saved text is also checked against its original version. Update shared installations together so the same scope, document ID, version, and locale never refer to different text.
+
+## Scopes and multiple servers
+
+`scope` is a consent group for one whole plugin instance. It is not a backend routing rule. For shared consent, use the same MySQL/MariaDB database and scope, matching document IDs, versions and text, and consistent player UUIDs through proxy forwarding. Document files must be kept in sync separately. Independent SQLite files do not share consent.
+
+For separate consent, use `scope: network` on Velocity and `scope: survival` on the Survival Paper server. A player may then accept once on the proxy and again on that server. Changing a scope does not move or delete old records; existing acceptance only counts in its original scope. Restart to change the scope of an active gate.
 
 ## Bedrock presentation
 
-Both platforms offer optional native forms when Geyser is installed on the same proxy/server. Paper uses Geyser-Spigot and still needs Bedrock delivery verification:
+Both platforms offer optional native forms when Geyser is installed on the same proxy/server. Paper uses Geyser-Spigot. See the [client results](19-final-client-check.md) for the tested setups:
 
 ```yaml
 bedrock:
@@ -47,18 +53,7 @@ Native menu buttons default to dark gray for contrast. Set `bedrock.button-color
 
 Documents, versions, interface translations, and acceptance storage are shared with Java. Form-delivery failure does not release the backend gate or switch renderers mid-session.
 
-Use Geyser-translated dialogs as the baseline. Offer optional Cumulus forms for touch and controller layouts. Both renderers share document content, versions, session state, validation, and persistence.
-
-The native flow uses a document menu, reading pages, and an explicit acceptance step. SimpleForm suits reading and navigation, CustomForm supplies unchecked agreement toggles, and ModalForm can provide final confirmation. Choose the exact layout after real-client tests. [Cumulus form types](https://geysermc.org/wiki/geyser/forms/)
-
-- Convert shared formatted text to supported Bedrock text. Never send raw MiniMessage tags to forms.
-- Allow Bedrock overrides for short labels and readable colors. Keep policy content shared; any content override must be versioned and recorded as a separate shown variant.
-- Put essential information in visible text, without requiring hover, item tooltips, images, or external URLs.
-- Keep reading and acceptance distinct.
-- Handle closed, invalid, stale, and repeated responses. Closing the main menu or language selector disconnects without acceptance. Closing reading or agreement forms returns to the menu. Never release the gate without saved acceptance.
-- Test button and body contrast separately, long translations, scrolling, and preserved selections.
-
-Native forms are optional for installations. They must pass admission-stage tests before selection; installing Geyser or Floodgate alone does not establish readiness.
+Test reading, acceptance, closing forms, and reconnect with your own Geyser and authentication setup. Native and translated forms use the same documents and consent records.
 
 ## Example layout
 
@@ -82,40 +77,27 @@ Locale tags have a shared 64-character limit across configuration, documents, me
 
 The language selector title, prompt, labels, and order are configurable under `language.selector`. It accepts two to eight choices. Document files support up to 32 translations. A valid acceptance in any current translation skips the selector on reconnect, even when the client's language differs. Changed versions, changed accepted content, and withdrawals still require consent.
 
-```yaml
-config-version: 1
-enabled: false
-scope: main
-gate:
-  timeout-seconds: 300
-  max-pending: 128
-language:
-  default: en-US
-  use-client-locale: true
-  selector:
-    enabled: false
-    title: "<gold><bold>Language / Bahasa</bold></gold>"
-    prompt: "<gray>Choose the language used for these documents.</gray>"
-    columns: 2
-    options:
-      en-US: "English"
-      id-ID: "Bahasa Indonesia"
-appearance:
-  title-color: gold
-  accent-color: gold
-  text-color: white
-  muted-color: gray
-  error-color: red
-  button-color: white
-documents:
-  directory: documents
-storage:
-  type: sqlite
-  sqlite:
-    file: data/consent.db
-```
+## Setting limits
 
-This first schema accepts only relative document and database paths inside the plugin directory. `enabled: false` is the safe initial state. Enabling the gate requires at least one required document. The optional language selector accepts two to eight choices in one or two columns, and every choice must have an exact translation in every required document. Unsupported storage types and unknown or duplicate keys stop startup validation.
+Use the generated `config.yml`, or compare with the [current default config](../presentation/src/main/resources/config.yml). Existing files are kept on updates; new settings and comments must be copied in manually.
+
+| Setting | Accepted values |
+| --- | --- |
+| `scope` | 1?64 characters: lowercase letters, numbers, `_`, `-`, `.`; start with a letter or number |
+| `gate.timeout-seconds` | 30?1,800 seconds; timeout disconnects the player |
+| `gate.max-pending` | 1?10,000 waiting players; extra connections are rejected |
+| `language.selector.options` / `columns` | 2?8 choices / 1?2 columns; enabled choices need exact translations in every required document |
+| Remote connection/socket timeouts | 100?30,000 milliseconds each |
+| `storage.cache.freshness-seconds` | 0?300; use 0 to check the database on every admission |
+| `storage.cache.max-entries` | 1?1,000,000 |
+| Document `id` | 1?64 lowercase letters, numbers, `_`, `-`; start with a letter or number |
+| Document `version` | A quoted string of 1?64 characters |
+| Document files | Up to 32 `.yml`/`.yaml` files directly in the documents folder; subfolders and `.example` files are not loaded |
+| Per document | Up to 32 translations, 32 pages per translation, and a 256 KiB file |
+
+Paths must be relative and stay inside the plugin folder. Unknown or duplicate YAML keys fail validation. Enabling requires at least one document with `required: true`. Deactivating all documents cannot leave an enabled gate running.
+
+## Document example
 
 ```yaml
 id: community-rules
@@ -143,13 +125,15 @@ The optional `appearance` section supplies default colors for unformatted text a
 
 Document fields support named and hex colors plus `bold`, `italic`, `underlined`, `strikethrough`, and `obfuscated`. Tags must be properly closed. Interactive, hover, insertion, font, gradient, rainbow, and external-link tags are rejected during startup validation. Use YAML line breaks instead of formatting tags for new lines.
 
-Remote settings support host, port, database, username, a password environment-variable reference, and verified TLS. See the implemented syntax in [remote storage](15-remote-storage.md). Passwords are not included in logged JDBC URLs.
+Enter the database password literally in `storage.remote.password`. Environment-variable references are not expanded. Keep the config and its backups private. See [remote storage setup](15-remote-storage.md) for connection settings, automatic table creation, and certificates.
 
 ## Reload and validation
 
-Validate IDs, duplicate versions, required translations, file paths, page sizes, text formatting, and platform capability before activation. Restrict document paths to the plugin directory. Use a safe YAML parser and a limited set of MiniMessage tags; acceptance never executes configurable commands.
+After editing, run `consentgate validate`, then `consentgate reload` in the console. In game, use a leading `/` and the appropriate [command permission](07-admin-commands.md). Validation checks document IDs, translations, paths, page sizes, formatting, and the supported reload rules.
 
-Parse a new configuration completely before swapping it in. A failed reload leaves the last valid configuration active. Reload refuses while consent sessions or database jobs are pending. New connections use the new revision after successful reload. Reject stale callbacks and check the active revision again before admission.
+A disabled gate can be enabled by setting `enabled: true` and reloading. Validation while disabled does not open storage; reload opens it when enabling. A failed reload keeps the previous state. Disabling an active gate, changing its scope or storage/cache settings, or changing `gate.max-pending` requires a restart. A failed startup must also be fixed and restarted.
+
+Reload refuses while consent sessions or database jobs are pending. Retry after they finish. New connections use the new revision after a successful reload.
 
 A new required document prompts players again on their next admission. Already admitted players are not kicked merely because a file was reloaded. A future explicit enforcement command can handle that separately.
 

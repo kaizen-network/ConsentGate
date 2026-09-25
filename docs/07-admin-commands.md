@@ -1,6 +1,6 @@
 # Administrator commands
 
-These commands are implemented on Velocity and Paper. ConsentGate must be enabled and storage must be available. Velocity commands have wire and console testing. Paper has console and in-game checks on test servers; see the [Paper test results](11-paper-administration-test-results.md) for coverage and remaining race tests.
+These commands are implemented on Velocity and Paper. `validate` and `reload` also work after a successful disabled startup. Other commands require an enabled gate; status and reset also need storage to be available. Velocity commands have wire and console testing. Paper has console and in-game checks on test servers; see the [Paper test results](11-paper-administration-test-results.md) for coverage and remaining race tests.
 
 | Command | Permission | Result |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ No database deletion is needed. Existing acceptance events and document snapshot
 
 Use the full UUID known to the proxy or server, or stored in the consent database, for offline players. Offline names are not looked up or converted to guessed UUIDs. Authentication and forwarding changes can change player identity.
 
-Status, reset, validation, and reload use the bounded database worker queue. If storage fails or the queue is full, the command reports an error. Check status before retrying an uncertain result. Administrator responses are currently English.
+Status, reset, validation, and reload use the bounded database worker queue. A full queue returns an error. Commands that read or write consent records also report storage failures; validation while disabled does not open storage. Check status before retrying an uncertain result. Administrator responses are currently English.
 
 ## Preview and document viewing
 
@@ -46,7 +46,7 @@ After a disabled startup, set `enabled: true` and run `consentgate reload` to en
 
 Both platforms accept the native Bedrock option and use it when local Geyser identifies a Bedrock connection. Status bypasses the remote admission cache and requires a primary database response. A reset on another instance can remain hidden from admission checks until their cache freshness expires; see [remote storage](15-remote-storage.md).
 
-Both commands check configuration and document structure, safe formatting, language coverage, required interface messages, and document revisions. Changing an existing document translation requires a version bump, even if nobody has accepted that active revision yet. Saved historical revisions are also checked. Validation does not create a new database, register document revisions, or change acceptance records. It checks the currently supported reload rules, not future storage or platform support.
+Both commands check configuration and document structure, formatting, language coverage, and required interface messages. On an enabled gate they also check active and saved document revisions. Changing an existing translation, including titles, labels, or formatting, requires a version bump even if nobody has accepted that active revision yet. While disabled, validation checks the files only; storage is checked when reload enables the gate. Validation does not create tables or change acceptance records.
 
 Reload refuses while consent sessions, resets, or other database jobs are pending. Retry after they finish. While reload is being processed, new connections are briefly rejected with the busy message. Validation can run alongside consent sessions and does not block new connections beyond normal database queue limits.
 

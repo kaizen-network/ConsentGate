@@ -1,6 +1,6 @@
 # Installation and setup
 
-Download the `0.1.0` package from [GitHub Releases](https://github.com/kaizen-network/ConsentGate/releases/tag/v0.1.0), or [build from source](05-development.md#build). Release access follows repository visibility. Use a disposable test server or proxy first.
+These steps describe the [current source build](05-development.md#build). The `v0.1.0` tag predates automatic database setup and enabling through reload; follow the packaged instructions when using that older release. Use a disposable test server or proxy first.
 
 ## Requirements and dependencies
 
@@ -24,6 +24,7 @@ Optional MySQL/MariaDB storage and a local SQLite cache are implemented. Both pr
 
 - With Velocity, install ConsentGate and PacketEvents on the proxy. ConsentGate handles acceptance before opening a backend connection. The backend needs its normal forwarding and access restrictions, not another ConsentGate installation for the same requirement.
 - Without a proxy, install the Paper artifact on the standalone server. It holds the configuration stage before play entry. See the [Paper compatibility results](10-paper-progress.md) and test any additional plugins in your own installation.
+- For separate network and server agreements, install both: for example, `scope: network` on Velocity and `scope: survival` on the Survival Paper server. Players can be asked at both gates. A scope applies to the whole plugin instance, not a selected backend. See [shared and separate consent](../README.md#shared-or-separate-consent) for database and UUID requirements.
 
 Do not copy Velocity's PacketEvents JAR into Paper or the Paper ConsentGate JAR into Velocity. Do not change authentication or turn off forwarding security just to make the dialog work. A proxy gate cannot protect a backend that players can reach directly.
 
@@ -31,14 +32,22 @@ Do not copy Velocity's PacketEvents JAR into Paper or the Paper ConsentGate JAR 
 
 1. Back up your test installation. Stop the proxy/server before adding or replacing JARs.
 2. Copy one matching ConsentGate artifact into its `plugins/` directory. For Velocity, also install PacketEvents for Velocity there.
-3. Start once. ConsentGate creates an inactive configuration, example documents, and message files. Check for missing-dependency or startup errors, then stop again.
+3. Start once. ConsentGate creates an inactive configuration, example documents, and message files. Check for missing-dependency or startup errors. It can stay running while you edit the files.
 4. Open the generated folder: `plugins/consentgate/` on Velocity, or `plugins/ConsentGate/` on Paper. Paths and capitalization matter on Linux.
 5. Edit the example documents in `documents/`. Replace every bracketed placeholder, remove sections that do not apply, and review each translation. Set your own document IDs, titles, versions, and content before first use. Rename each selected `.yml.example` file to `.yml`; inactive examples are not loaded as agreements.
-6. In the existing `config.yml`, set `enabled: true`. Keep `storage.type: sqlite`. Choose a stable `scope` and allow enough reading time through `gate.timeout-seconds`. Keep `bedrock.native-forms: false` for the initial Java check.
-7. Start the proxy/server. Confirm the log says ConsentGate is enabled with `sqlite` storage. In the console, run `consentgate validate` without a leading slash. After a disabled startup, you can set `enabled: true` and run `consentgate reload` without restarting. A failed startup still requires a restart after fixing the error.
+6. In the existing `config.yml`, set `enabled: true`. Keep SQLite for local storage, or fill in the MySQL/MariaDB settings using the [database setup steps](15-remote-storage.md). Choose a stable `scope` and allow enough reading time through `gate.timeout-seconds`. Keep `bedrock.native-forms: false` for the initial Java check.
+7. In the console, run `consentgate validate`, then `consentgate reload`, without a leading slash. Reload opens storage and enables the gate; an empty remote database gets its tables automatically. A failed reload keeps it disabled. A failed startup still requires a restart after fixing the error. If you changed `gate.max-pending`, restart to apply it.
 8. Connect with a supported test client and no previous acceptance. Read each document and test both Leave and acceptance. Accepted rejoin should skip the dialog. On Velocity, also confirm the player reaches the intended backend only after acceptance.
 
-The bundled examples use `draft-2` as a placeholder version. It is not a plugin release number. You can choose any valid document version before activating it. After a revision has been registered, changing its text or translation requires a new version. Do not edit a saved revision under the same version to avoid re-consent.
+The bundled examples use `draft-2` as a placeholder document version, not a plugin release number. Choose your own quoted version before first use. Once active or saved, editing a translation's title, summary, checkbox/Read labels, page text, or formatting requires a new version. Global `appearance` changes do not. `required: false` hides a document from the consent screen; optional login agreements are not supported. At least one required document must remain.
+
+See [setting limits](02-product-and-config.md#setting-limits) before changing numeric settings or document IDs.
+
+## Updating an existing installation
+
+Back up the plugin folder, stop the proxy/server, replace the JAR, and start again. Existing config, message files, and templates are kept, so an update does not add new settings or comments to them. Compare your files with the [current default config](../presentation/src/main/resources/config.yml) and [starter documents](../presentation/src/main/resources), then copy in the settings you need. Keep your credentials, scope, document IDs, versions, and reviewed text.
+
+Use `consentgate validate` and `consentgate reload` for supported edits after startup. Restart for storage or scope changes on an active gate, disabling it, or changing `gate.max-pending`. Replacing a JAR always requires a restart.
 
 ## Language and Bedrock
 
