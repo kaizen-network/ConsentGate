@@ -6,6 +6,16 @@ ConsentGate lets administrators present rules, policies, and other documents bef
 
 Fresh installations include inactive Terms of Service and Privacy Policy starter templates. Administrators must review and adapt them before use. Both platforms offer optional native Bedrock forms through a local Geyser installation, with separate document buttons and agreement toggles.
 
+## Screenshots
+
+Java dialogs with the bundled example documents. Click an image to view it at full size.
+
+| Language selection | Required agreements |
+| --- | --- |
+| [![Language selection with English and Bahasa Indonesia options](docs/images/language-selection.png)](docs/images/language-selection.png) | [![Required Terms of Service and Privacy Policy agreements with Read and Continue buttons](docs/images/required-agreements.png)](docs/images/required-agreements.png) |
+| **Missing agreement warning** | **Reading a document** |
+| [![Warning that every checkbox is required when only one agreement is selected](docs/images/missing-agreement.png)](docs/images/missing-agreement.png) | [![Terms of Service starter document showing page one of two and a Next button](docs/images/document-reader.png)](docs/images/document-reader.png) |
+
 ## Status
 
 Core features are implemented on Paper and Velocity. Automated checks cover admission, administration, SQLite, both remote databases, outages, and recovery. Native Bedrock acceptance and reconnect passed on the documented Paper test installation. Version `0.2.0` JARs and the complete package are available from [GitHub Releases](https://github.com/kaizen-network/ConsentGate/releases/tag/v0.2.0) to users with repository access. See the [release progress](docs/16-release-progress.md).
