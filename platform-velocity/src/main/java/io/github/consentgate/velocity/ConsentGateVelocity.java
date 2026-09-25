@@ -79,7 +79,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.UUID;
 
-@Plugin(id = "consentgate", name = "ConsentGate", version = "0.1.0",
+@Plugin(id = "consentgate", name = "ConsentGate", version = "0.2.0",
         description = "Configurable pre-admission agreements",
         dependencies = {@Dependency(id = "packetevents"), @Dependency(id = "geyser", optional = true)})
 public final class ConsentGateVelocity {

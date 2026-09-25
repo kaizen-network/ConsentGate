@@ -1,9 +1,11 @@
 # Release progress
 
-Status: core implementation is complete. Version `0.1.0` is the first release. Packages are distributed through [GitHub Releases](https://github.com/kaizen-network/ConsentGate/releases/tag/v0.1.0), with access following repository visibility.
+Status: core implementation is complete. Version `0.2.0` adds easier database setup and enabling through reload. JARs and complete packages are distributed through [GitHub Releases](https://github.com/kaizen-network/ConsentGate/releases/tag/v0.2.0), with access following repository visibility. The `0.1.0` release remains available.
 
 ## Current implementation
 
+- Version `0.2.0` creates tables automatically in an empty MySQL/MariaDB database, preserves existing schemas, and allows enabling a disabled gate through reload on both platforms. Admin docs and generated files explain these steps, scopes, and configuration limits.
+- During `0.2.0` development, both database engines passed 19 tests and dump/restore checks. The local Velocity probe passed enabling through reload and its existing admission checks. These are development results, separate from release-build validation.
 - Core documents, translations, versioned acceptance, SQLite history, and administrator commands are implemented.
 - Login preview and active-document viewing are implemented on both platforms. Preview uses the actual admission renderer but never saves consent; the shared storage entry point rejects preview requests.
 - Both packaged Java paths passed preview for new and accepted players, preserved-history checks, cancellation, document viewing, and refusal to queue previews for connected players. Paper also passed live capacity rejection and busy reset/reload checks while a player reviewed consent.
@@ -26,7 +28,7 @@ Status: core implementation is complete. Version `0.1.0` is the first release. P
 
 ## Release process
 
-The [final real-client checks](19-final-client-check.md#confirmation-on-september-23-2026) are closed. Existing exact-version evidence is unchanged because no additional build numbers or per-step logs were supplied. The [release notes](20-release-notes-0.1.0.md) describe `0.1.0`. GitHub Actions runs the automated checks and builds a complete package for each push to `main` and pull request. Publication remains a separate manual action after the target commit passes. The local package builder verifies required notices, dependency sources, the source archive, and distribution checksums.
+The [final real-client checks](19-final-client-check.md#confirmation-on-september-23-2026) are closed. Existing exact-version evidence is unchanged because no additional build numbers or per-step logs were supplied. The [current release notes](21-release-notes-0.2.0.md) describe `0.2.0`; the [first-release notes](20-release-notes-0.1.0.md) retain the `0.1.0` record. GitHub Actions runs the automated checks and builds a complete package for each push to `main` and pull request. Publication remains a separate manual action after the target commit passes. The local package builder verifies required notices, dependency sources, the source archive, and distribution checksums.
 
 Later BungeeCord and plain Spigot support, external imports, and provider migration tools remain outside the initial release scope. Publishing requires separate approval.
 

@@ -1,6 +1,6 @@
 # Local distribution and reproducible inputs
 
-The `0.1.0` package contains both platform JARs, project and dependency sources, notices, documentation, and checksums. Download it from [GitHub Releases](https://github.com/kaizen-network/ConsentGate/releases/tag/v0.1.0) with repository access, or build locally. See [release progress](16-release-progress.md) and the [release notes](20-release-notes-0.1.0.md).
+The `0.2.0` release provides standalone Paper and Velocity JARs plus a complete package containing both JARs, project and dependency sources, notices, documentation, and checksums. Download from [GitHub Releases](https://github.com/kaizen-network/ConsentGate/releases/tag/v0.2.0) with repository access, or build locally. The standalone JARs are extracted unchanged from the verified package. The release's `SHA256SUMS` covers both JARs and the package ZIP; the ZIP also has its own `.sha256` file. See [release progress](16-release-progress.md) and the [release notes](21-release-notes-0.2.0.md).
 
 ## Build inputs
 
@@ -44,8 +44,8 @@ Keep the source and notice materials with the binaries when preparing a later di
 
 ## Release scope
 
-This candidate implements pre-admission documents, explicit acceptance, translations, Java dialogs, optional native Bedrock forms, SQLite and remote SQL storage, outage caching, preserved withdrawal history, administrator preview, document viewing, status, reset, validation, and reload.
+This release implements pre-admission documents, explicit acceptance, translations, Java dialogs, optional native Bedrock forms, SQLite and remote SQL storage, outage caching, preserved withdrawal history, administrator preview, document viewing, status, reset, validation, and reload.
 
 The stock Paper 1.21.7 check found and fixed an unavailable Adventure dialog-close method. Storage checks found and fixed older or replayed decisions that could otherwise report success without changing current state. The shared session now completes callbacks outside its lock to avoid a native-response and timeout deadlock.
 
-Paper native Bedrock acceptance, world entry, and reconnect passed on the documented test installation. See the [client test results](19-final-client-check.md) for the confirmation and its evidence limits. BungeeCord, plain Spigot, and external import tools are outside this candidate.
+Paper native Bedrock acceptance, world entry, and reconnect passed on the documented test installation. See the [client test results](19-final-client-check.md) for the confirmation and its evidence limits. BungeeCord, plain Spigot, and external import tools are outside this release.

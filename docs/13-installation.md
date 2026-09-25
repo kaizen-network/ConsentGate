@@ -1,6 +1,6 @@
 # Installation and setup
 
-These steps describe the [current source build](05-development.md#build). The `v0.1.0` tag predates automatic database setup and enabling through reload; follow the packaged instructions when using that older release. Use a disposable test server or proxy first.
+These steps apply to `0.2.0`. Download [ConsentGate-Velocity-0.2.0.jar](https://github.com/kaizen-network/ConsentGate/releases/download/v0.2.0/ConsentGate-Velocity-0.2.0.jar) or [ConsentGate-Paper-0.2.0.jar](https://github.com/kaizen-network/ConsentGate/releases/download/v0.2.0/ConsentGate-Paper-0.2.0.jar) for your platform. The [release page](https://github.com/kaizen-network/ConsentGate/releases/tag/v0.2.0) also offers the full package and `SHA256SUMS`; compare your download's hash with that file. Repository access is required. Building from source is optional. Use a disposable test server or proxy first.
 
 ## Requirements and dependencies
 
@@ -31,7 +31,7 @@ Do not copy Velocity's PacketEvents JAR into Paper or the Paper ConsentGate JAR 
 ## First installation
 
 1. Back up your test installation. Stop the proxy/server before adding or replacing JARs.
-2. Copy one matching ConsentGate artifact into its `plugins/` directory. For Velocity, also install PacketEvents for Velocity there.
+2. Copy the matching ConsentGate JAR into `plugins/`. Keep only one ConsentGate JAR there. For Velocity, also install PacketEvents for Velocity in that folder; Paper does not need PacketEvents for ConsentGate.
 3. Start once. ConsentGate creates an inactive configuration, example documents, and message files. Check for missing-dependency or startup errors. It can stay running while you edit the files.
 4. Open the generated folder: `plugins/consentgate/` on Velocity, or `plugins/ConsentGate/` on Paper. Paths and capitalization matter on Linux.
 5. Edit the example documents in `documents/`. Replace every bracketed placeholder, remove sections that do not apply, and review each translation. Set your own document IDs, titles, versions, and content before first use. Rename each selected `.yml.example` file to `.yml`; inactive examples are not loaded as agreements.
@@ -45,9 +45,9 @@ See [setting limits](02-product-and-config.md#setting-limits) before changing nu
 
 ## Updating an existing installation
 
-Back up the plugin folder, stop the proxy/server, replace the JAR, and start again. Existing config, message files, and templates are kept, so an update does not add new settings or comments to them. Compare your files with the [current default config](../presentation/src/main/resources/config.yml) and [starter documents](../presentation/src/main/resources), then copy in the settings you need. Keep your credentials, scope, document IDs, versions, and reviewed text.
+Back up the plugin folder, stop the proxy/server, and replace the old ConsentGate JAR with the matching `0.2.0` JAR. Remove the old JAR if its filename differs, keep the data folder, and start again. Existing config, message files, and templates are kept, so an update does not add new settings or comments to them. Compare your files with the [current default config](../presentation/src/main/resources/config.yml) and [starter documents](../presentation/src/main/resources), then copy in the settings you need. Keep your credentials, scope, document IDs, versions, and reviewed text.
 
-Use `consentgate validate` and `consentgate reload` for supported edits after startup. Restart for storage or scope changes on an active gate, disabling it, or changing `gate.max-pending`. Replacing a JAR always requires a restart.
+Use `consentgate validate` and `consentgate reload` for supported edits after startup. Restart for storage or scope changes on an active gate, disabling it, or changing `gate.max-pending`. Replacing a JAR always requires a restart. Upgrading from `0.1.0` keeps existing consent records and does not require changing document versions. See the [0.2.0 release notes](21-release-notes-0.2.0.md).
 
 ## Language and Bedrock
 

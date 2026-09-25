@@ -14,8 +14,8 @@ On Linux or macOS, run `./gradlew build`. The wrapper verifies its Gradle distri
 
 Outputs:
 
-- `platform-paper/build/libs/ConsentGate-Paper-0.1.0.jar`
-- `platform-velocity/build/libs/ConsentGate-Velocity-0.1.0.jar`
+- `platform-paper/build/libs/ConsentGate-Paper-0.2.0.jar`
+- `platform-velocity/build/libs/ConsentGate-Velocity-0.2.0.jar`
 
 The shaded platform JARs contain the shared core, relocated SnakeYAML and MariaDB Connector/J, SQLite JDBC, and SQLite native libraries. The remote schema and driver license notices are bundled. Paper uses its native API. Velocity currently requires PacketEvents 2.13.0 installed separately. Separate artifacts keep platform dependencies clear; combined packaging remains a later decision.
 
@@ -25,7 +25,7 @@ The [build workflow](https://github.com/kaizen-network/ConsentGate/blob/main/.gi
 
 Successful runs retain the distribution and its SHA-256 file for 14 days. JVM test and dependency-verification reports are retained for seven days, including after a failed build when reports exist. Actions are pinned to full commit hashes, repository permissions are read-only, and checkout does not retain credentials. No database credentials or live-server fixtures are needed. Dedicated database, routing, and real-client checks remain separate.
 
-The workflow does not create tags or publish releases. After reviewing a successful run for the intended commit, a maintainer can publish its exact package and checksum through GitHub Releases. Repository access controls also apply to its artifacts and releases.
+The workflow does not create tags or publish releases. After reviewing a successful run for the intended commit, publish its exact package and checksum through GitHub Releases. Extract both platform JARs unchanged from that package and attach them separately, with a release-level `SHA256SUMS` covering the two JARs and package ZIP. Repository access controls also apply to its artifacts and releases.
 
 ## Current behavior
 
