@@ -37,7 +37,7 @@ public final class AdmissionService implements AutoCloseable {
     public AdmissionService reconfigured(ConsentGateConfig candidate, DocumentCatalog documents) throws SQLException {
         if (config.enabled() != candidate.enabled() || !config.scope().equals(candidate.scope())
                 || !config.storage().equals(candidate.storage()) || config.maxPending() != candidate.maxPending()) {
-            throw new IllegalArgumentException("Changes to enabled, scope, storage, or max-pending require a restart");
+            throw new IllegalArgumentException("Disabling the gate or changing scope, storage, or max-pending requires a restart");
         }
         var revisions = new java.util.ArrayList<ShownDocument>();
         for (var revision : documents.documents()) {

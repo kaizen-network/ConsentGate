@@ -134,7 +134,7 @@ def main():
             document_file.write_text(PROBE_DOCUMENT, encoding="utf-8")
             config_file = data_directory / "config.yml"
             config_file.write_text(PROBE_CONFIG.format(fixture=fixture_name).replace("scope: probe", "scope: changed"), encoding="utf-8")
-            command("consentgate reload", "require a restart")
+            command("consentgate reload", "requires a restart")
             config_file.write_text(PROBE_CONFIG.format(fixture=fixture_name), encoding="utf-8")
             message_file = data_directory / "messages" / "en-US.properties"
             previous_messages = message_file.read_text(encoding="utf-8")
