@@ -42,7 +42,7 @@ Document viewing reads the active configuration, so edited files become visible 
 
 Edit local documents, translations, message files, appearance, language selection, Bedrock presentation, or the timeout, then run `consentgate validate`. If it passes, run `consentgate reload` to apply the files as they exist at that moment. Reload validates again; it does not rely on an earlier validation result.
 
-Changing `enabled`, `scope`, any storage/cache setting, or `gate.max-pending` requires a restart. These commands require an already running, enabled gate; fix startup errors in the files and restart the proxy or server. They are not a standalone configuration checker for disabled installations.
+After a disabled startup, set `enabled: true` and run `consentgate reload` to enable the gate without restarting. Add at least one required document first. `consentgate validate` also works while disabled, but does not open storage. A failed reload keeps the previous state. Disabling an active gate, changing its scope or storage/cache settings, and changing `gate.max-pending` still require a restart. Fix startup errors in the files and restart.
 
 Both platforms accept the native Bedrock option and use it when local Geyser identifies a Bedrock connection. Status bypasses the remote admission cache and requires a primary database response. A reset on another instance can remain hidden from admission checks until their cache freshness expires; see [remote storage](15-remote-storage.md).
 

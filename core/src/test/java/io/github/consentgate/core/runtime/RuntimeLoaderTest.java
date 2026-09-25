@@ -21,6 +21,40 @@ class RuntimeLoaderTest {
         }
     }
 
+    @Test void disabledRuntimeCanEnableWithoutRestart() throws Exception {
+        Files.writeString(directory.resolve("config.yml"), config(false));
+        var loader = new RuntimeLoader();
+        try (var runtime = loader.load(directory)) {
+            Files.createDirectory(directory.resolve("documents"));
+            Files.writeString(directory.resolve("documents/rules.yml"), document());
+            Files.writeString(directory.resolve("config.yml"), config(true));
+            var prepared = loader.prepare(directory);
+            assertFalse(Files.exists(directory.resolve("data")));
+            try (var enabled = runtime.reconfigured(prepared)) {
+                assertTrue(enabled.enabled());
+                assertEquals(1, enabled.admissionService().orElseThrow().catalog().required().size());
+                assertTrue(Files.isRegularFile(directory.resolve("data/consent.db")));
+            }
+            assertFalse(runtime.enabled());
+        }
+    }
+
+    @Test void failedEnableKeepsDisabledRuntimeUsableForRetry() throws Exception {
+        Files.writeString(directory.resolve("config.yml"), config(false));
+        var loader = new RuntimeLoader();
+        try (var runtime = loader.load(directory)) {
+            Files.createDirectory(directory.resolve("documents"));
+            Files.writeString(directory.resolve("documents/rules.yml"), document());
+            Files.writeString(directory.resolve("config.yml"), config(true));
+            Files.writeString(directory.resolve("data"), "Not a directory");
+            assertThrows(Exception.class, () -> runtime.reconfigured(loader.prepare(directory)));
+            assertFalse(runtime.enabled());
+            assertTrue(runtime.admissionService().isEmpty());
+            Files.delete(directory.resolve("data"));
+            try (var enabled = runtime.reconfigured(loader.prepare(directory))) { assertTrue(enabled.enabled()); }
+        }
+    }
+
     @Test void enabledRuntimeLoadsDocumentsAndInitializesSQLite() throws Exception {
         Files.createDirectory(directory.resolve("documents"));
         Files.writeString(directory.resolve("documents/rules.yml"), document());

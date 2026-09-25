@@ -1,6 +1,8 @@
 package io.github.consentgate.core.storage;
 
 import io.github.consentgate.core.config.RemoteStorageConfig;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
@@ -20,7 +22,7 @@ public final class RemoteAcceptanceRepository implements AcceptanceRepository {
 
     public RemoteAcceptanceRepository(Connections connections) throws SQLException {
         this.connections = Objects.requireNonNull(connections);
-        try (Connection connection = connections.open()) { validateSchema(connection); }
+        try (Connection connection = connections.open()) { initializeSchema(connection); }
     }
 
     public static Connection openConnection(RemoteStorageConfig config) throws SQLException {
@@ -50,9 +52,44 @@ public final class RemoteAcceptanceRepository implements AcceptanceRepository {
         }
     }
 
+    private static void initializeSchema(Connection connection) throws SQLException {
+        // Serialize first startup across proxies. Closing this connection also releases the lock.
+        String lock = "CONCAT('consentgate.schema.', MD5(DATABASE()))";
+        try (var query = connection.createStatement(); var rows = query.executeQuery("SELECT GET_LOCK(" + lock + ", 3)")) {
+            if (!rows.next() || rows.getInt(1) != 1) throw new SQLException("ConsentGate database setup is busy. Try starting again.");
+        }
+        try {
+            boolean empty;
+            try (var query = connection.createStatement(); var rows = query.executeQuery("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()")) {
+                if (!rows.next()) throw new SQLException("Could not inspect the ConsentGate database.");
+                empty = rows.getInt(1) == 0;
+            }
+            if (empty) {
+                String sql;
+                try (var input = RemoteAcceptanceRepository.class.getResourceAsStream("/db/mysql-v1.sql")) {
+                    if (input == null) throw new IOException("Missing bundled database schema");
+                    sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+                } catch (IOException ex) { throw new SQLException("Could not load the ConsentGate database setup.", ex); }
+                try (var statement = connection.createStatement()) {
+                    for (String command : sql.replaceAll("(?m)^--[^\\r\\n]*", "").split(";")) {
+                        if (!command.isBlank()) statement.execute(command);
+                    }
+                } catch (SQLException ex) {
+                    throw new SQLException("Could not create ConsentGate tables. Check CREATE, REFERENCES, SELECT, INSERT, and UPDATE permissions. Setup may be incomplete; existing tables will not be overwritten.", ex);
+                }
+            }
+            try { validateSchema(connection); }
+            catch (SQLException ex) {
+                throw new SQLException("ConsentGate database tables are incomplete or unsupported. Use an empty dedicated database for first setup, or restore a valid ConsentGate backup. Existing tables were not changed.", ex);
+            }
+        } finally {
+            try (var query = connection.createStatement()) { query.executeQuery("SELECT RELEASE_LOCK(" + lock + ")").close(); }
+        }
+    }
+
     private static void validateSchema(Connection connection) throws SQLException {
         try (var query = connection.createStatement(); var rows = query.executeQuery("SELECT version FROM cg_schema_history ORDER BY version")) {
-            if (!rows.next() || rows.getInt(1) != 1 || rows.next()) throw new SQLException("Unsupported remote schema; install the supplied mysql-v1.sql in an empty database");
+            if (!rows.next() || rows.getInt(1) != 1 || rows.next()) throw new SQLException("Unsupported ConsentGate database schema version");
         }
         for (String table : List.of("cg_schema_history", "cg_player_locks", "cg_document_revisions", "cg_acceptance_events", "cg_acceptance_state", "cg_audit_events")) {
             try (var query = prepare(connection, "SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?", table);

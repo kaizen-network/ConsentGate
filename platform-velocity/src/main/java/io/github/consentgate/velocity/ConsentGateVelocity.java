@@ -120,11 +120,11 @@ public final class ConsentGateVelocity {
             runtime = new RuntimeLoader(logger::warn).load(dataDirectory);
             formatter = new SafeTextFormatter(runtime.config().appearance());
             messages = new InterfaceMessages(dataDirectory.resolve("messages"));
+            int queueSize = Math.min(10_000, Math.max(32, runtime.config().maxPending() * 2));
+            databaseExecutor = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS,
+                    new ArrayBlockingQueue<>(queueSize), threadFactory(), new ThreadPoolExecutor.AbortPolicy());
             if (runtime.enabled()) {
                 PresentationValidator.validate(runtime.config(), runtime.admissionService().orElseThrow().catalog(), messages);
-                int queueSize = Math.min(10_000, Math.max(32, runtime.config().maxPending() * 2));
-                databaseExecutor = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS,
-                        new ArrayBlockingQueue<>(queueSize), threadFactory(), new ThreadPoolExecutor.AbortPolicy());
                 logger.info("ConsentGate is enabled with {} storage.", runtime.config().storage().type());
             } else {
                 logger.warn("ConsentGate is disabled. Edit config.yml and add a required document before enabling it.");
@@ -633,8 +633,8 @@ public final class ConsentGateVelocity {
 
     private void configure(boolean apply, java.util.function.Consumer<String> reply) {
         synchronized (sessions) {
-            if (stopping || startupFailure != null || runtime == null || !runtime.enabled()) {
-                reply.accept("ConsentGate must be enabled and running before using this command.");
+            if (stopping || startupFailure != null || runtime == null) {
+                reply.accept("ConsentGate did not start successfully. Fix the startup error and restart.");
                 return;
             }
             if (reloading || (apply && (!sessions.isEmpty() || databaseWork != 0 || !resetting.isEmpty()))) {
@@ -644,12 +644,15 @@ public final class ConsentGateVelocity {
             if (apply) reloading = true;
             try {
                 submitDatabase(() -> {
+                    boolean activating = !runtime.enabled();
+                    ConsentGateRuntime nextRuntime = null;
+                    boolean installed = false;
                     try {
                         var prepared = new RuntimeLoader().prepare(dataDirectory);
                         var nextMessages = new InterfaceMessages(dataDirectory.resolve("messages"));
                         PresentationValidator.validate(prepared.config(), prepared.catalog(), nextMessages);
                         var nextFormatter = new SafeTextFormatter(prepared.config().appearance());
-                        var nextRuntime = runtime.reconfigured(prepared);
+                        nextRuntime = activating && !apply ? runtime : runtime.reconfigured(prepared);
                         synchronized (sessions) {
                             if (stopping) throw new IllegalStateException("ConsentGate is stopping");
                             if (apply) {
@@ -657,14 +660,19 @@ public final class ConsentGateVelocity {
                                 formatter = nextFormatter;
                                 messages = nextMessages;
                                 runtime = nextRuntime;
+                                installed = true;
                             }
                         }
                         reply.accept(apply ? "ConsentGate reloaded. Changes apply to new connections; existing players are not kicked."
+                                : activating ? "Validation passed. Configuration, documents, and messages are valid. Reload to enable; storage will be checked then."
                                 : "Validation passed. Configuration, documents, messages, and saved revisions are compatible. Nothing was applied.");
                     } catch (Exception ex) {
                         logger.warn("ConsentGate configuration check failed", ex);
                         reply.accept("Configuration check failed: " + ex.getMessage() + ". The running configuration was kept.");
                     } finally {
+                        if (activating && nextRuntime != null && !installed && apply) {
+                            try { nextRuntime.close(); } catch (Exception ex) { logger.warn("Could not close unused runtime", ex); }
+                        }
                         if (apply) synchronized (sessions) { reloading = false; }
                     }
                 }, apply);

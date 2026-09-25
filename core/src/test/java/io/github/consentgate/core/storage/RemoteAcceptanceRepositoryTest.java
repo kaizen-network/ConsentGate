@@ -31,20 +31,21 @@ class RemoteAcceptanceRepositoryTest {
                 Objects.requireNonNullElse(System.getenv("CG_TEST_DB_SSL_MODE"), "verify-full"),
                 certificate == null || certificate.isBlank() ? null : Path.of(certificate), 3000, 5000);
         try (var connection = RemoteAcceptanceRepository.openConnection(settings); var statement = connection.createStatement()) {
-            try (var rows = statement.executeQuery("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()")) {
-                rows.next();
-                if (rows.getInt(1) == 0) {
-                    String sql;
-                    try (var input = RemoteAcceptanceRepositoryTest.class.getResourceAsStream("/db/mysql-v1.sql")) {
-                        sql = new String(Objects.requireNonNull(input).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-                    }
-                    for (String command : sql.replaceAll("(?m)^--[^\\r\\n]*", "").split(";")) {
-                        if (!command.isBlank()) statement.execute(command);
-                    }
-                }
-            }
             try (var rows = statement.executeQuery("SELECT VERSION()")) { rows.next(); System.out.println("Remote test engine: " + rows.getString(1)); }
         }
+        try (var workers = Executors.newFixedThreadPool(2)) {
+            var start = new CountDownLatch(1);
+            Callable<Boolean> initialize = () -> {
+                start.await();
+                try (var ignored = new RemoteAcceptanceRepository(settings)) { return true; }
+            };
+            var first = workers.submit(initialize);
+            var second = workers.submit(initialize);
+            start.countDown();
+            assertTrue(first.get(20, TimeUnit.SECONDS));
+            assertTrue(second.get(20, TimeUnit.SECONDS));
+        }
+
     }
 
     static ShownDocument shown(String id, String version, String text) {
@@ -356,6 +357,24 @@ class RemoteAcceptanceRepositoryTest {
                 }
             }
         }
+    }
+
+    @Test void incompleteSchemaIsRejectedWithoutCreatingOrReplacingTables() throws Exception {
+        try (var connection = RemoteAcceptanceRepository.openConnection(settings); var statement = connection.createStatement()) {
+            statement.execute("RENAME TABLE cg_schema_history TO cg_schema_history_saved");
+            try {
+                assertThrows(SQLException.class, this::repository);
+                try (var rows = statement.executeQuery("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='cg_schema_history'")) {
+                    assertTrue(rows.next());
+                    assertEquals(0, rows.getInt(1));
+                }
+                try (var rows = statement.executeQuery("SELECT version FROM cg_schema_history_saved")) {
+                    assertTrue(rows.next());
+                    assertEquals(1, rows.getInt(1));
+                }
+            } finally { statement.execute("RENAME TABLE cg_schema_history_saved TO cg_schema_history"); }
+        }
+        try (var ignored = repository()) { }
     }
 
     @Test void newerSchemaIsRejectedWithoutChangesAndOriginalSchemaCanReopen() throws Exception {

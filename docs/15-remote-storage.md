@@ -6,11 +6,11 @@ Prototype feature. MariaDB 11.8.6 and MySQL 8.4.8 each passed dedicated reposito
 
 1. Back up the plugin folder and any existing databases. Stop the test proxy/server before changing storage settings.
 2. Create an empty, dedicated database with `utf8mb4` character support. Do not reuse another plugin's tables or copy the SQLite schema into it.
-3. With a setup account, select that database and run [mysql-v1.sql](../core/src/main/resources/db/mysql-v1.sql). The same file is bundled inside each platform JAR at `db/mysql-v1.sql`.
-4. Create a runtime account limited to this database, with `SELECT`, `INSERT`, and `UPDATE`. No global permissions, `GRANT OPTION`, `CREATE`, or `DROP` are needed at runtime. Restrict its allowed client hosts. Integration-test accounts need additional schema permissions, but production runtime accounts should not.
-5. Configure the remote section below, choose `mariadb` or `mysql`, and start. Check successful initialization and run `consentgate validate` and a fresh acceptance/rejoin test.
+3. Give the plugin database user `CREATE`, `REFERENCES`, `SELECT`, `INSERT`, and `UPDATE` permissions on that database. Restrict its allowed client hosts. No global permissions or `GRANT OPTION` are needed.
+4. Fill in the generated config's `remote` settings, choose `mariadb` or `mysql`, and start. ConsentGate creates its tables automatically when the database is empty. No SQL import is needed.
+5. Check successful initialization and run `consentgate validate` and a fresh acceptance/rejoin test.
 
-The plugin validates schema version 1 and requires its tables to use InnoDB. It does not run remote schema changes automatically. An empty, incomplete, or newer schema blocks startup. MariaDB and MySQL DDL is not one rollback-safe transaction: if initial installation fails, inspect and repair the dedicated schema with the setup account before retrying. Do not run the script over an existing installation or drop an existing database to hide an upgrade error.
+The plugin checks existing tables before use and does not overwrite or upgrade them. Simultaneous starts coordinate database setup. An incomplete or unsupported schema blocks startup. If initial setup fails partway through, inspect the database before retrying; database table creation cannot be rolled back as one transaction. The bundled `db/mysql-v1.sql` remains available for administrators who prefer manual setup. After setup, runtime only needs `SELECT`, `INSERT`, and `UPDATE`.
 
 Moving from SQLite does not import existing records. Players must accept again unless a future, separately verified migration tool transfers the history. Preserve the original SQLite database for audit and rollback. Do not turn a cache file into the primary database.
 
@@ -89,7 +89,7 @@ One process owns each cache file. Do not share it between servers. Oldest entrie
 
 ## Integration tests
 
-The normal `build` runs local tests only. Real database tests require explicit opt-in and a database whose name starts with `consentgate_test_`. The task initializes the supplied schema only when that database has no tables. It never drops the database. Tests retain synthetic records under unique scopes and temporarily change and restore the test schema version to check rejection.
+The normal `build` runs local tests only. Real database tests require explicit opt-in and a database whose name starts with `consentgate_test_`. The tests exercise automatic setup, including simultaneous starts, when that database has no tables. It never drops the database. Tests retain synthetic records under unique scopes and temporarily change and restore the test schema version to check rejection.
 
 Set these environment variables privately: `CG_TEST_DB_HOST`, `CG_TEST_DB_PORT`, `CG_TEST_DB_DATABASE`, `CG_TEST_DB_USERNAME`, `CG_TEST_DB_PASSWORD`, and `CG_TEST_DB_ALLOW_WRITES=true`. `CG_TEST_DB_SSL_MODE` defaults to `verify-full`; set `CG_TEST_DB_SERVER_CERTIFICATE` to a local CA file when needed. Use `disable` only for a protected test connection. Then run:
 

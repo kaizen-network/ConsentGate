@@ -24,7 +24,12 @@ public final class ConsentGateRuntime implements AutoCloseable {
     public Optional<AdmissionService> admissionService() { return Optional.ofNullable(admissionService); }
 
     public ConsentGateRuntime reconfigured(RuntimeLoader.Prepared prepared) throws SQLException {
-        if (admissionService == null) throw new IllegalStateException("Enable ConsentGate and restart before using reload");
+        if (admissionService == null) {
+            if (config.maxPending() != prepared.config().maxPending()) {
+                throw new IllegalArgumentException("Changes to max-pending require a restart");
+            }
+            return new RuntimeLoader().activate(prepared);
+        }
         return new ConsentGateRuntime(prepared.config(), admissionService.reconfigured(prepared.config(), prepared.catalog()));
     }
 

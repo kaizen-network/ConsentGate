@@ -62,16 +62,16 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
             defaults();
             runtime = new RuntimeLoader(getLogger()::warning).load(getDataFolder().toPath());
             var messages = new InterfaceMessages(getDataFolder().toPath().resolve("messages"));
+            int capacity = Math.min(10_000, Math.max(32, runtime.config().maxPending() * 2));
+            database = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(capacity), task -> {
+                Thread thread = new Thread(task, "consentgate-paper-database");
+                thread.setDaemon(true);
+                return thread;
+            }, new ThreadPoolExecutor.AbortPolicy());
+            databaseJobs = new DatabaseJobs(database);
             if (runtime.enabled()) {
                 var catalog = runtime.admissionService().orElseThrow().catalog();
                 PresentationValidator.validate(runtime.config(), catalog, messages);
-                int capacity = Math.min(10_000, Math.max(32, runtime.config().maxPending() * 2));
-                database = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(capacity), task -> {
-                    Thread thread = new Thread(task, "consentgate-paper-database");
-                    thread.setDaemon(true);
-                    return thread;
-                }, new ThreadPoolExecutor.AbortPolicy());
-                databaseJobs = new DatabaseJobs(database);
                 dialogs = new PaperDialogs(runtime.config(), messages);
                 getLogger().info("ConsentGate is enabled with " + runtime.config().storage().type() + " storage.");
             } else getLogger().warning("ConsentGate is disabled. Configure documents before enabling it.");
@@ -342,7 +342,10 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
 
     private void configurationCheck(boolean apply, Consumer<String> reply) {
         synchronized (sessions) {
-            if (!running(reply)) return;
+            if (stopping || !ready || runtime == null) {
+                reply.accept("ConsentGate did not start successfully. Fix the startup error and restart.");
+                return;
+            }
             if (reloading || (apply && (!sessions.isEmpty() || databaseJobs.pending() != 0 || !resetting.isEmpty()))) {
                 reply.accept("Reload is busy. Wait for consent sessions and database work to finish, then retry.");
                 return;
@@ -350,22 +353,31 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
             if (apply) reloading = true;
             try {
                 submitDatabase(() -> {
+                    boolean activating = !runtime.enabled();
+                    ConsentGateRuntime nextRuntime = null;
+                    boolean installed = false;
                     try {
                         var prepared = new RuntimeLoader().prepare(getDataFolder().toPath());
                         var nextMessages = new InterfaceMessages(getDataFolder().toPath().resolve("messages"));
                         PresentationValidator.validate(prepared.config(), prepared.catalog(), nextMessages);
                         var nextDialogs = new PaperDialogs(prepared.config(), nextMessages);
-                        var nextRuntime = runtime.reconfigured(prepared);
+                        nextRuntime = activating && !apply ? runtime : runtime.reconfigured(prepared);
                         synchronized (sessions) {
                             if (stopping) throw new IllegalStateException("ConsentGate is stopping");
-                            if (apply) { previews.clear(); dialogs = nextDialogs; runtime = nextRuntime; }
+                            if (apply) { previews.clear(); dialogs = nextDialogs; runtime = nextRuntime; installed = true; }
                         }
                         reply.accept(apply ? "ConsentGate reloaded. Changes apply to new connections; existing players are not kicked."
+                                : activating ? "Validation passed. Configuration, documents, and messages are valid. Reload to enable; storage will be checked then."
                                 : "Validation passed. Configuration, documents, messages, and saved revisions are compatible. Nothing was applied.");
                     } catch (Exception ex) {
                         getLogger().log(java.util.logging.Level.WARNING, "ConsentGate configuration check failed", ex);
                         reply.accept("Configuration check failed: " + ex.getMessage() + ". The running configuration was kept.");
-                    } finally { if (apply) synchronized (sessions) { reloading = false; } }
+                    } finally {
+                        if (activating && nextRuntime != null && !installed && apply) {
+                            try { nextRuntime.close(); } catch (Exception ex) { getLogger().log(java.util.logging.Level.WARNING, "Could not close unused runtime", ex); }
+                        }
+                        if (apply) synchronized (sessions) { reloading = false; }
+                    }
                 }, apply);
             } catch (RejectedExecutionException ex) {
                 if (apply) reloading = false;

@@ -40,7 +40,10 @@ public final class RuntimeLoader {
     }
 
     public ConsentGateRuntime load(Path dataDirectory) throws ConfigLoadException, DocumentLoadException, SQLException {
-        var prepared = prepare(dataDirectory);
+        return activate(prepare(dataDirectory));
+    }
+
+    public ConsentGateRuntime activate(Prepared prepared) throws SQLException {
         var config = prepared.config();
         if (!config.enabled()) return new ConsentGateRuntime(config, null);
         AcceptanceRepository repository;

@@ -49,7 +49,7 @@ def main():
         documents.mkdir(parents=True)
         (documents / "agreement.yml").write_text(PROBE_DOCUMENT, encoding="utf-8")
         shutil.copyfile(artifact, directory / "plugins" / "ConsentGate.jar")
-        config_file.write_text(PROBE_CONFIG.format(fixture=fixture_name), encoding="utf-8")
+        config_file.write_text(PROBE_CONFIG.format(fixture=fixture_name).replace("enabled: true", "enabled: false"), encoding="utf-8")
         process = subprocess.Popen(
             ["java", "-Xms128m", "-Xmx256m", "-Dterminal.jline=false", "-jar", "velocity.jar"],
             cwd=directory, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
@@ -65,22 +65,35 @@ def main():
             time.sleep(0.2)
         else:
             raise TimeoutError("Proxy startup exceeded 30 seconds")
+        log_file = directory / "logs" / "latest.log"
+
+        def command(text, expected):
+            offset = len(log_file.read_text(encoding="utf-8"))
+            process.stdin.write(text + "\n")
+            process.stdin.flush()
+            deadline = time.monotonic() + 8
+            while time.monotonic() < deadline:
+                if expected in log_file.read_text(encoding="utf-8")[offset:]:
+                    return
+                time.sleep(0.1)
+            raise AssertionError("Admin command did not return the expected response: " + text)
+
+        assert not database.exists(), "Disabled startup must not create storage"
+        config_file.write_text(PROBE_CONFIG.format(fixture=fixture_name), encoding="utf-8")
+        document_file = documents / "agreement.yml"
+        document_file.write_text("invalid: true\n", encoding="utf-8")
+        command("consentgate reload", "Configuration check failed:")
+        assert not database.exists(), "Failed enable must not create storage"
+        document_file.write_text(PROBE_DOCUMENT, encoding="utf-8")
+        command("consentgate validate", "Validation passed.")
+        assert not database.exists(), "Validation must not create storage"
+        command("consentgate reload", "ConsentGate reloaded.")
+        assert database.exists(), "Reload must initialize storage when enabling"
+        print("PASS: disabled startup, failed enable, validation, and enabling by reload without restart", flush=True)
+
         def admin_check(backend, name, client_id):
             with closing(sqlite3.connect(database)) as connection:
                 player_id = connection.execute("SELECT player_uuid FROM cg_acceptance_state").fetchone()[0]
-            log_file = directory / "logs" / "latest.log"
-
-            def command(text, expected):
-                offset = len(log_file.read_text(encoding="utf-8"))
-                process.stdin.write(text + "\n")
-                process.stdin.flush()
-                deadline = time.monotonic() + 8
-                while time.monotonic() < deadline:
-                    if expected in log_file.read_text(encoding="utf-8")[offset:]:
-                        return
-                    time.sleep(0.1)
-                raise AssertionError("Admin command did not return the expected response: " + text)
-
             command("consentgate status " + player_id, "test-agreement (probe-1): accepted")
             command("consentgate document", "test-agreement (probe-1): required; locales: en-US")
             command("consentgate document test-agreement en-US 2", "Acceptance must be stored before backend admission.")

@@ -1,9 +1,15 @@
+# Config format version. Leave unchanged.
 config-version: 1
+# Set true after adding your documents, then run /consentgate reload to enable.
 enabled: false
+# Use the same scope on servers that should share consent records.
 scope: main
+
+# Time allowed to accept, and maximum players waiting at once.
 gate:
   timeout-seconds: 300
   max-pending: 128
+# Default language and optional player language selection.
 language:
   default: en-US
   use-client-locale: true
@@ -15,6 +21,7 @@ language:
     options:
       en-US: "English"
       id-ID: "Bahasa Indonesia"
+# Text colors used in the Java consent screen.
 appearance:
   title-color: gold
   accent-color: gold
@@ -22,14 +29,41 @@ appearance:
   muted-color: gray
   error-color: red
   button-color: white
+# Enable native forms when Geyser is installed on this server or proxy.
 bedrock:
   native-forms: false
   button-color: dark_gray
+# Folder containing your consent documents, inside this plugin folder.
 documents:
   directory: documents
+# Where player consent records are saved. SQLite works without extra setup.
 storage:
+  # sqlite (local file), mysql, or mariadb. Restart after changes.
   type: sqlite
   sqlite:
+    # Keep this section for all storage types.
     file: data/consent.db
-  # Remote storage is opt-in. Install db/mysql-v1.sql before selecting mysql or mariadb.
-  # See docs/15-remote-storage.md for credentials, TLS, and the cache freshness limit.
+  # MySQL/MariaDB setup:
+  # 1. Create an empty database using utf8mb4.
+  # 2. Give the database user CREATE, REFERENCES, SELECT, INSERT, and UPDATE permissions.
+  # 3. Fill in remote below, change type above, and restart. Tables are created automatically.
+  # SQLite records are not moved automatically. Players will need to accept again.
+  remote:
+    host: localhost
+    port: 3306
+    database: consentgate
+    username: consentgate
+    password: "replace-this-password"
+    # Checks the database certificate and hostname. Use disable only for a protected connection.
+    ssl-mode: verify-full
+    # Optional PEM certificate file inside this plugin folder. Usually leave empty.
+    server-certificate: ""
+    connect-timeout-millis: 3000
+    socket-timeout-millis: 5000
+  # MySQL/MariaDB only. Saves recent checks locally to reduce database requests.
+  cache:
+    enabled: true
+    file: data/remote-cache.db
+    # Resets on other servers may take 60 seconds to appear. Use 0 to always check the database.
+    freshness-seconds: 60
+    max-entries: 100000
