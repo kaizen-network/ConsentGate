@@ -39,6 +39,8 @@ The starter documents are templates. Review and adapt them before use.
 
 ## Documentation
 
+Read the docs on the web at [kaizenmc.id/software/consentgate](https://kaizenmc.id/software/consentgate), or here on GitHub:
+
 - [Overview](docs/index.md)
 - [Installation](docs/installation.md)
 - [Configuration](docs/configuration.md)
