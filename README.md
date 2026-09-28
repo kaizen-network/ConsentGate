@@ -1,3 +1,5 @@
+![ConsentGate: in-game agreements for Minecraft servers and networks](docs/images/banner.webp)
+
 # ConsentGate
 
 Configurable in-game agreements for Minecraft servers and networks.
