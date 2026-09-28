@@ -1,0 +1,19 @@
+{
+  "project": "consentgate",
+  "files": [
+    {
+      "pattern": "ConsentGate-Paper-{version}.jar",
+      "label": "Paper",
+      "loaders": ["paper", "purpur"],
+      "min_game_version": "1.21.7",
+      "dependencies": []
+    },
+    {
+      "pattern": "ConsentGate-Velocity-{version}.jar",
+      "label": "Velocity",
+      "loaders": ["velocity"],
+      "min_game_version": "1.21.6",
+      "dependencies": [{ "project": "packetevents", "type": "required" }]
+    }
+  ]
+}
