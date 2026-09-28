@@ -101,7 +101,7 @@ class Client:
 
     def click_nbt(self, nbt, action="accept", token=None):
         # Mojang 1.21.6/1.21.8: VarInt byte length + anonymous optional NBT, not a presence boolean.
-        # Reference hashes and bytecode trace: docs/09-protocol-compatibility-findings.md.
+        # Bytecode trace and expected bytes: docs/contributing/protocol-notes.md.
         self.send(8, string("consentgate:" + action + "/" + (token or self.token)) + varint(len(nbt)) + nbt)
 
     def close(self):

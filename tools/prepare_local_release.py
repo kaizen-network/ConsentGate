@@ -120,7 +120,7 @@ def main():
                 if not jar.read(resource):
                     raise ValueError('Missing packaged notice: ' + resource)
         shutil.copyfile(artifact, staging / artifact.name)
-    for filename in ('LICENSE', 'README.md', 'THIRD_PARTY_NOTICES.md'):
+    for filename in ('LICENSE', 'README.md', 'CHANGELOG.md', 'THIRD_PARTY_NOTICES.md'):
         shutil.copyfile(project / filename, staging / filename)
     shutil.copytree(project / 'docs', staging / 'docs')
     (staging / 'gradle').mkdir()

@@ -1,4 +1,4 @@
-"""Golden framing checks based on the Mojang codec trace in docs/09-protocol-compatibility-findings.md."""
+"""Golden framing checks based on the Mojang codec trace in docs/contributing/protocol-notes.md."""
 
 import unittest
 
