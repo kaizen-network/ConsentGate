@@ -48,6 +48,9 @@ jobs:
           node-version: '24'
           package-manager-cache: false
 
+      - name: Check docs
+        run: python tools/check_docs.py
+
       - name: Test Python tools
         run: python -m unittest discover -s tools -p 'test_*.py'
 

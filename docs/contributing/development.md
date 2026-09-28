@@ -44,7 +44,7 @@ See [architecture](architecture.md) for the reasoning behind these rules.
 
 The [build workflow](../../.github/workflows/build.yml) runs on pushes to `main`, pull requests to `main`, and manual runs. It uses Ubuntu 24.04, Temurin JDK 25, Python 3.13, and Node 24, and:
 
-1. Runs the Python tool tests and the Node probe helper tests.
+1. Checks the docs (`tools/check_docs.py`), then runs the Python tool tests and the Node probe helper tests.
 2. Runs the Gradle build, including the Bedrock tests against both packaged JARs.
 3. Builds the complete package with verified dependency sources.
 

@@ -4,11 +4,12 @@
 
 ```powershell
 .\gradlew.bat build
+python tools/check_docs.py
 python -m unittest discover -s tools -p "test_*.py"
 node --test tools/test_paper_probe.cjs
 ```
 
-`build` runs the JVM tests and never contacts a remote database. CI runs all three; see [development](development.md#github-actions).
+`build` runs the JVM tests and never contacts a remote database. `check_docs.py` checks the pages the website renders: front matter (`title`, `description`, `order`) on every page outside `contributing/`, relative links, images, and `#anchors` that resolve, and the changelog heading format. CI runs all four; see [development](development.md#github-actions).
 
 ## What the automated tests cover
 
