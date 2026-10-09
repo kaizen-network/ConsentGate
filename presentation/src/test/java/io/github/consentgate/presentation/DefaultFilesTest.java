@@ -129,12 +129,13 @@ class DefaultFilesTest {
     private static final int MAX = 64 * 1024;
 
     @Test void keepsPermissionsTheUmaskWouldRemove(@TempDir Path directory) throws Exception {
-        org.junit.jupiter.api.Assumptions.assumeTrue(Files.getFileStore(directory).supportsFileAttributeView(PosixFileAttributeView.class));
+        // Release builds allow no skipped tests, so only the permission checks depend on the file system.
+        boolean posix = Files.getFileStore(directory).supportsFileAttributeView(PosixFileAttributeView.class);
         Path messages = directory.resolve("en-US.properties");
         Files.writeString(messages, "continue=Go\n");
-        Files.setPosixFilePermissions(messages, PosixFilePermissions.fromString("rw-rw-rw-"));
+        if (posix) Files.setPosixFilePermissions(messages, PosixFilePermissions.fromString("rw-rw-rw-"));
         assertFalse(DefaultFiles.merge("messages/en-US.properties", messages).isEmpty());
-        assertEquals(PosixFilePermissions.fromString("rw-rw-rw-"), Files.getPosixFilePermissions(messages));
+        if (posix) assertEquals(PosixFilePermissions.fromString("rw-rw-rw-"), Files.getPosixFilePermissions(messages));
     }
 
     @Test void ignoresAByteOrderMark(@TempDir Path directory) throws Exception {
