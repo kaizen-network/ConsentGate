@@ -37,7 +37,8 @@ public final class InterfaceMessages {
         for (String locale : locales) {
             for (String key : BUNDLED.get("en-US").stringPropertyNames()) {
                 String value = REQUIRED.contains(key) ? find(translations, locale, fallback, key) : text(locale, fallback, key);
-                if (value == null || SafeTextFormatter.plain(value).isBlank()) {
+                if (value == null) throw new IllegalArgumentException("Missing interface message: " + key);
+                if (SafeTextFormatter.plain(value).isBlank()) {
                     throw new IllegalArgumentException("Empty interface message: " + key);
                 }
             }

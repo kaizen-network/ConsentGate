@@ -43,8 +43,9 @@ class InterfaceMessagesTest {
 
     @Test void incompleteOrBlankMessagesFailValidation() throws Exception {
         Files.writeString(directory.resolve("en-US.properties"), "title=Title\n");
-        assertThrows(IllegalArgumentException.class,
+        var missing = assertThrows(IllegalArgumentException.class,
                 () -> new InterfaceMessages(directory).validateFor(List.of("en-US"), "en-US"));
+        assertTrue(missing.getMessage().startsWith("Missing interface message: "));
         try (var input = getClass().getResourceAsStream("/messages/en-US.properties")) {
             assertNotNull(input);
             Files.write(directory.resolve("en-US.properties"), input.readAllBytes());
