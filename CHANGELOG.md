@@ -7,7 +7,7 @@ Translatable error messages and automatic config updates.
 ### Added
 
 - Kick messages for errors, such as a busy gate, a timeout, or a storage failure, can be changed and translated with the new `error-*` keys in the message files.
-- New settings are added to `config.yml`, and new keys to the bundled message files, when the plugin starts. Your values and comments are kept, and the server log lists what was added.
+- New settings are added to `config.yml`, and new keys to the bundled message files, when the plugin starts. Your values and comments are kept, and the server log lists what was added. If a file cannot be updated, the log shows a warning and startup continues.
 
 ### Changed
 

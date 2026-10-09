@@ -420,8 +420,13 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
             Path target = root.resolve(entry.getValue());
             if (Files.isSymbolicLink(target)) throw new IOException("Default target cannot be a symbolic link");
             if (Files.exists(target)) {
-                var added = DefaultFiles.merge(entry.getKey(), target);
-                if (!added.isEmpty()) getLogger().info("Added new defaults to " + target.getFileName() + ": " + String.join(", ", added));
+                // Missing messages still resolve from the JAR, so a file that cannot be updated does not stop startup.
+                try {
+                    var added = DefaultFiles.merge(entry.getKey(), target);
+                    if (!added.isEmpty()) getLogger().info("Added new defaults to " + target.getFileName() + ": " + String.join(", ", added));
+                } catch (IOException | RuntimeException ex) {
+                    getLogger().warning("Could not add new defaults to " + target.getFileName() + ". Copy them from the default file if needed: " + ex);
+                }
                 continue;
             }
             try (var input = getClass().getClassLoader().getResourceAsStream(entry.getKey())) {

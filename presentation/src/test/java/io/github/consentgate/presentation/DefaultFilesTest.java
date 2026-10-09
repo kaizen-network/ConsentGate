@@ -62,7 +62,39 @@ class DefaultFilesTest {
         assertEquals("custom: true\n", Files.readString(example));
     }
 
-    @Test void leavesInvalidConfigForTheLoaderToReport() {
+    @Test void refusesLayoutsItCannotExtend(@TempDir Path directory) throws Exception {
+        String template = "gate:\n  timeout-seconds: 300\n  max-pending: 128\n";
+        assertThrows(java.io.IOException.class, () -> DefaultFiles.mergeYaml(template, "gate: {timeout-seconds: 300}\n", new ArrayList<>()));
+        assertThrows(java.io.IOException.class, () -> DefaultFiles.mergeYaml("enabled: false\n" + template,
+                "gate:\n  timeout-seconds: 300\n  max-pending: 128\n...\n", new ArrayList<>()));
+        var added = new ArrayList<String>();
+        assertEquals("gate:\n  timeout-seconds: 300\n  max-pending: 128\n...\n",
+                DefaultFiles.mergeYaml(template, "gate:\n  timeout-seconds: 300\n...\n", added));
+
+        Path config = directory.resolve("config.yml");
+        Files.writeString(config, "enabled: false\ngate: {timeout-seconds: 300}\n");
+        assertThrows(java.io.IOException.class, () -> DefaultFiles.merge("config.yml", config));
+        assertEquals("enabled: false\ngate: {timeout-seconds: 300}\n", Files.readString(config));
+        assertFalse(Files.exists(directory.resolve("config.yml.tmp")));
+    }
+
+    @Test void keepsWindowsLineEndings() throws Exception {
+        var added = new ArrayList<String>();
+        String merged = DefaultFiles.mergeYaml("gate:\n  timeout-seconds: 300\n  max-pending: 128\n",
+                "gate:\r\n  timeout-seconds: 120\r\n", added);
+        assertEquals("gate:\r\n  timeout-seconds: 120\r\n  max-pending: 128\r\n", merged);
+        assertEquals(List.of("gate.max-pending"), added);
+    }
+
+    @Test void bundledMessageFilesHaveTheSameKeys() throws Exception {
+        var english = new java.util.Properties();
+        var indonesian = new java.util.Properties();
+        try (var input = getClass().getResourceAsStream("/messages/en-US.properties")) { english.load(input); }
+        try (var input = getClass().getResourceAsStream("/messages/id-ID.properties")) { indonesian.load(input); }
+        assertEquals(english.stringPropertyNames(), indonesian.stringPropertyNames());
+    }
+
+    @Test void leavesInvalidConfigForTheLoaderToReport() throws Exception {
         String broken = "gate: [unclosed\n";
         var added = new ArrayList<String>();
         assertEquals(broken, DefaultFiles.mergeYaml("gate:\n  max-pending: 128\n", broken, added));

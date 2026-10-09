@@ -22,7 +22,7 @@ plugins/ConsentGate/          (plugins/consentgate/ on Velocity)
     remote-cache.db           (only with MySQL/MariaDB)
 ```
 
-The generated `config.yml` explains each setting in its comments. You can also read the [default config](https://github.com/kaizen-network/ConsentGate/blob/main/presentation/src/main/resources/config.yml). Updates keep your values and comments, and add new settings to your file with their default values. Comment changes on settings you already have are not applied.
+The generated `config.yml` explains each setting in its comments. You can also read the [default config](https://github.com/kaizen-network/ConsentGate/blob/main/presentation/src/main/resources/config.yml). Updates keep your values and comments, and add new settings to your file with their default values. Comment changes on settings you already have are not applied. If a file cannot be updated, for example when a section is written on one line or the folder is read-only, the server log shows a warning and the plugin starts normally. Copy the new settings in by hand in that case.
 
 ## Main settings
 

@@ -828,8 +828,13 @@ public final class ConsentGateVelocity {
     private void copyDefault(String resource, Path target) throws IOException {
         if (Files.isSymbolicLink(target)) throw new IOException("Default target cannot be a symbolic link: " + target.getFileName());
         if (Files.exists(target)) {
-            var added = DefaultFiles.merge(resource, target);
-            if (!added.isEmpty()) logger.info("Added new defaults to {}: {}", target.getFileName(), String.join(", ", added));
+            // Missing messages still resolve from the JAR, so a file that cannot be updated does not stop startup.
+            try {
+                var added = DefaultFiles.merge(resource, target);
+                if (!added.isEmpty()) logger.info("Added new defaults to {}: {}", target.getFileName(), String.join(", ", added));
+            } catch (IOException | RuntimeException ex) {
+                logger.warn("Could not add new defaults to {}. Copy them from the default file if needed: {}", target.getFileName(), ex.toString());
+            }
             return;
         }
         try (InputStream input = getClass().getClassLoader().getResourceAsStream(resource)) {

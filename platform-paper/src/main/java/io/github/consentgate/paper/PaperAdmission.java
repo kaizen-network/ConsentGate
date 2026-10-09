@@ -72,7 +72,7 @@ abstract class PaperAdmission {
                     if (denial == null && stopping.getAsBoolean()) denial = message("error-stopping");
                     try { closePresentation(); }
                     catch (RuntimeException | LinkageError ex) {
-                        if (denial == null) denial = message("error-form");
+                        if (denial == null) denial = message("error-close");
                         try { failure.accept(ex); }
                         catch (RuntimeException | LinkageError ignored) { }
                     }

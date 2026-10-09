@@ -45,12 +45,16 @@ public final class DefaultFiles {
         if (!added.isEmpty()) {
             Path temporary = target.resolveSibling(name + ".tmp");
             Files.deleteIfExists(temporary);
-            // The config can hold a database password, so the replacement keeps the original's permissions.
-            if (Files.getFileStore(target).supportsFileAttributeView(PosixFileAttributeView.class)) {
-                Files.createFile(temporary, PosixFilePermissions.asFileAttribute(Files.getPosixFilePermissions(target)));
-            } else Files.createFile(temporary);
-            Files.writeString(temporary, merged, StandardOpenOption.TRUNCATE_EXISTING);
-            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            try {
+                // The config can hold a database password, so the replacement keeps the original's permissions.
+                if (Files.getFileStore(target).supportsFileAttributeView(PosixFileAttributeView.class)) {
+                    Files.createFile(temporary, PosixFilePermissions.asFileAttribute(Files.getPosixFilePermissions(target)));
+                } else Files.createFile(temporary);
+                Files.writeString(temporary, merged, StandardOpenOption.TRUNCATE_EXISTING);
+                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
         }
         return added;
     }
@@ -72,7 +76,8 @@ public final class DefaultFiles {
         return result.toString();
     }
 
-    static String mergeYaml(String bundled, String current, List<String> added) {
+    /** Throws when the new settings cannot be added safely, for example to a section written on one line. */
+    static String mergeYaml(String bundled, String current, List<String> added) throws IOException {
         Object loaded;
         try { loaded = new Yaml(new SafeConstructor(new LoaderOptions())).load(current); }
         catch (RuntimeException ex) { return current; } // the config loader reports the syntax error
@@ -99,7 +104,18 @@ public final class DefaultFiles {
             inserted.add(path);
             added.add(String.join(".", path));
         }
-        return String.join(newline, lines);
+        String merged = String.join(newline, lines);
+        if (inserted.isEmpty()) return merged;
+        Object reloaded;
+        try { reloaded = new Yaml(new SafeConstructor(new LoaderOptions())).load(merged); }
+        catch (RuntimeException ex) { throw new IOException("New settings could not be added to this file layout", ex); }
+        for (var path : inserted) {
+            if (!(reloaded instanceof Map<?, ?> root) || !(value(root, path.subList(0, path.size() - 1)) instanceof Map<?, ?> section)
+                    || !section.containsKey(path.getLast())) {
+                throw new IOException("New settings could not be added to this file layout: " + String.join(".", path));
+            }
+        }
+        return merged;
     }
 
     private record Entry(List<String> path, int indent, int start, int end) { }
