@@ -83,10 +83,10 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
 
     @EventHandler public void configure(AsyncPlayerConnectionConfigureEvent event) {
         var connection = event.getConnection();
-        if (!ready || stopping) { connection.disconnect(Component.text("ConsentGate is unavailable.")); return; }
+        if (!ready || stopping) { connection.disconnect(Component.text(localized(null, "error-unavailable"))); return; }
         if (!runtime.enabled()) return;
         UUID id = connection.getProfile().getId();
-        if (id == null) { connection.disconnect(Component.text("ConsentGate could not identify this connection.")); return; }
+        if (id == null) { connection.disconnect(Component.text(localized(null, "error-unidentified"))); return; }
         Pending pending;
         boolean rejected;
         synchronized (sessions) {
@@ -100,7 +100,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
                 if (pending.preview != null && pending.preview.locale() != null) pending.locale = pending.preview.locale();
             }
         }
-        if (rejected) { connection.disconnect(Component.text("ConsentGate is busy. Please try again shortly.")); return; }
+        if (rejected) { connection.disconnect(Component.text(localized(pending.locale, "error-busy"))); return; }
         execute(pending, () -> {
             var service = runtime.admissionService().orElseThrow();
             var request = pending.preview == null ? service.check(id, pending.locale) : Optional.of(service.preview(id, pending.locale));
@@ -116,7 +116,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
                                 () -> finish(pending, dialogs.message(pending.locale, "denied")),
                                 error -> {
                                     getLogger().log(java.util.logging.Level.WARNING, "Native Bedrock form failed", error);
-                                    finish(pending, "Consent form could not be shown.");
+                                    finish(pending, pending.message("error-form"));
                                 });
                     }
                     if (runtime.config().languageSelector().enabled() && (pending.preview == null || pending.preview.locale() == null)) {
@@ -129,8 +129,8 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
             }
         });
         try { pending.done.get(runtime.config().timeoutSeconds(), TimeUnit.SECONDS); }
-        catch (InterruptedException ex) { Thread.currentThread().interrupt(); finish(pending, "ConsentGate is stopping."); }
-        catch (Exception ex) { finish(pending, "Consent request timed out or failed."); }
+        catch (InterruptedException ex) { Thread.currentThread().interrupt(); finish(pending, pending.message("error-stopping")); }
+        catch (Exception ex) { finish(pending, pending.message("error-timeout")); }
         finally { synchronized (sessions) { sessions.remove(connection, pending); } }
     }
 
@@ -184,7 +184,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
                 }
             } catch (Exception | LinkageError ex) {
                 getLogger().log(java.util.logging.Level.WARNING, "Consent response failed for " + pending.id, ex);
-                finish(pending, "Consent response could not be processed.");
+                finish(pending, pending.message("error-response"));
             }
         }
     }
@@ -235,7 +235,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
     }
     private static int index(String value) { try { return Integer.parseInt(value); } catch (NumberFormatException ex) { return -1; } }
 
-    private void execute(Pending pending, PaperAdmission.Operation operation) { pending.execute(operation); }
+    private void execute(Pending pending, PaperAdmission.Operation operation) { pending.execute("error-check", operation); }
     private void finish(Pending pending, String denial) { pending.finish(denial); }
     @EventHandler public void disconnected(PlayerConnectionCloseEvent event) {
         sessions.values().stream().filter(pending -> pending.id.equals(event.getPlayerUniqueId()))
@@ -389,7 +389,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
     @Override public void onDisable() {
         List<Pending> ending;
         synchronized (sessions) { stopping = true; ending = List.copyOf(sessions.values()); }
-        ending.forEach(pending -> finish(pending, "ConsentGate is stopping."));
+        ending.forEach(pending -> finish(pending, pending.message("error-stopping")));
         awaitingJoin.clear();
         previews.clear();
         if (database != null) {
@@ -400,6 +400,10 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
         if (runtime != null) {
             try { runtime.close(); } catch (Exception ex) { getLogger().warning("ConsentGate storage did not close cleanly."); }
         }
+    }
+    private String localized(String locale, String key) {
+        var active = dialogs;
+        return active == null ? InterfaceMessages.defaultText(key) : active.message(locale, key);
     }
     private void defaults() throws IOException {
         Path root = getDataFolder().toPath();
@@ -436,6 +440,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
             this.connection = connection;
             this.locale = locale;
         }
+        @Override protected String message(String key) { return localized(locale, key); }
         @Override protected void closePresentation() {
             if (bedrock != null) bedrock.close();
             // Java button actions use CLOSE, and a denial disconnects the configuration screen.

@@ -39,27 +39,27 @@ abstract class PaperAdmission {
         session.result().whenComplete((decision, error) -> {
             if (error == null && decision == AdmissionSession.Decision.ACCEPTED) {
                 if (request.preview()) finish(PreviewQueue.COMPLETE);
-                else execute(() -> { save.run(); finish(null); });
+                else execute("error-save", () -> { save.run(); finish(null); });
             } else finish(denied.get());
         });
         try { show.accept(session); }
         catch (RuntimeException | LinkageError ex) {
             try { failure.accept(ex); }
-            finally { finish("Consent form could not be shown."); }
+            finally { finish(message("error-form")); }
         }
     }
 
-    final void execute(Operation operation) {
+    final void execute(String failureKey, Operation operation) {
         try {
             database.execute(() -> players.run(id, () -> {
-                if (finished.get() || stopping.getAsBoolean()) { finish("ConsentGate is stopping."); return; }
+                if (finished.get() || stopping.getAsBoolean()) { finish(message("error-stopping")); return; }
                 try { operation.run(); }
                 catch (Exception | LinkageError ex) {
                     try { failure.accept(ex); }
-                    finally { finish("Consent records could not be processed. Please try again later."); }
+                    finally { finish(message(failureKey)); }
                 }
             }));
-        } catch (RejectedExecutionException ex) { finish("ConsentGate is busy. Please try again shortly."); }
+        } catch (RejectedExecutionException ex) { finish(message("error-busy")); }
     }
 
     final void finish(String denial) {
@@ -69,10 +69,10 @@ abstract class PaperAdmission {
                 if (!finished.compareAndSet(false, true)) return;
                 ending = session;
                 try {
-                    if (denial == null && stopping.getAsBoolean()) denial = "ConsentGate is stopping.";
+                    if (denial == null && stopping.getAsBoolean()) denial = message("error-stopping");
                     try { closePresentation(); }
                     catch (RuntimeException | LinkageError ex) {
-                        if (denial == null) denial = "Consent dialog could not be closed.";
+                        if (denial == null) denial = message("error-form");
                         try { failure.accept(ex); }
                         catch (RuntimeException | LinkageError ignored) { }
                     }
@@ -86,6 +86,7 @@ abstract class PaperAdmission {
         }
     }
 
+    protected abstract String message(String key);
     protected abstract void closePresentation();
     protected abstract void disconnect(String reason);
     protected abstract void admitted();

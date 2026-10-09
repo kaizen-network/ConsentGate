@@ -239,6 +239,7 @@ class PaperAdmissionTest {
         boolean closeFailure;
         Runnable onClose = () -> { };
         Probe(Executor executor) { super(player, executor, players, stopping::get, ignored -> failures.incrementAndGet()); }
+        @Override protected String message(String key) { return key; }
         @Override protected void closePresentation() {
             onClose.run();
             if (closeFailure) throw new NoClassDefFoundError("Missing renderer");

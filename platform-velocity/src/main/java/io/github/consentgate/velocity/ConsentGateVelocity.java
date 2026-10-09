@@ -170,7 +170,7 @@ public final class ConsentGateVelocity {
             var held = new HeldConnection(continuation);
             Player player = event.getPlayer();
             if (stopping || startupFailure != null || runtime == null) {
-                deny(player, startupFailure == null ? "ConsentGate is unavailable." : "ConsentGate configuration is invalid.", held);
+                deny(player, message(player, startupFailure == null ? "error-unavailable" : "error-invalid-config"), held);
                 return;
             }
             if (!runtime.enabled()) {
@@ -180,7 +180,7 @@ public final class ConsentGateVelocity {
             }
             User user = PacketEvents.getAPI().getPlayerManager().getUser(player);
             if (player.getProtocolVersion().getProtocol() < 771 || user == null) {
-                deny(player, "ConsentGate requires a Java 1.21.6 or newer connection.", held);
+                deny(player, message(player, "error-unsupported-client"), held);
                 return;
             }
             var pending = new Pending(player, user, held);
@@ -197,7 +197,7 @@ public final class ConsentGateVelocity {
                 }
             }
             if (rejected) {
-                deny(player, "ConsentGate is busy. Please try again shortly.", held);
+                deny(player, message(player, "error-busy"), held);
                 return;
             }
             executeDatabase(pending, () -> checkAcceptance(pending));
@@ -230,14 +230,14 @@ public final class ConsentGateVelocity {
                         () -> endOrFinish(pending, AdmissionSession.Decision.DISCONNECTED, message(pending, "denied")),
                         ex -> {
                             logger.warn("Native Bedrock form failed", ex);
-                            endOrFinish(pending, AdmissionSession.Decision.FAILED, "Consent form could not be shown.");
+                            endOrFinish(pending, AdmissionSession.Decision.FAILED, message(pending, "error-form"));
                         });
             }
             if (runtime.config().languageSelector().enabled() && (pending.preview == null || pending.preview.locale() == null)) showLanguageSelector(pending);
             else beginSession(pending, request.orElseThrow());
         } catch (Exception ex) {
             logger.error("Consent check failed for {}", pending.player.getUniqueId(), ex);
-            finishDenied(pending, "Consent records could not be checked. Please try again later.");
+            finishDenied(pending, message(pending, "error-check"));
         }
     }
 
@@ -283,7 +283,7 @@ public final class ConsentGateVelocity {
             }
         } catch (Exception ex) {
             logger.error("Consent save failed for {}", pending.player.getUniqueId(), ex);
-            finishDenied(pending, "Consent could not be saved. Please try again later.");
+            finishDenied(pending, message(pending, "error-save"));
         }
     }
 
@@ -297,7 +297,7 @@ public final class ConsentGateVelocity {
         try { receive(event); }
         catch (RuntimeException ex) {
             Pending pending = sessionsByUser.get(event.getUser());
-            if (pending != null) endOrFinish(pending, AdmissionSession.Decision.FAILED, "Invalid consent response.");
+            if (pending != null) endOrFinish(pending, AdmissionSession.Decision.FAILED, message(pending, "error-response"));
             logger.warn("Invalid consent dialog packet", ex);
         }
     }
@@ -330,7 +330,7 @@ public final class ConsentGateVelocity {
             }
         } else if (type == PacketType.Configuration.Client.CONFIGURATION_END_ACK) {
             event.setCancelled(true);
-            endOrFinish(pending, AdmissionSession.Decision.FAILED, "Connection configuration ended unexpectedly.");
+            endOrFinish(pending, AdmissionSession.Decision.FAILED, message(pending, "error-connection"));
         }
     }
 
@@ -428,7 +428,7 @@ public final class ConsentGateVelocity {
             else beginSession(pending, request.orElseThrow());
         } catch (Exception ex) {
             logger.error("Consent check failed for {}", pending.player.getUniqueId(), ex);
-            finishDenied(pending, "Consent records could not be checked. Please try again later.");
+            finishDenied(pending, message(pending, "error-check"));
         }
     }
 
@@ -439,7 +439,7 @@ public final class ConsentGateVelocity {
             if (pending.finished.get() || stopping || !pending.player.isActive() || !finish(pending)) {
                 admitted.remove(pending.player);
             }
-        } else finishDenied(pending, "ConsentGate is stopping.");
+        } else finishDenied(pending, message(pending, "error-stopping"));
     }
 
     private Map<String, Boolean> selections(Pending pending, Object rawPayload) {
@@ -509,7 +509,7 @@ public final class ConsentGateVelocity {
                 }).delay(Duration.ofNanos(delay)).schedule();
             } catch (RuntimeException ex) {
                 pending.redisplayQueued.set(false);
-                endOrFinish(pending, AdmissionSession.Decision.FAILED, "ConsentGate is stopping.");
+                endOrFinish(pending, AdmissionSession.Decision.FAILED, message(pending, "error-stopping"));
             }
         }
     }
@@ -551,12 +551,22 @@ public final class ConsentGateVelocity {
     }
 
     private String message(Pending pending, String key) {
+        if (runtime == null || messages == null) return InterfaceMessages.defaultText(key);
         String locale = pending.selectedLocale;
         if (locale == null && pending.session != null) locale = pending.session.request().documents().getFirst().locale();
         if (locale == null && runtime.config().useClientLocale() && pending.player.getEffectiveLocale() != null) {
             locale = pending.player.getEffectiveLocale().toLanguageTag();
         }
         return messages.text(locale, runtime.config().defaultLocale(), key);
+    }
+
+    private String message(Player player, String key) {
+        var active = runtime;
+        var loaded = messages;
+        if (active == null || loaded == null) return InterfaceMessages.defaultText(key);
+        String locale = active.config().useClientLocale() && player.getEffectiveLocale() != null
+                ? player.getEffectiveLocale().toLanguageTag() : null;
+        return loaded.text(locale, active.config().defaultLocale(), key);
     }
 
     private ActionButton button(String label, String action, Pending pending) {
@@ -589,9 +599,9 @@ public final class ConsentGateVelocity {
                     if (!pending.player.isActive()) {
                         endOrFinish(pending, AdmissionSession.Decision.DISCONNECTED, "Connection ended.");
                     } else if (now - pending.started > Duration.ofSeconds(runtime.config().timeoutSeconds()).toNanos()) {
-                        endOrFinish(pending, AdmissionSession.Decision.TIMED_OUT, "Consent request timed out.");
+                        endOrFinish(pending, AdmissionSession.Decision.TIMED_OUT, message(pending, "error-timeout"));
                     } else if (pending.heartbeat != null && now - pending.heartbeat.sent() > HEARTBEAT_TIMEOUT.toNanos()) {
-                        endOrFinish(pending, AdmissionSession.Decision.TIMED_OUT, "Consent connection timed out.");
+                        endOrFinish(pending, AdmissionSession.Decision.TIMED_OUT, message(pending, "error-timeout"));
                     } else if (pending.heartbeat == null && now - pending.lastHeartbeat > HEARTBEAT_INTERVAL.toNanos()) {
                         pending.heartbeat = new Heartbeat(ThreadLocalRandom.current().nextLong(), now);
                         pending.lastHeartbeat = now;
@@ -600,7 +610,7 @@ public final class ConsentGateVelocity {
                 }
             } catch (RuntimeException ex) {
                 logger.warn("Connection heartbeat failed", ex);
-                endOrFinish(pending, AdmissionSession.Decision.FAILED, "ConsentGate connection handling failed.");
+                endOrFinish(pending, AdmissionSession.Decision.FAILED, message(pending, "error-connection"));
             }
         }
     }
@@ -609,7 +619,7 @@ public final class ConsentGateVelocity {
         try {
             submitDatabase(() -> playerOperations.run(pending.player.getUniqueId(), operation), false);
         } catch (RejectedExecutionException ex) {
-            finishDenied(pending, "ConsentGate is busy. Please try again shortly.");
+            finishDenied(pending, message(pending, "error-busy"));
         }
     }
 
@@ -844,7 +854,7 @@ public final class ConsentGateVelocity {
             stopping = true;
             ending = List.copyOf(sessions.values());
         }
-        ending.forEach(pending -> endOrFinish(pending, AdmissionSession.Decision.SHUTDOWN, "ConsentGate is stopping."));
+        ending.forEach(pending -> endOrFinish(pending, AdmissionSession.Decision.SHUTDOWN, message(pending, "error-stopping")));
         if (timer != null) timer.cancel();
         PacketEvents.getAPI().getEventManager().unregisterListener(packets);
         if (databaseExecutor != null) {
