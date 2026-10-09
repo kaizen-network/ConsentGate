@@ -52,7 +52,7 @@ To repeat the test, use [offline reset](commands.md#reset-a-player) instead of d
 2. Replace the old ConsentGate JAR with the new one. Remove the old file if its name is different.
 3. Start again.
 
-Your config, messages, and documents are kept, so updates do not add new settings or comments to them. Compare your files with the [default config](https://github.com/kaizen-network/ConsentGate/blob/main/presentation/src/main/resources/config.yml) and copy in what you need, keeping your credentials, scope, document IDs, versions, and text. Check the [changelog](https://github.com/kaizen-network/ConsentGate/blob/main/CHANGELOG.md) for anything that needs action.
+Your config, messages, and documents are kept. On start, new settings are added to `config.yml` and new messages are added to the bundled `en-US` and `id-ID` message files, using their default values. The server log lists what was added. Check the [changelog](https://github.com/kaizen-network/ConsentGate/blob/main/CHANGELOG.md) for anything that needs action.
 
 ## Bedrock
 

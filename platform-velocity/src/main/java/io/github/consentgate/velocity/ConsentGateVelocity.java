@@ -8,6 +8,7 @@ import io.github.consentgate.core.admin.PreviewQueue;
 import io.github.consentgate.presentation.AdminDocuments;
 
 import io.github.consentgate.presentation.SafeTextFormatter;
+import io.github.consentgate.presentation.DefaultFiles;
 import io.github.consentgate.presentation.InterfaceMessages;
 import io.github.consentgate.presentation.PresentationValidator;
 
@@ -79,7 +80,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.UUID;
 
-@Plugin(id = "consentgate", name = "ConsentGate", version = "0.2.0",
+@Plugin(id = "consentgate", name = "ConsentGate", version = "0.3.0",
         description = "Configurable pre-admission agreements",
         dependencies = {@Dependency(id = "packetevents"), @Dependency(id = "geyser", optional = true)})
 public final class ConsentGateVelocity {
@@ -826,7 +827,11 @@ public final class ConsentGateVelocity {
 
     private void copyDefault(String resource, Path target) throws IOException {
         if (Files.isSymbolicLink(target)) throw new IOException("Default target cannot be a symbolic link: " + target.getFileName());
-        if (Files.exists(target)) return;
+        if (Files.exists(target)) {
+            var added = DefaultFiles.merge(resource, target);
+            if (!added.isEmpty()) logger.info("Added new defaults to {}: {}", target.getFileName(), String.join(", ", added));
+            return;
+        }
         try (InputStream input = getClass().getClassLoader().getResourceAsStream(resource)) {
             if (input == null) throw new IOException("Missing bundled resource: " + resource);
             Files.copy(input, target);

@@ -13,6 +13,7 @@ import io.github.consentgate.core.admission.AdmissionRequest;
 import io.github.consentgate.core.admission.AdmissionSession;
 import io.github.consentgate.core.runtime.ConsentGateRuntime;
 import io.github.consentgate.core.runtime.RuntimeLoader;
+import io.github.consentgate.presentation.DefaultFiles;
 import io.github.consentgate.presentation.InterfaceMessages;
 import io.github.consentgate.presentation.PresentationValidator;
 import io.github.consentgate.presentation.SafeTextFormatter;
@@ -418,7 +419,11 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
                 "example-privacy.yml", "documents/privacy.yml.example").entrySet()) {
             Path target = root.resolve(entry.getValue());
             if (Files.isSymbolicLink(target)) throw new IOException("Default target cannot be a symbolic link");
-            if (Files.exists(target)) continue;
+            if (Files.exists(target)) {
+                var added = DefaultFiles.merge(entry.getKey(), target);
+                if (!added.isEmpty()) getLogger().info("Added new defaults to " + target.getFileName() + ": " + String.join(", ", added));
+                continue;
+            }
             try (var input = getClass().getClassLoader().getResourceAsStream(entry.getKey())) {
                 if (input == null) throw new IOException("Missing bundled resource: " + entry.getKey());
                 Files.copy(input, target);

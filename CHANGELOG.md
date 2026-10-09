@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0 (2026-10-09)
+
+Translatable error messages and automatic config updates.
+
+### Added
+
+- Kick messages for errors, such as a busy gate, a timeout, or a storage failure, can be changed and translated with the new `error-*` keys in the message files.
+- New settings are added to `config.yml`, and new keys to the bundled message files, when the plugin starts. Your values and comments are kept, and the server log lists what was added.
+
+### Upgrading from 0.2.0
+
+Back up the plugin folder, stop the server or proxy, replace the JAR, and start again. The new message keys are added to `en-US.properties` and `id-ID.properties` automatically.
+
 ## 0.2.0 (2026-09-25)
 
 Easier first setup.

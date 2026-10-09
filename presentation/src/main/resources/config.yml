@@ -1,4 +1,4 @@
-# Updates keep this file. New settings and comments are not added automatically.
+# Updates keep your values and comments, and add new settings with their default values.
 # Config format version. Leave unchanged.
 config-version: 1
 # Set true after adding your documents, then run /consentgate reload to enable.
