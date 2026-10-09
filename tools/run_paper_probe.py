@@ -182,7 +182,7 @@ def main():
         probe("ConsentLeave", "denied", action="leave")
         assert decisions("ConsentLeave") == []
         timeout_reports = probe("ConsentTimeout", "denied", hold=40)
-        assert any("Consent request timed out or failed." in json.dumps(item) for item in timeout_reports)
+        assert any("Consent request timed out." in json.dumps(item) for item in timeout_reports)
         assert decisions("ConsentTimeout") == []
         print("PASS: Paper packaged admission, reconnect, reset history, reload, Leave, and timeout", flush=True)
     finally:
