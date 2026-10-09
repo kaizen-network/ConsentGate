@@ -164,6 +164,7 @@ class PaperAdmissionTest {
         accept(probe);
         queued.remove().run();
         assertDenied(probe);
+        assertEquals("error-close", probe.reason);
         assertFalse(needsConsent());
     }
 
@@ -172,6 +173,7 @@ class PaperAdmissionTest {
         probe.begin(request(), ignored -> { throw new NoClassDefFoundError("Missing optional renderer"); },
                 () -> save(probe), () -> "Declined");
         assertDenied(probe);
+        assertEquals("error-form", probe.reason);
         assertFalse(probe.session.accept(probe.session.token(), Map.of("terms-of-service", true)));
         assertTrue(queued.isEmpty());
         assertTrue(needsConsent());
@@ -236,6 +238,7 @@ class PaperAdmissionTest {
     private final class Probe extends PaperAdmission {
         int admits;
         int disconnects;
+        String reason;
         boolean closeFailure;
         Runnable onClose = () -> { };
         Probe(Executor executor) { super(player, executor, players, stopping::get, ignored -> failures.incrementAndGet()); }
@@ -244,7 +247,7 @@ class PaperAdmissionTest {
             onClose.run();
             if (closeFailure) throw new NoClassDefFoundError("Missing renderer");
         }
-        @Override protected void disconnect(String reason) { disconnects++; }
+        @Override protected void disconnect(String reason) { disconnects++; this.reason = reason; }
         @Override protected void admitted() { admits++; }
     }
 }

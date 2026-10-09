@@ -78,6 +78,40 @@ class DefaultFilesTest {
         assertFalse(Files.exists(directory.resolve("config.yml.tmp")));
     }
 
+    @Test void refusesMergesThatChangeOrSkipSettings() {
+        String template = "gate:\n  timeout-seconds: 300\n  max-pending: 128\n";
+        // Inserting before the kept blank lines would shorten the admin's value.
+        assertThrows(java.io.IOException.class, () -> DefaultFiles.mergeYaml(template,
+                "gate:\n  timeout-seconds: |+\n    300\n\n\nother: 1\n", new ArrayList<>()));
+        // The alias would receive the new setting too.
+        assertThrows(java.io.IOException.class, () -> DefaultFiles.mergeYaml(template,
+                "gate: &shared\n  timeout-seconds: 300\nother: *shared\n", new ArrayList<>()));
+        // The scanner cannot find a quoted section, which must not be skipped silently.
+        assertThrows(java.io.IOException.class, () -> DefaultFiles.mergeYaml(template,
+                "\"gate\":\n  timeout-seconds: 300\n", new ArrayList<>()));
+        // A last line ending with a backslash continues into the first added key.
+        assertThrows(java.io.IOException.class, () -> DefaultFiles.mergeProperties("error-busy=Busy\n", "title=Mine \\", new ArrayList<>()));
+    }
+
+    @Test void leavesReadOnlyAndOversizedFilesUnchanged(@TempDir Path directory) throws Exception {
+        Path locked = directory.resolve("en-US.properties");
+        Files.writeString(locked, "continue=Go\n");
+        assertTrue(locked.toFile().setWritable(false));
+        try {
+            org.junit.jupiter.api.Assumptions.assumeFalse(Files.isWritable(locked), "Running with permission to write read-only files");
+            assertThrows(java.io.IOException.class, () -> DefaultFiles.merge("messages/en-US.properties", locked));
+            assertEquals("continue=Go\n", Files.readString(locked));
+        } finally {
+            locked.toFile().setWritable(true);
+        }
+
+        Path large = directory.resolve("id-ID.properties");
+        String content = "filler=" + "x".repeat(65_000) + "\n";
+        Files.writeString(large, content);
+        assertThrows(java.io.IOException.class, () -> DefaultFiles.merge("messages/id-ID.properties", large));
+        assertEquals(content, Files.readString(large));
+    }
+
     @Test void keepsWindowsLineEndings() throws Exception {
         var added = new ArrayList<String>();
         String merged = DefaultFiles.mergeYaml("gate:\n  timeout-seconds: 300\n  max-pending: 128\n",

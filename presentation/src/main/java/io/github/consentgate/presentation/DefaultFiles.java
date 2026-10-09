@@ -27,6 +27,8 @@ public final class DefaultFiles {
     // Entries under these maps are admin choices, so removed entries are not added back.
     private static final Set<List<String>> USER_MAPS = Set.of(List.of("language", "selector", "options"));
 
+    private static final int MAX_BYTES = 64 * 1024;
+
     private DefaultFiles() { }
 
     /** Returns the keys added to {@code target}; files other than config.yml and message files are left alone. */
@@ -43,6 +45,9 @@ public final class DefaultFiles {
         var added = new ArrayList<String>();
         String merged = properties ? mergeProperties(bundled, current, added) : mergeYaml(bundled, current, added);
         if (!added.isEmpty()) {
+            // A read-only file is the admin's way to keep it as it is.
+            if (!Files.isWritable(target)) throw new IOException("The file is read-only");
+            if (merged.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) throw new IOException("The file would exceed 64 KiB");
             Path temporary = target.resolveSibling(name + ".tmp");
             Files.deleteIfExists(temporary);
             try {
@@ -73,6 +78,16 @@ public final class DefaultFiles {
             result.append(line).append(newline);
             added.add(key);
         }
+        // A last line ending with a backslash would swallow the first added key, so check the result as Java reads it.
+        var merged = new Properties();
+        merged.load(new StringReader(result.toString()));
+        var defaults = new Properties();
+        defaults.load(new StringReader(bundled));
+        boolean unchanged = existing.entrySet().stream().allMatch(entry -> entry.getValue().equals(merged.get(entry.getKey())));
+        boolean complete = added.stream().allMatch(key -> defaults.get(key).equals(merged.get(key)));
+        if (!unchanged || !complete || merged.size() != existing.size() + added.size()) {
+            throw new IOException("New messages could not be added to this file layout");
+        }
         return result.toString();
     }
 
@@ -93,7 +108,7 @@ public final class DefaultFiles {
                     || USER_MAPS.stream().anyMatch(map -> path.size() > map.size() && startsWith(path, map))
                     || !(value(parsed, parent) instanceof Map<?, ?> section) || section.containsKey(path.getLast())) continue;
             int[] place = parent.isEmpty() ? new int[] {lastContent(lines, 0) + 1, 0} : place(lines, parent);
-            if (place == null) continue;
+            if (place == null) throw new IOException("Could not find the section for " + String.join(".", path));
             int shift = place[1] - entry.indent();
             var block = new ArrayList<String>();
             if (parent.isEmpty()) block.add("");
@@ -109,13 +124,25 @@ public final class DefaultFiles {
         Object reloaded;
         try { reloaded = new Yaml(new SafeConstructor(new LoaderOptions())).load(merged); }
         catch (RuntimeException ex) { throw new IOException("New settings could not be added to this file layout", ex); }
-        for (var path : inserted) {
-            if (!(reloaded instanceof Map<?, ?> root) || !(value(root, path.subList(0, path.size() - 1)) instanceof Map<?, ?> section)
-                    || !section.containsKey(path.getLast())) {
-                throw new IOException("New settings could not be added to this file layout: " + String.join(".", path));
-            }
+        boolean complete = reloaded instanceof Map<?, ?> root && inserted.stream().allMatch(path ->
+                value(root, path.subList(0, path.size() - 1)) instanceof Map<?, ?> section && section.containsKey(path.getLast()));
+        if (!complete || !onlyAdded(parsed, reloaded, List.of(), inserted, 0)) {
+            throw new IOException("New settings could not be added to this file layout");
         }
         return merged;
+    }
+
+    /** Every earlier value is unchanged, and the only new entries are the inserted ones (an alias would repeat them elsewhere). */
+    private static boolean onlyAdded(Object before, Object after, List<String> path, List<List<String>> inserted, int depth) {
+        if (depth > 64) return false;
+        if (!(before instanceof Map<?, ?> old) || !(after instanceof Map<?, ?> now)) return java.util.Objects.equals(before, after);
+        if (!now.keySet().containsAll(old.keySet())) return false;
+        for (var key : now.keySet()) {
+            var child = new ArrayList<>(path);
+            child.add(String.valueOf(key));
+            if (old.containsKey(key) ? !onlyAdded(old.get(key), now.get(key), child, inserted, depth + 1) : !inserted.contains(child)) return false;
+        }
+        return true;
     }
 
     private record Entry(List<String> path, int indent, int start, int end) { }
