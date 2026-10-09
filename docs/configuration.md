@@ -22,7 +22,9 @@ plugins/ConsentGate/          (plugins/consentgate/ on Velocity)
     remote-cache.db           (only with MySQL/MariaDB)
 ```
 
-The generated `config.yml` explains each setting in its comments. You can also read the [default config](https://github.com/kaizen-network/ConsentGate/blob/main/presentation/src/main/resources/config.yml). Updates keep your values and comments, and add new settings to your file with their default values. Comment changes on settings you already have are not applied. If a file cannot be updated safely, for example when a section is written on one line, the file is left unchanged, the server log shows a warning, and the plugin starts normally. Copy the new settings in by hand in that case. To stop updates to a file, make it read-only.
+The generated `config.yml` explains each setting in its comments. You can also read the [default config](https://github.com/kaizen-network/ConsentGate/blob/main/presentation/src/main/resources/config.yml). On start, settings missing from your file are added with their default values and comments. This includes new settings and optional sections you removed. Your values and comments are kept, and comment changes on settings you already have are not applied. The server log lists what was added.
+
+If a file cannot be updated safely, for example when a section is written on one line, the file is left unchanged, the server log shows a warning, and the plugin starts normally. Copy the missing settings in by hand in that case. To stop updates to a file, make it read-only (on Linux, remove the owner's write permission). On Linux, an updated file keeps its permissions but becomes owned by the user running the server.
 
 ## Main settings
 

@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +32,11 @@ public final class DefaultFiles {
 
     private DefaultFiles() { }
 
+    /** The admin made the file read-only, which keeps it as it is. */
+    public static final class ReadOnlyException extends IOException {
+        ReadOnlyException() { super("The file is read-only"); }
+    }
+
     /** Returns the keys added to {@code target}; files other than config.yml and message files are left alone. */
     public static List<String> merge(String resource, Path target) throws IOException {
         String name = target.getFileName().toString();
@@ -45,15 +51,21 @@ public final class DefaultFiles {
         var added = new ArrayList<String>();
         String merged = properties ? mergeProperties(bundled, current, added) : mergeYaml(bundled, current, added);
         if (!added.isEmpty()) {
-            // A read-only file is the admin's way to keep it as it is.
-            if (!Files.isWritable(target)) throw new IOException("The file is read-only");
+            boolean posix = Files.getFileStore(target).supportsFileAttributeView(PosixFileAttributeView.class);
+            var permissions = posix ? Files.getPosixFilePermissions(target) : null;
+            // Root can write any file, so the owner's write permission also counts as the admin's choice.
+            if (!Files.isWritable(target) || (posix && !permissions.contains(PosixFilePermission.OWNER_WRITE))) {
+                throw new ReadOnlyException();
+            }
             if (merged.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) throw new IOException("The file would exceed 64 KiB");
             Path temporary = target.resolveSibling(name + ".tmp");
             Files.deleteIfExists(temporary);
             try {
                 // The config can hold a database password, so the replacement keeps the original's permissions.
-                if (Files.getFileStore(target).supportsFileAttributeView(PosixFileAttributeView.class)) {
-                    Files.createFile(temporary, PosixFilePermissions.asFileAttribute(Files.getPosixFilePermissions(target)));
+                // They are set again after creation because the umask can remove some of them.
+                if (posix) {
+                    Files.createFile(temporary, PosixFilePermissions.asFileAttribute(permissions));
+                    Files.setPosixFilePermissions(temporary, permissions);
                 } else Files.createFile(temporary);
                 Files.writeString(temporary, merged, StandardOpenOption.TRUNCATE_EXISTING);
                 Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
@@ -65,6 +77,7 @@ public final class DefaultFiles {
     }
 
     static String mergeProperties(String bundled, String current, List<String> added) throws IOException {
+        current = withoutBom(current);
         var existing = new Properties();
         existing.load(new StringReader(current));
         String newline = current.contains("\r\n") ? "\r\n" : "\n";
@@ -93,6 +106,7 @@ public final class DefaultFiles {
 
     /** Throws when the new settings cannot be added safely, for example to a section written on one line. */
     static String mergeYaml(String bundled, String current, List<String> added) throws IOException {
+        current = withoutBom(current);
         Object loaded;
         try { loaded = new Yaml(new SafeConstructor(new LoaderOptions())).load(current); }
         catch (RuntimeException ex) { return current; } // the config loader reports the syntax error
@@ -134,7 +148,14 @@ public final class DefaultFiles {
 
     /** Every earlier value is unchanged, and the only new entries are the inserted ones (an alias would repeat them elsewhere). */
     private static boolean onlyAdded(Object before, Object after, List<String> path, List<List<String>> inserted, int depth) {
-        if (depth > 64) return false;
+        if (depth > 64) return false; // also ends a value that contains itself through an alias
+        if (before instanceof List<?> oldList && after instanceof List<?> newList) {
+            if (oldList.size() != newList.size()) return false;
+            for (int i = 0; i < oldList.size(); i++) {
+                if (!onlyAdded(oldList.get(i), newList.get(i), path, List.of(), depth + 1)) return false;
+            }
+            return true;
+        }
         if (!(before instanceof Map<?, ?> old) || !(after instanceof Map<?, ?> now)) return java.util.Objects.equals(before, after);
         if (!now.keySet().containsAll(old.keySet())) return false;
         for (var key : now.keySet()) {
@@ -143,6 +164,11 @@ public final class DefaultFiles {
             if (old.containsKey(key) ? !onlyAdded(old.get(key), now.get(key), child, inserted, depth + 1) : !inserted.contains(child)) return false;
         }
         return true;
+    }
+
+    /** Some editors start UTF-8 files with a byte order mark, which Java's readers keep as a character. */
+    static String withoutBom(String text) {
+        return text.startsWith("﻿") ? text.substring(1) : text;
     }
 
     private record Entry(List<String> path, int indent, int start, int end) { }

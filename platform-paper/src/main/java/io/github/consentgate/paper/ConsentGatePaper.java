@@ -424,6 +424,8 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
                 try {
                     var added = DefaultFiles.merge(entry.getKey(), target);
                     if (!added.isEmpty()) getLogger().info("Added new defaults to " + target.getFileName() + ": " + String.join(", ", added));
+                } catch (DefaultFiles.ReadOnlyException ex) {
+                    getLogger().info(target.getFileName() + " is read-only, so new defaults were not added to it.");
                 } catch (IOException | RuntimeException ex) {
                     getLogger().warning("Could not add new defaults to " + target.getFileName() + ". Copy them from the default file if needed: " + ex);
                 }

@@ -832,6 +832,8 @@ public final class ConsentGateVelocity {
             try {
                 var added = DefaultFiles.merge(resource, target);
                 if (!added.isEmpty()) logger.info("Added new defaults to {}: {}", target.getFileName(), String.join(", ", added));
+            } catch (DefaultFiles.ReadOnlyException ex) {
+                logger.info("{} is read-only, so new defaults were not added to it.", target.getFileName());
             } catch (IOException | RuntimeException ex) {
                 logger.warn("Could not add new defaults to {}. Copy them from the default file if needed: {}", target.getFileName(), ex.toString());
             }

@@ -86,9 +86,14 @@ class DefaultFilesTest {
         // The alias would receive the new setting too.
         assertThrows(java.io.IOException.class, () -> DefaultFiles.mergeYaml(template,
                 "gate: &shared\n  timeout-seconds: 300\nother: *shared\n", new ArrayList<>()));
-        // The scanner cannot find a quoted section, which must not be skipped silently.
+        // The scanner cannot find these sections, which must not be skipped silently.
         assertThrows(java.io.IOException.class, () -> DefaultFiles.mergeYaml(template,
                 "\"gate\":\n  timeout-seconds: 300\n", new ArrayList<>()));
+        assertThrows(java.io.IOException.class, () -> DefaultFiles.mergeYaml(template,
+                "gate :\n  timeout-seconds: 300\n", new ArrayList<>()));
+        // A list that contains itself must end in a refusal, not a stack overflow.
+        assertThrows(java.io.IOException.class, () -> DefaultFiles.mergeYaml(template,
+                "loop: &self [*self]\ngate:\n  timeout-seconds: 300\n", new ArrayList<>()));
         // A last line ending with a backslash continues into the first added key.
         assertThrows(java.io.IOException.class, () -> DefaultFiles.mergeProperties("error-busy=Busy\n", "title=Mine \\", new ArrayList<>()));
     }
@@ -98,8 +103,8 @@ class DefaultFilesTest {
         Files.writeString(locked, "continue=Go\n");
         assertTrue(locked.toFile().setWritable(false));
         try {
-            org.junit.jupiter.api.Assumptions.assumeFalse(Files.isWritable(locked), "Running with permission to write read-only files");
-            assertThrows(java.io.IOException.class, () -> DefaultFiles.merge("messages/en-US.properties", locked));
+            // Also refused when running as root, where the file itself stays writable.
+            assertThrows(DefaultFiles.ReadOnlyException.class, () -> DefaultFiles.merge("messages/en-US.properties", locked));
             assertEquals("continue=Go\n", Files.readString(locked));
         } finally {
             locked.toFile().setWritable(true);
@@ -110,6 +115,42 @@ class DefaultFilesTest {
         Files.writeString(large, content);
         assertThrows(java.io.IOException.class, () -> DefaultFiles.merge("messages/id-ID.properties", large));
         assertEquals(content, Files.readString(large));
+
+        String bundled;
+        try (var input = getClass().getResourceAsStream("/config.yml")) { bundled = new String(input.readAllBytes()).replace("\r\n", "\n"); }
+        String base = bundled.replace("  max-pending: 128\n", "");
+        Path config = directory.resolve("config.yml");
+        String full = base + "#" + "x".repeat(MAX - base.getBytes(java.nio.charset.StandardCharsets.UTF_8).length - 2) + "\n";
+        Files.writeString(config, full);
+        assertThrows(java.io.IOException.class, () -> DefaultFiles.merge("config.yml", config));
+        assertEquals(full, Files.readString(config));
+    }
+
+    private static final int MAX = 64 * 1024;
+
+    @Test void keepsPermissionsTheUmaskWouldRemove(@TempDir Path directory) throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue(Files.getFileStore(directory).supportsFileAttributeView(PosixFileAttributeView.class));
+        Path messages = directory.resolve("en-US.properties");
+        Files.writeString(messages, "continue=Go\n");
+        Files.setPosixFilePermissions(messages, PosixFilePermissions.fromString("rw-rw-rw-"));
+        assertFalse(DefaultFiles.merge("messages/en-US.properties", messages).isEmpty());
+        assertEquals(PosixFilePermissions.fromString("rw-rw-rw-"), Files.getPosixFilePermissions(messages));
+    }
+
+    @Test void ignoresAByteOrderMark(@TempDir Path directory) throws Exception {
+        var added = new ArrayList<String>();
+        assertEquals("title=Mine\nerror-busy=Busy\n",
+                DefaultFiles.mergeProperties("title=Title\nerror-busy=Busy\n", "﻿title=Mine\n", added));
+        assertEquals(List.of("error-busy"), added);
+        added.clear();
+        assertEquals("gate:\n  timeout-seconds: 300\n  max-pending: 128\n",
+                DefaultFiles.mergeYaml("gate:\n  timeout-seconds: 300\n  max-pending: 128\n", "﻿gate:\n  timeout-seconds: 300\n", added));
+        assertEquals(List.of("gate.max-pending"), added);
+
+        String english;
+        try (var input = getClass().getResourceAsStream("/messages/en-US.properties")) { english = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8); }
+        Files.writeString(directory.resolve("en-US.properties"), "﻿" + english.replace("title=Before you continue", "title=Mine"));
+        assertEquals("Mine", new InterfaceMessages(directory).text("en-US", "en-US", "title"));
     }
 
     @Test void keepsWindowsLineEndings() throws Exception {

@@ -26,7 +26,7 @@ public final class InterfaceMessages {
                 String name = file.getFileName().toString();
                 String locale = LocaleTag.normalize(name.substring(0, name.length() - 11));
                 var values = new Properties();
-                try (var reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) { values.load(reader); }
+                values.load(new java.io.StringReader(DefaultFiles.withoutBom(Files.readString(file, StandardCharsets.UTF_8))));
                 values.values().forEach(value -> SafeTextFormatter.validate(value.toString()));
                 if (translations.putIfAbsent(locale, values) != null) throw new IOException("Duplicate message locale: " + locale);
             }
