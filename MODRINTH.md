@@ -17,6 +17,7 @@ Show your rules, terms, and privacy policy to players **before** they join, and 
 - Acceptance history is kept on reset, with player UUIDs and timestamps only.
 - Admin commands to check a player, reset consent, preview the login flow, and reload files without a restart.
 - English and Indonesian included; add any language with a file.
+- Updates add new settings and messages to your files and keep your values.
 
 ![Reading a document, page one of two](https://kaizenmc.id/api/software/assets/consentgate/docs/images/document-reader.png)
 

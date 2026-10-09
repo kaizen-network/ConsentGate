@@ -34,7 +34,7 @@ The source ZIP includes the wrapper and everything needed to rebuild the shaded 
 
 ## Publishing a version
 
-1. Update the version in `build.gradle.kts`.
+1. Update the version in `build.gradle.kts` and in the `@Plugin` annotation of `ConsentGateVelocity.java`.
 2. Add a `## <version> (<date>)` section at the top of `CHANGELOG.md`. Modrinth and GitHub Releases use that section as the release notes.
 3. Run the automated tests, and the [manual client checklist](testing.md#manual-client-checklist) if dialogs, forms, or connection handling changed.
 4. Commit and push, and wait for the GitHub Actions run on that commit to pass.

@@ -10,6 +10,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +44,12 @@ public final class DefaultFiles {
         String merged = properties ? mergeProperties(bundled, current, added) : mergeYaml(bundled, current, added);
         if (!added.isEmpty()) {
             Path temporary = target.resolveSibling(name + ".tmp");
-            Files.writeString(temporary, merged);
+            Files.deleteIfExists(temporary);
+            // The config can hold a database password, so the replacement keeps the original's permissions.
+            if (Files.getFileStore(target).supportsFileAttributeView(PosixFileAttributeView.class)) {
+                Files.createFile(temporary, PosixFilePermissions.asFileAttribute(Files.getPosixFilePermissions(target)));
+            } else Files.createFile(temporary);
+            Files.writeString(temporary, merged, StandardOpenOption.TRUNCATE_EXISTING);
             Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         }
         return added;

@@ -58,7 +58,9 @@ The optional language selector (`language.selector`) lets players pick a languag
 
 A player who accepted any current translation of the documents is not asked again, even if their client language changes. New versions and withdrawals still ask again.
 
-Interface text (buttons, errors, disconnect messages) lives in `messages/<locale>.properties`, using Java properties syntax in UTF-8. English and Indonesian are included. Add another file to support another language.
+Interface text (buttons, errors, disconnect messages) lives in `messages/<locale>.properties`, using Java properties syntax in UTF-8. English and Indonesian are included. Add another file to support another language. Disconnect messages for errors, such as a busy gate, a timeout, or a storage failure, use the `error-*` keys.
+
+On start, new keys are added to `en-US.properties` and `id-ID.properties`. Files you add for other languages are not changed: keys missing from them use the default language, then English.
 
 ## Colors
 

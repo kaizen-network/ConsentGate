@@ -9,6 +9,10 @@ Translatable error messages and automatic config updates.
 - Kick messages for errors, such as a busy gate, a timeout, or a storage failure, can be changed and translated with the new `error-*` keys in the message files.
 - New settings are added to `config.yml`, and new keys to the bundled message files, when the plugin starts. Your values and comments are kept, and the server log lists what was added.
 
+### Changed
+
+- Paper and Velocity now use the same wording for the same error. A few messages changed slightly, for example a Paper timeout now shows "Consent request timed out."
+
 ### Upgrading from 0.2.0
 
 Back up the plugin folder, stop the server or proxy, replace the JAR, and start again. The new message keys are added to `en-US.properties` and `id-ID.properties` automatically.
