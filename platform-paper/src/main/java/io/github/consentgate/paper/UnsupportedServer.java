@@ -8,7 +8,7 @@ import java.util.List;
 
 /** Finds missing Paper APIs, and refuses every login when any are missing. Uses only Bukkit types, so it loads on Spigot. */
 final class UnsupportedServer {
-    static final String MESSAGE = "ConsentGate needs Paper 1.21.7 or newer. Ask the server owner to switch to Paper.";
+    static final String MESSAGE = "ConsentGate is not set up for this server. Ask the server owner to install the right ConsentGate file.";
     static final List<String> PAPER_APIS = List.of(
             "io.papermc.paper.event.connection.configuration.AsyncPlayerConnectionConfigureEvent",
             "io.papermc.paper.event.player.PlayerCustomClickEvent",

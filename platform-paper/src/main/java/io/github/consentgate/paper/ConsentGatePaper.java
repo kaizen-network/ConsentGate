@@ -12,8 +12,8 @@ public final class ConsentGatePaper extends JavaPlugin {
     @Override public void onEnable() {
         var missing = UnsupportedServer.missing(getClassLoader());
         if (!missing.isEmpty()) {
-            getLogger().severe("ConsentGate needs Paper 1.21.7 or newer. This server lacks " + String.join(", ", missing)
-                    + ". Every login will be refused until the server runs Paper.");
+            getLogger().severe("ConsentGate-Paper needs Paper 1.21.7 or newer. This server lacks " + String.join(", ", missing)
+                    + ". Every login will be refused. On Spigot, use ConsentGate-Spigot (hold mode) instead, or switch to Paper for the full gate.");
             getServer().getPluginManager().registerEvents(new UnsupportedServer.Refusal(), this);
             return;
         }
