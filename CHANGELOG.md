@@ -2,11 +2,15 @@
 
 ## 0.4.0 (unreleased)
 
-Anonymous usage statistics.
+Anonymous usage statistics, and a safe stop on servers that are not Paper.
 
 ### Added
 
 - Paper and Velocity send anonymous, server-level usage statistics to bStats: player count, server software and version, Java and operating system, ConsentGate version, and a random server ID. No player data, documents, or consent records are sent. See [usage statistics](docs/storage.md#usage-statistics-bstats) for the full list and how to turn it off.
+
+### Fixed
+
+- On Spigot or another server without Paper's APIs, the Paper JAR now logs an error and refuses every login. Before, the server failed to load ConsentGate and let players in without the gate.
 
 ### Upgrading from 0.3.0
 
