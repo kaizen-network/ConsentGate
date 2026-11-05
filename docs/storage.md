@@ -48,7 +48,7 @@ The statistics describe the server, not its players. Each report contains:
 
 ConsentGate adds nothing else. It never sends player names, UUIDs, IP addresses, documents, or consent records.
 
-The first report is sent over HTTPS a few minutes after startup, then one every 30 minutes. bStats also sees the server's IP address, as with any web request. Its [privacy policy](https://bstats.org/privacy-policy) says the address is only used for rate limiting and is kept for at most 60 minutes. See also bStats' [page for server owners](https://bstats.org/docs/server-owners).
+The first report is sent over HTTPS a few minutes after startup, then one every 30 minutes. bStats also sees the server's IP address, as with any web request. Its [privacy policy](https://bstats.org/privacy-policy) says the address is only used for rate limiting and abuse prevention, and is kept for at most 60 minutes. See also bStats' [page for server owners](https://bstats.org/docs/server-owners).
 
 ### Turning it off
 
