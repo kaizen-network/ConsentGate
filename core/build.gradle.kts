@@ -6,6 +6,9 @@ dependencies {
     implementation("org.mariadb.jdbc:mariadb-java-client:3.5.10") { isTransitive = false }
 }
 
+// AdmissionHoldTest starts from the bundled default config and example document.
+sourceSets.test { resources.srcDir(project(":presentation").file("src/main/resources")) }
+
 tasks.test { useJUnitPlatform { excludeTags("remote-database") } }
 
 tasks.processResources {

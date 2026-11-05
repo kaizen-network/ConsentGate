@@ -1,4 +1,4 @@
-package io.github.consentgate.paper;
+package io.github.consentgate.core.admission;
 
 import io.github.consentgate.core.admin.PlayerOperations;
 import io.github.consentgate.core.runtime.ConsentGateRuntime;
@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
-class PaperAdmissionTest {
+class AdmissionHoldTest {
     @TempDir Path directory;
     private final UUID player = UUID.randomUUID();
     private final PlayerOperations players = new PlayerOperations();
@@ -217,7 +217,7 @@ class PaperAdmissionTest {
         probe.begin(request(), ignored -> { }, () -> save(probe), () -> "Declined");
         return probe;
     }
-    private io.github.consentgate.core.admission.AdmissionRequest request() throws Exception {
+    private AdmissionRequest request() throws Exception {
         return runtime.admissionService().orElseThrow().check(player, "en-US").orElseThrow();
     }
     private void save(Probe probe) throws Exception {
@@ -235,7 +235,7 @@ class PaperAdmissionTest {
         assertEquals(1, probe.disconnects);
     }
 
-    private final class Probe extends PaperAdmission {
+    private final class Probe extends AdmissionHold {
         int admits;
         int disconnects;
         String reason;

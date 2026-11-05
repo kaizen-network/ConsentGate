@@ -9,6 +9,7 @@ import io.github.consentgate.core.admin.DatabaseJobs;
 import io.github.consentgate.core.admin.PlayerOperations;
 import io.github.consentgate.core.admin.PreviewQueue;
 import io.github.consentgate.presentation.AdminDocuments;
+import io.github.consentgate.core.admission.AdmissionHold;
 import io.github.consentgate.core.admission.AdmissionRequest;
 import io.github.consentgate.core.admission.AdmissionSession;
 import io.github.consentgate.core.runtime.ConsentGateRuntime;
@@ -246,7 +247,7 @@ public final class PaperGate implements Listener {
     }
     private static int index(String value) { try { return Integer.parseInt(value); } catch (NumberFormatException ex) { return -1; } }
 
-    private void execute(Pending pending, PaperAdmission.Operation operation) { pending.execute("error-check", operation); }
+    private void execute(Pending pending, AdmissionHold.Operation operation) { pending.execute("error-check", operation); }
     private void finish(Pending pending, String denial) { pending.finish(denial); }
     @EventHandler public void disconnected(PlayerConnectionCloseEvent event) {
         sessions.values().stream().filter(pending -> pending.id.equals(event.getPlayerUniqueId()))
@@ -448,7 +449,7 @@ public final class PaperGate implements Listener {
             }
         }
     }
-    private final class Pending extends PaperAdmission {
+    private final class Pending extends AdmissionHold {
         final PlayerConfigurationConnection connection;
         final String selectorToken = UUID.randomUUID().toString();
         volatile String locale;

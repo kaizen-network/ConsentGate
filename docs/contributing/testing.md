@@ -16,7 +16,7 @@ node --test tools/test_paper_probe.cjs
 - **Core (`core:test`):** unchecked and foreign actions, timeout, repeated clicks, shutdown, config paths and limits, document loading and hashing, language selection, multiple documents, SQLite transactions, repeated requests, changed text under an unchanged version, and withdrawal order.
 - **Presentation:** message fallback and validation, safe text formatting, and adding new settings and messages to existing files without changing the admin's values, comments, or language list.
 - **Cache:** expiry, persistence, reset, capacity, corrupt files, failed invalidation, clock changes, and stalled connection setup.
-- **Paper admission:** commit before release, queued cancellation, full queues, locked SQLite, save and reset order after disconnect, shutdown, timeout, rendering failures, and native callback lock order.
+- **Admission hold (core, shared by Paper and Spigot):** commit before release, queued cancellation, full queues, locked SQLite, save and reset order after disconnect, shutdown, timeout, rendering failures, and native callback lock order.
 - **Bedrock:** Cumulus response parsing, menu and page navigation, unchecked defaults, partial selections, malformed and stale responses, close behavior, and failed delivery. `:integration-bedrock:paperArtifactTest` and `:integration-bedrock:velocityArtifactTest` repeat the provider regression against the real shaded JARs.
 - **Python tools:** dialog framing against fixed bytes (see [protocol notes](protocol-notes.md)), runner cleanup, and the release packager.
 - **Node:** helpers for the Paper probe.
