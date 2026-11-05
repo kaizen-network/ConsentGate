@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 (unreleased)
+## 1.0.0 (unreleased)
 
 Anonymous usage statistics, and a safe stop on servers that are not Paper.
 
