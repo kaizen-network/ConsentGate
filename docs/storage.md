@@ -59,7 +59,7 @@ bStats has one setting for all plugins on a server or proxy. Change it, then res
 | Paper | `plugins/bStats/config.yml` | `enabled: false` |
 | Velocity | `plugins/bStats/config.txt` | `enabled=false` |
 
-On Velocity, change only the `enabled` line and keep the `server-uuid` line. If that line is missing, bStats replaces the file with a new one where `enabled=true`.
+On Velocity, change only the `enabled` line and keep the `server-uuid` line. If that line is missing, bStats replaces the file with a new one where `enabled=true`. If you create `config.txt` yourself before the first start, include a `server-uuid=` line with any random UUID.
 
 ## Schema versions
 
