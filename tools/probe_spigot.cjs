@@ -56,7 +56,7 @@ function click(prefix, values, token) {
   let action = actions.find(value => value.startsWith('consentgate:' + prefix + '/'));
   if (!action) { report('error', {message: 'Missing action: ' + prefix}); return; }
   if (token) action = action.replace(/[^/]+$/, token);
-  const packet = encodeClick(action, values === 'none' ? [] : inputs, CLICK[client.state] ?? CLICK.play, values);
+  const packet = encodeClick(action, values === 'none' ? [] : inputs, CLICK[client.state] ?? CLICK.play, values === 'none' ? 'byte' : values);
   client.writeRaw(packet);
   report('clicked', {action: prefix, values, token: !!token, state: client.state});
 }
@@ -72,6 +72,10 @@ readline.createInterface({input: process.stdin}).on('line', line => {
       // Movement keys, as a client sends them only with no screen open.
       case 'input': client.write('player_input', {inputs: {forward: !!command.forward, backward: false, left: false, right: false,
         jump: false, shift: false, sprint: false}}); report('input', command); break;
+      case 'loaded': client.write('player_loaded', {}); report('loaded'); break;
+      // Steering, as the rider of a boat sends it.
+      case 'vehicle_move': client.write('vehicle_move', {x: command.x, y: command.y, z: command.z, yaw: 0, pitch: 0, onGround: true});
+        report('vehicle_moved', command); break;
       case 'dig': {
         const location = {x: Math.floor(position.x), y: Math.floor(position.y) - 1, z: Math.floor(position.z)};
         client.write('block_dig', {status: 0, location, face: 1, sequence: sequence++});

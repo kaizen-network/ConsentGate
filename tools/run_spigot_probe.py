@@ -4,7 +4,6 @@ import argparse
 from contextlib import closing
 import hashlib
 import json
-import math
 import os
 from pathlib import Path
 import shutil
@@ -128,7 +127,7 @@ def main():
     documents = fixture / 'documents'
     documents.mkdir(parents=True)
     database = fixture / 'probe.db'
-    config = PROBE_CONFIG.format(fixture=fixture_name).replace('timeout-seconds: 300', 'timeout-seconds: 30') \
+    config = PROBE_CONFIG.format(fixture=fixture_name).replace('timeout-seconds: 300', 'timeout-seconds: 60') \
         .replace('max-pending: 1', 'max-pending: 2')
     (documents / 'agreement.yml').write_text(PROBE_DOCUMENT, encoding='utf-8')
     log_file = directory / 'logs/latest.log'
@@ -137,7 +136,8 @@ def main():
     # The world keeps player data between runs, so every run uses new players.
     run = uuid.uuid4().hex[:4]
     N = {name: name[:12] + run for name in ['Watcher', 'HeldBot', 'LeaveBot', 'DupBot', 'PreviewBot', 'SlowBot', 'ReloadBot',
-                                           'LateBot', 'RefusedProbe', 'KeepLeave', 'KeepSlow', 'Drop0', 'Drop1', 'Drop2', 'Rider']}
+                                           'LateBot', 'RefusedProbe', 'KeepLeave', 'KeepSlow', 'Drop0', 'Drop1', 'Drop2', 'Rider',
+                                           'Busy0', 'Busy1', 'KeepRider']}
     # Test-only plugin: cancels kicks for players named Keep*, and logs pressure plate contact.
     helper = directory / 'plugins/ConsentGateProbeHelper.jar'
     assert not helper.exists(), 'A helper is already present; inspect it before repeating this check'
@@ -168,6 +168,10 @@ def main():
         while text not in log()[offset:]:
             assert time.monotonic() < deadline, 'Missing log line: ' + text
             time.sleep(0.2)
+
+    def boat_position(tag):
+        reply = command(f'data get entity @e[tag={tag},limit=1] Pos', 'has the following entity data')
+        return [float(value.strip().rstrip('d')) for value in reply.split('has the following entity data: [', 1)[1].split(']', 1)[0].split(',')]
 
     def build_helper():
         classes = fixture / 'helper-classes'
@@ -291,9 +295,10 @@ def main():
         print('PASS: a blocked command brings the dialog back', flush=True)
 
         # A push without movement keys and a pressure plate do not send the screen again, so ticked boxes stay ticked.
-        spot = held.find('position')[-1]
-        x, y, z = (math.floor(spot[axis]) for axis in ('x', 'y', 'z'))
-        command(f'setblock {x} {y} {z} minecraft:stone_pressure_plate', 'Changed the block')
+        # Placed where the server has the player, on a solid block, so the plate cannot pop off.
+        plate = f'execute at {N["HeldBot"]} run setblock ~ ~'
+        command(plate + '-1 ~ minecraft:stone', 'Changed the block')
+        command(plate + ' ~ minecraft:stone_pressure_plate', 'Changed the block')
         time.sleep(3)
         since, offset = held.mark(), len(log())
         held.send(do='move', dx=0.4)
@@ -303,18 +308,27 @@ def main():
             time.sleep(1)
         held.absent('dialog', since=since, seconds=1)
         wait_log('Physical interaction by ' + N['HeldBot'], offset, timeout=1)
-        command(f'setblock {x} {y} {z} minecraft:air', 'Changed the block')
+        command(plate + ' ~ minecraft:air', 'Changed the block')
         since = held.mark()
         held.send(do='input', forward=True)
         held.wait('dialog', since=since, timeout=5)
         held.send(do='input')
         print('PASS: a push and a pressure plate keep the screen as it is; a pressed movement key brings it back', flush=True)
 
+        # A key pressed inside the 3-second limit still brings the screen back once, when the limit ends.
+        since = held.mark()
+        held.send(do='input', forward=True)
+        held.wait('dialog', since=since, timeout=5)
+        held.send(do='input')
+        assert len(held.find('dialog', since=since)) == 1, 'One request inside the limit means one screen'
+        print('PASS: a movement key pressed inside the re-show limit shows the screen once the limit ends', flush=True)
+
         # Only exact checked bytes with the session token release the player.
         for values, token in (('unchecked', None), ('string', None), ('int', None), ('none', None), ('byte', str(uuid.uuid4()))):
             since = held.mark()
             held.send(do='click', action='accept', values=values, token=token)
             held.absent('clear_dialog', since=since, seconds=1.5)
+            assert held.find('clicked', since=since) and not held.find('error', since=since), values
             assert decisions(N["HeldBot"]) == [], values
         assert held.find('dialog', lambda event: 'Every checkbox is required.' in event['text']), 'Missing redisplay with error'
         since, watched = held.mark(), watcher.mark()
@@ -334,7 +348,8 @@ def main():
         watcher.wait('chat', lambda event: 'free-chat-probe' in event['text'], watched)
         command(f'gamemode survival {N["HeldBot"]}', 'Survival Mode')
         since = held.mark()
-        command(f'damage {N["HeldBot"]} 1', 'Applied 1')
+        # Peaceful heals 1 point every 20 ticks, which can hide a 1-point hit before the health is sent.
+        command(f'damage {N["HeldBot"]} 4', 'Applied 4')
         held.wait('health', lambda event: event['health'] < 20, since)
         command(f'gamemode creative {N["HeldBot"]}', 'Creative Mode')
         since = held.mark()
@@ -381,11 +396,20 @@ def main():
         watcher.absent('chat', lambda event: 'kept-chat-probe' in event['text'], watched, seconds=1)
         assert not watcher.find('player_info', lambda event: event['name'] == N['KeepLeave'], watched)
         assert not keep.find('clear_dialog') and decisions(N['KeepLeave']) == []
+        # A kept-frozen player neither blocks reload nor counts toward max-pending (2 here); the busy reply names everyone held.
+        command('consentgate reload', 'ConsentGate reloaded.')
+        busy = [held_join(N[f'Busy{index}'], watcher)[0] for index in range(2)]
+        reply = command('consentgate reload', 'Reload is busy.')
+        assert 'On the consent screen: ' + ', '.join(sorted([N['Busy0'], N['Busy1']])) + '.' in reply, reply
+        assert 'Kept frozen because another plugin cancelled their kick: ' + N['KeepLeave'] + '.' in reply, reply
+        for waiting in busy:
+            waiting.close()
         keep.close()
         time.sleep(1)
         assert not watcher.find('chat', lambda event: N['KeepLeave'] in event['text'], watched), 'Join or quit message shown'
         command('consentgate reset ' + offline_uuid(N['KeepLeave']), 'History was kept.')
-        print('PASS: a cancelled kick after Leave leaves the player frozen and hidden until they leave', flush=True)
+        print('PASS: a cancelled kick after Leave leaves the player frozen and hidden until they leave; it does not block '
+              'reload or count toward max-pending, and the busy reply names it', flush=True)
 
         # Logins that drop after the pre-login check do not count toward max-pending (2 here).
         drops = [bot(N[f'Drop{index}'], 'drop') for index in range(3)]
@@ -417,7 +441,7 @@ def main():
         watched, offset = watcher.mark(), len(log())
         slow, _ = held_join(N["SlowBot"], watcher)
         keep, _ = held_join(N['KeepSlow'], watcher)
-        assert 'Consent request timed out.' in slow.wait('kick', timeout=45)['reason']
+        assert 'Consent request timed out.' in slow.wait('kick', timeout=75)['reason']
         wait_log("Another plugin cancelled ConsentGate's kick for " + N['KeepSlow'], offset)
         time.sleep(1)
         assert not keep.find('kick')
@@ -456,30 +480,56 @@ def main():
         print('PASS: /reload kicks held players; after enabling, an online player without acceptance is held, '
               'and an accepted one passes', flush=True)
 
-        # A saved vehicle survives a held join, and the held player is taken off it.
-        rider, _ = held_join(N['Rider'], watcher)
-        since = rider.mark()
-        rider.send(do='click', action='accept')
-        rider.wait('clear_dialog', since=since)
-        spot = rider.find('position')[-1]
-        boat = 'cgboat' + run
-        command(f'summon minecraft:oak_boat {spot["x"]} {spot["y"]} {spot["z"]} {{Tags:["{boat}"]}}', 'Summoned new')
-        command(f'ride {N["Rider"]} mount @e[tag={boat},limit=1]', 'started riding')
-        rider.close()
+        # A saved vehicle survives a held join, and the held player is taken off it. KeepRider's dismount is cancelled by the
+        # helper during their first five seconds online, so ConsentGate must log it and keep trying.
+        boats = {}
+        for key in ('Rider', 'KeepRider'):
+            rider, _ = held_join(N[key], watcher)
+            since = rider.mark()
+            rider.send(do='click', action='accept')
+            rider.wait('clear_dialog', since=since)
+            spot = rider.find('position')[-1]
+            boats[key] = 'cg' + key.lower() + run
+            command(f'summon minecraft:oak_boat {spot["x"]} {spot["y"]} {spot["z"]} {{Tags:["{boats[key]}"]}}', 'Summoned new')
+            command(f'ride {N[key]} mount @e[tag={boats[key]},limit=1]', 'started riding')
+            time.sleep(5)
+            rider.close()
         time.sleep(1)
         (documents / 'agreement.yml').write_text(PROBE_DOCUMENT.replace('version: "probe-1"', 'version: "probe-2"'), encoding='utf-8')
         command('consentgate reload', 'ConsentGate reloaded.')
         offset = len(log())
+        keep = bot(N['KeepRider'])
+        keep.wait('play')
+        wait_log("Another plugin cancelled ConsentGate's dismount for " + N['KeepRider'], offset, timeout=5)
+        x, y, z = boat_position(boats['KeepRider'])
+        # A rider gets no position packet at join, so say the world has loaded; until then the server ignores moves.
+        keep.send(do='loaded')
+        # Small steps, like a client steering every tick.
+        for step in range(1, 21):
+            keep.send(do='vehicle_move', x=x + step * 0.1, y=y, z=z)
+            time.sleep(0.05)
+        time.sleep(0.5)
+        steered = abs(boat_position(boats['KeepRider'])[0] - x) > 1
+        print('INFO: while another plugin keeps a held player mounted, they ' + ('can' if steered else 'cannot') + ' steer the boat', flush=True)
+        time.sleep(6)
+        process.stdin.write(f'execute as {N["KeepRider"]} on vehicle run say still-riding-keep-{run}\n')
+        process.stdin.flush()
+        time.sleep(1)
+        assert f'still-riding-keep-{run}' not in log(), 'The retry did not take the held player off'
+        assert log()[offset:].count("Another plugin cancelled ConsentGate's dismount for " + N['KeepRider']) == 1
+        keep.close()
         again, _ = held_join(N['Rider'], watcher)
         time.sleep(1)
         assert "Couldn't reattach entity to player" not in log()[offset:]
-        command(f'execute if entity @e[tag={boat}] run say boat-kept-{run}', f'boat-kept-{run}')
+        for key in ('Rider', 'KeepRider'):
+            command(f'execute if entity @e[tag={boats[key]}] run say kept-{boats[key]}', f'kept-{boats[key]}')
         process.stdin.write(f'execute as {N["Rider"]} on vehicle run say still-riding-{run}\n')
         process.stdin.flush()
         time.sleep(1)
         assert f'still-riding-{run}' not in log()
         again.close()
-        print('PASS: a held player keeps their saved boat in the world and is taken off it', flush=True)
+        print('PASS: held players keep their saved boats in the world and are taken off them; a cancelled dismount is '
+              'logged once and retried until it works', flush=True)
         print('PASS: Spigot ' + args.version + ' hold mode', flush=True)
     finally:
         for created in bots:

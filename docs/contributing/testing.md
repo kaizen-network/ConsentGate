@@ -117,14 +117,14 @@ Use `--version 26.1` for a Spigot 26.1.x server (protocol 775). The probe uses a
 
 - the dialog arrives in play and waits for the server after each button
 - held players are hidden, with no join message; movement is reverted; chat, commands, damage, digging, and item drops are blocked
-- a blocked command or a pressed movement key shows the screen again; a push without movement keys or a pressure plate does not
+- a blocked command or a pressed movement key shows the screen again, and a key pressed inside the 3-second limit shows it once the limit ends; a push without movement keys or a pressure plate does not
 - unchecked, string, int, empty, and foreign-token payloads do not release; a valid acceptance does, and the join message is shown once
 - released players can move, chat, take damage, and dig; an accepted rejoin is not held
 - Leave, timeout, and preview save nothing and show no join or quit message; a second login for a held player is refused
 - `/reload` kicks held players, and players already online without acceptance are held after the plugin enables
-- with a test-only helper plugin (`tools/spigot_probe_helper`) that cancels kicks, Leave and timeout leave the player frozen and hidden until they quit
+- with a test-only helper plugin (`tools/spigot_probe_helper`) that cancels kicks, Leave and timeout leave the player frozen and hidden until they quit; such a player does not block reload or count toward max-pending, and the busy reply names them
 - logins that drop after the pre-login check do not block new players, and their marks expire after 60 seconds
-- a player who logged out in a boat keeps the boat when held at the next join, and is taken off it
+- a player who logged out in a boat keeps the boat when held at the next join, and is taken off it; when the helper blocks the dismount, ConsentGate logs it once and retries until it works
 
 The runner builds the helper plugin with `javac` (`--javac` to choose one) and removes it afterwards. `--refusal` installs the Paper JAR instead and checks that it refuses every login on Spigot with the hint to use the Spigot JAR.
 
