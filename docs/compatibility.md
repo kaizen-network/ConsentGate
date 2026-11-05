@@ -70,6 +70,7 @@ What this mode cannot do:
 
 - Other plugins see the join, and their join handlers run before acceptance: welcome messages they send themselves, kits, spawn teleports, Discord join notices, and MOTDs.
 - Plugins that ignore cancelled events, or undo the cancel afterwards, can still act on a held player. Vanish, staff, and tab-list plugins may show held players.
+- If another plugin stops a held player from getting off a vehicle, ConsentGate logs an error and keeps trying every tick. Until then, the player stays on the vehicle.
 - The player count in the server list and in `/list` includes held players. Experience orbs and harmless potion effects are not blocked.
 - Plugin messages from a held client still reach plugins, because Spigot has no way to cancel them. For example, a voice chat plugin can still complete its handshake.
 - Clients older than 1.21.6 (through ViaBackwards) get no dialog and stay frozen until the timeout.
