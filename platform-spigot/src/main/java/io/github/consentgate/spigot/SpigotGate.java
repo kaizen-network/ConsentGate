@@ -131,9 +131,10 @@ public final class SpigotGate implements Listener {
         Mark pending;
         synchronized (held) {
             marks.values().removeIf(mark -> !mark.valid());
-            // Only held players count toward the limit, so logins that drop before joining never block others.
+            // Only players still deciding count toward the limit: not logins that dropped before joining, and not
+            // players kept frozen after another plugin cancelled their kick.
             if (stopping || reloading || resetting.contains(id) || held.containsKey(id)
-                    || held.size() >= active.config().maxPending()) { refuse(event, "error-busy"); return; }
+                    || deciding().size() >= active.config().maxPending()) { refuse(event, "error-busy"); return; }
             preview = previews.take(id).orElse(null);
             // Marked before the check, so a reset started now waits until this login has joined or the mark expired.
             pending = new Mark(false, preview, expires);
@@ -178,7 +179,6 @@ public final class SpigotGate implements Listener {
         // Anyone else is held, including a player with no mark at all.
         if (!ready || stopping) { refuse(player, "error-unavailable"); return; }
         if (!runtime.enabled()) return;
-        if (held.size() >= runtime.config().maxPending()) { refuse(player, "error-busy"); return; }
         hold(player, mark == null ? null : mark.preview());
     }
 
@@ -206,17 +206,11 @@ public final class SpigotGate implements Listener {
         String locale = preview != null && preview.locale() != null ? preview.locale()
                 : config.useClientLocale() ? player.getLocale() : config.defaultLocale();
         var hold = new Hold(player, locale, preview);
-        hold.joining = true;
         var previous = held.put(hold.id, hold);
         if (previous != null) { previous.quit = true; previous.finish("Connection ended."); }
         hide(player);
+        settle(hold, () -> { });
         var scheduler = plugin.getServer().getScheduler();
-        // Spigot restores a saved vehicle after the join event, and a cancelled mount would delete it. So the mount goes
-        // through, and the held player gets off a tick later. This also covers players held while already riding.
-        scheduler.runTask(plugin, () -> {
-            hold.joining = false;
-            if (held.get(hold.id) == hold && player.isInsideVehicle()) player.leaveVehicle();
-        });
         hold.timeout = scheduler.runTaskLater(plugin, () -> hold.finish(hold.message("error-timeout")), config.timeoutSeconds() * 20L);
         scheduler.runTaskLater(plugin, () -> execute(hold, () -> {
             var service = runtime.admissionService().orElseThrow();
@@ -232,7 +226,41 @@ public final class SpigotGate implements Listener {
         var hold = new Hold(player, null, null);
         held.put(hold.id, hold);
         hide(player);
-        hold.finish(hold.message(key));
+        settle(hold, () -> hold.finish(hold.message(key)));
+    }
+
+    /**
+     * Spigot restores a saved vehicle after the join event. A cancelled mount, or a kick during the join, would make it
+     * skip or delete the vehicle. So the mount goes through, and a tick later the held player gets off before anything
+     * else happens. This also covers players held while already riding.
+     */
+    private void settle(Hold hold, Runnable then) {
+        hold.joining = true;
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            hold.joining = false;
+            dismount(hold);
+            then.run();
+        });
+    }
+
+    private void dismount(Hold hold) {
+        Player player = hold.player;
+        if (held.get(hold.id) != hold || !player.isOnline() || !player.isInsideVehicle()) return;
+        // leaveVehicle() reports success even when another plugin cancels the dismount, so check again.
+        player.leaveVehicle();
+        if (!player.isInsideVehicle()) return;
+        if (!hold.dismountRefused) {
+            hold.dismountRefused = true;
+            plugin.getLogger().severe("Another plugin cancelled ConsentGate's dismount for " + player.getName()
+                    + ". Trying again every tick while they are held.");
+        }
+        plugin.getServer().getScheduler().runTask(plugin, () -> dismount(hold));
+    }
+
+    private List<Hold> deciding() { return held.values().stream().filter(hold -> !hold.finished.get()).toList(); }
+
+    private static String names(List<Hold> holds) {
+        return String.join(", ", holds.stream().map(hold -> hold.player.getName()).sorted().toList());
     }
 
     private void hide(Player player) {
@@ -389,9 +417,17 @@ public final class SpigotGate implements Listener {
             var hold = held.get(player.getUniqueId());
             if (hold == null || hold.player != player) return;
             synchronized (hold) {
-                if (hold.finished.get() || hold.bedrock != null || hold.current == null
-                        || System.nanoTime() - hold.shownAt < RESHOW_NANOS) return;
-                show(hold, hold.current);
+                if (hold.finished.get() || hold.bedrock != null || hold.current == null || hold.reshowQueued) return;
+                long wait = RESHOW_NANOS - (System.nanoTime() - hold.shownAt);
+                if (wait <= 0) { show(hold, hold.current); return; }
+                // The client sends movement keys only when they change, so a press inside the window would never come again.
+                hold.reshowQueued = true;
+                plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                    synchronized (hold) {
+                        hold.reshowQueued = false;
+                        if (held.get(hold.id) == hold && !hold.finished.get() && hold.current != null) show(hold, hold.current);
+                    }
+                }, wait / 50_000_000L + 1);
             }
         });
     }
@@ -524,8 +560,12 @@ public final class SpigotGate implements Listener {
                 reply.accept("ConsentGate did not start successfully. Fix the startup error and restart.");
                 return;
             }
-            if (reloading || (apply && (!held.isEmpty() || databaseJobs.pending() != 0 || !resetting.isEmpty()))) {
-                reply.accept("Reload is busy. Wait for consent sessions and database work to finish, then retry.");
+            var deciding = deciding();
+            if (reloading || (apply && (!deciding.isEmpty() || databaseJobs.pending() != 0 || !resetting.isEmpty()))) {
+                var stuck = held.values().stream().filter(hold -> hold.kickRefused).toList();
+                reply.accept("Reload is busy. Wait for consent sessions and database work to finish, then retry."
+                        + (deciding.isEmpty() ? "" : " On the consent screen: " + names(deciding) + ".")
+                        + (stuck.isEmpty() ? "" : " Kept frozen because another plugin cancelled their kick: " + names(stuck) + "."));
                 return;
             }
             if (apply) reloading = true;
@@ -630,6 +670,9 @@ public final class SpigotGate implements Listener {
         volatile String joinMessage;
         volatile boolean quit;
         volatile boolean joining;
+        boolean dismountRefused;
+        volatile boolean kickRefused;
+        boolean reshowQueued;
         volatile BukkitTask timeout;
         Dialog current;
         long shownAt;
@@ -653,8 +696,10 @@ public final class SpigotGate implements Listener {
                 // The kick fires the quit event at once; that handler hides the quit message and removes this hold.
                 player.kickPlayer(reason);
                 // A plugin that cancels PlayerKickEvent leaves the player online. The hold stays until they leave.
-                if (player.isOnline()) plugin.getLogger().severe("Another plugin cancelled ConsentGate's kick for "
-                        + player.getName() + ". They stay frozen and hidden until they leave.");
+                if (!player.isOnline()) return;
+                kickRefused = true;
+                plugin.getLogger().severe("Another plugin cancelled ConsentGate's kick for " + player.getName()
+                        + ". They stay frozen and hidden until they leave.");
             });
         }
         @Override protected void admitted() { onMain(() -> release(this)); }
