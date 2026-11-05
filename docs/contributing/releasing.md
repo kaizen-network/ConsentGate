@@ -42,6 +42,6 @@ The source ZIP includes the wrapper and everything needed to rebuild the shaded 
 
 Only list platforms and versions that were actually tested. Include the license and third-party notices with every published binary.
 
-Publishing a GitHub release also uploads its JARs to Modrinth and Hangar through `.github/workflows/modrinth.yml` and `.github/workflows/hangar.yml`. Each upload's settings are in `tools/modrinth.json` and `tools/hangar.json`. The Hangar workflow needs a `HANGAR_TOKEN` secret: a Hangar API key with the `view_public_info`, `create_version`, and `edit_page` permissions. The Hangar project needs `Release` and `Snapshot` channels, because the API cannot create them.
+Publishing a GitHub release also uploads its JARs to Modrinth and Hangar through `.github/workflows/modrinth.yml` and `.github/workflows/hangar.yml`. Each upload's settings are in `tools/modrinth.json` and `tools/hangar.json`. The Hangar workflow needs a `HANGAR_TOKEN` secret: a Hangar API key with the `view_public_info`, `create_version`, and `edit_page` permissions. The Hangar project needs `Release` and `Snapshot` channels, because the API cannot create them. Hangar accepts files up to 10 MB, so a bigger JAR is listed as a direct link to its GitHub release download.
 
 Hangar lists BungeeCord plugins under its `WATERFALL` platform. To publish a BungeeCord JAR there, add a `files` entry with `"platform": "WATERFALL"` to `tools/hangar.json`.

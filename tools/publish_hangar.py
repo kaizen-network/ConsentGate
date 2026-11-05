@@ -13,7 +13,9 @@ with a tag). Settings per project live in tools/hangar.json:
     }
 
 All JARs go into one Hangar version, one file per platform (at most three:
-PAPER, VELOCITY, WATERFALL). A BungeeCord JAR would use WATERFALL. min_version
+PAPER, VELOCITY, WATERFALL). A BungeeCord JAR would use WATERFALL. A JAR over
+Hangar's 10 MB upload limit is added as a link to its GitHub release download
+instead (needs GITHUB_REPOSITORY, which Actions sets). min_version
 is a platform version from Hangar's list (Minecraft versions for PAPER and
 WATERFALL, proxy versions for VELOCITY). A dependency without "url" is a
 Hangar project name.
@@ -42,6 +44,9 @@ from publish_modrinth import absolute_links, changelog_section
 
 ROOT = Path(__file__).resolve().parent.parent
 API = 'https://hangar.papermc.io/api/v1'
+# Hangar's max-file-size (backend application.yml). Bigger JARs are linked to
+# the GitHub release download instead of uploaded.
+MAX_UPLOAD_BYTES = 10_000_000
 USER_AGENT = 'kaizen-network/hangar-publish (github@rayhan.ch)'
 
 
@@ -131,8 +136,14 @@ def main():
                 raise SystemExit(f'release has no {file_path.name}')
             platform = entry['platform']
             groups = request('GET', f'/platforms/{platform}/versions', None)
-            file_paths.append(file_path)
-            files.append({'platforms': [platform]})
+            if file_path.stat().st_size > MAX_UPLOAD_BYTES:
+                if not repo:
+                    raise SystemExit(f'{file_path.name} is over Hangar\'s upload limit and needs GITHUB_REPOSITORY for a link')
+                files.append({'platforms': [platform],
+                              'externalUrl': f'https://github.com/{repo}/releases/download/{args.tag}/{file_path.name}'})
+            else:
+                file_paths.append(file_path)
+                files.append({'platforms': [platform]})
             platform_deps[platform] = platform_versions_since(groups, entry['min_version'])
             plugin_deps[platform] = [
                 {'name': dep['name'], 'required': dep['required'],
@@ -148,7 +159,7 @@ def main():
             'pluginDependencies': plugin_deps,
         }
         if args.dry_run:
-            print(f'would upload {", ".join(p.name for p in file_paths)}: {json.dumps(data, indent=2)}')
+            print(f'would upload {", ".join(p.name for p in file_paths) or "no files"}: {json.dumps(data, indent=2)}')
         else:
             body, content_type = multipart(data, file_paths)
             created = request('POST', f'/projects/{project}/upload', jwt, body, content_type)
