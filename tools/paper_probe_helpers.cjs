@@ -37,17 +37,26 @@ function varint(value) {
   return Buffer.from(bytes);
 }
 
-function encodeClick(action, inputs) {
+// Checkbox values: a real client sends TAG_Byte 1 or 0. The other kinds are for rejection tests.
+const VALUES = {
+  byte: [1, Buffer.from([1])],
+  unchecked: [1, Buffer.from([0])],
+  int: [3, Buffer.from([0, 0, 0, 1])],
+  string: [8, Buffer.from([0, 4, ...Buffer.from('true')])]
+};
+
+function encodeClick(action, inputs, packetId = 8, values = 'byte') {
+  const [type, value] = VALUES[values];
   const fields = inputs.map(key => {
     const name = Buffer.from(key);
     const length = Buffer.alloc(2);
     length.writeUInt16BE(name.length);
-    return Buffer.concat([Buffer.from([1]), length, name, Buffer.from([1])]);
+    return Buffer.concat([Buffer.from([type]), length, name, value]);
   });
   const payload = Buffer.concat([Buffer.from([10]), ...fields, Buffer.from([0])]);
   const identifier = Buffer.from(action);
-  // Java 26.1 configuration custom_click_action, followed by length-prefixed anonymous NBT.
-  return Buffer.concat([Buffer.from([8]), varint(identifier.length), identifier, varint(payload.length), payload]);
+  // custom_click_action (configuration 0x08 by default), followed by length-prefixed anonymous NBT.
+  return Buffer.concat([varint(packetId), varint(identifier.length), identifier, varint(payload.length), payload]);
 }
 
 module.exports = {parseOptions, encodeClick};

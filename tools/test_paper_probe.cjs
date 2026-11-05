@@ -49,3 +49,8 @@ test('multi-byte payload length', () => {
   const packet = encodeClick('test:a', Array.from({length: 10}, (_, i) => 'document_' + i));
   assert.deepEqual([...packet.subarray(8, 11)], [0x8e, 0x01, 0x0a]);
 });
+test('play-stage IDs and rejection payloads keep the same framing', () => {
+  assert.equal(encodeClick('test:a', ['document_0'], 0x41, 'unchecked').toString('hex'), '4106746573743a61100a01000a646f63756d656e745f300000');
+  assert.equal(encodeClick('test:a', ['document_0'], 0x44, 'string').toString('hex'), '4406746573743a61150a08000a646f63756d656e745f3000047472756500');
+  assert.equal(encodeClick('test:a', ['document_0'], 0x44, 'int').toString('hex'), '4406746573743a61130a03000a646f63756d656e745f300000000100');
+});
