@@ -7,6 +7,7 @@ import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDamageEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
@@ -38,6 +39,7 @@ import org.bukkit.event.player.PlayerEditBookEvent;
 import org.bukkit.event.player.PlayerEvent;
 import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.player.PlayerHarvestBlockEvent;
+import org.bukkit.event.player.PlayerInputEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -80,17 +82,22 @@ final class SpigotFreeze implements Listener {
             InventoryOpenEvent.class, InventoryClickEvent.class, InventoryDragEvent.class, PlayerDropItemEvent.class,
             EntityPickupItemEvent.class, PlayerPickupArrowEvent.class,
             EntityDamageEvent.class, VehicleDamageEvent.class, HangingBreakByEntityEvent.class,
-            FoodLevelChangeEvent.class, EntityAirChangeEvent.class, EntityTargetEvent.class);
+            FoodLevelChangeEvent.class, EntityAirChangeEvent.class, EntityTargetEvent.class, PlayerInputEvent.class);
     // Plugin, unknown, dismount, and bed teleports stay allowed, so spawn plugins still work.
     private static final Set<String> BLOCKED_TELEPORTS = Set.of("ENDER_PEARL", "CHORUS_FRUIT", "CONSUMABLE_EFFECT",
             "NETHER_PORTAL", "END_PORTAL", "END_GATEWAY", "SPECTATE", "COMMAND");
 
     private final Predicate<Player> held;
+    private final Predicate<Player> joining;
     private final Consumer<Player> blocked;
 
-    /** {@code blocked} hears about actions a vanilla client can only take when no screen is open. */
-    SpigotFreeze(Predicate<Player> held, Consumer<Player> blocked) {
+    /**
+     * {@code blocked} hears about actions a vanilla client can only take when no screen is open. {@code joining} lets a
+     * held player mount during the join tick, when Spigot restores a saved vehicle; the gate dismounts them a tick later.
+     */
+    SpigotFreeze(Predicate<Player> held, Predicate<Player> joining, Consumer<Player> blocked) {
         this.held = held;
+        this.joining = joining;
         this.blocked = blocked;
     }
 
@@ -104,11 +111,18 @@ final class SpigotFreeze implements Listener {
     }
 
     void handle(Event event) {
+        // Movement keys only reach the server when no screen is open. Moving alone does not tell: water and mobs push too.
+        if (event instanceof PlayerInputEvent input) {
+            var keys = input.getInput();
+            if (held.test(input.getPlayer()) && (keys.isForward() || keys.isBackward() || keys.isLeft() || keys.isRight() || keys.isJump())) {
+                blocked.accept(input.getPlayer());
+            }
+            return;
+        }
         if (event instanceof PlayerMoveEvent move && !(event instanceof PlayerTeleportEvent)) {
             if (!held.test(move.getPlayer()) || move.getTo() == null) return;
             Location from = move.getFrom(), to = move.getTo();
             if (from.getX() == to.getX() && from.getY() == to.getY() && from.getZ() == to.getZ()) return;
-            if (from.getX() != to.getX() || from.getZ() != to.getZ()) blocked.accept(move.getPlayer());
             Location back = from.clone();
             back.setYaw(to.getYaw());
             back.setPitch(to.getPitch());
@@ -117,8 +131,11 @@ final class SpigotFreeze implements Listener {
         }
         if (event instanceof Cancellable cancellable && involvesHeld(event)) {
             cancellable.setCancelled(true);
+            // Pressure plates and tripwires fire PHYSICAL every tick while cancelled, also with a screen open.
             if (event instanceof AsyncPlayerChatEvent || event instanceof PlayerCommandPreprocessEvent
-                    || event instanceof PlayerInteractEvent) blocked.accept(((PlayerEvent) event).getPlayer());
+                    || event instanceof PlayerInteractEvent interact && interact.getAction() != Action.PHYSICAL) {
+                blocked.accept(((PlayerEvent) event).getPlayer());
+            }
         }
     }
 
@@ -141,8 +158,8 @@ final class SpigotFreeze implements Listener {
             case EntityDamageEvent damage -> held(damage.getEntity());
             case VehicleDamageEvent damage -> held(damage.getAttacker());
             case HangingBreakByEntityEvent hanging -> held(hanging.getRemover());
-            case VehicleEnterEvent enter -> held(enter.getEntered());
-            case EntityMountEvent mount -> held(mount.getEntity());
+            case VehicleEnterEvent enter -> held(enter.getEntered()) && !joining(enter.getEntered());
+            case EntityMountEvent mount -> held(mount.getEntity()) && !joining(mount.getEntity());
             case ProjectileLaunchEvent launch -> held(launch.getEntity().getShooter());
             case EntityShootBowEvent bow -> held(bow.getEntity());
             case EntityPickupItemEvent pickup -> held(pickup.getEntity());
@@ -155,5 +172,9 @@ final class SpigotFreeze implements Listener {
 
     private boolean held(Object subject) {
         return subject instanceof Player player && held.test(player);
+    }
+
+    private boolean joining(Object subject) {
+        return subject instanceof Player player && joining.test(player);
     }
 }

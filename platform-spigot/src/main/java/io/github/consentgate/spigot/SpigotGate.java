@@ -60,6 +60,8 @@ public final class SpigotGate implements Listener {
     // A dialog sent in the join tick can be lost behind the terrain loading screen.
     private static final long FIRST_SHOW_TICKS = 20;
     private static final long RESHOW_NANOS = TimeUnit.SECONDS.toNanos(3);
+    // Vanilla gives a login 30 seconds. A join that comes later than this is held and checked again, which is safe.
+    private static final long MARK_NANOS = TimeUnit.SECONDS.toNanos(60);
     private final JavaPlugin plugin;
     private final Map<UUID, Hold> held = new ConcurrentHashMap<>();
     private final Map<UUID, Mark> marks = new ConcurrentHashMap<>();
@@ -76,13 +78,15 @@ public final class SpigotGate implements Listener {
     private Metrics metrics;
 
     /** A login between the pre-login check and the join. {@code admitted} means it passed the check. */
-    private record Mark(boolean admitted, PreviewQueue.Choice preview, long expires) { }
+    private record Mark(boolean admitted, PreviewQueue.Choice preview, long expires) {
+        boolean valid() { return System.nanoTime() - expires < 0; }
+    }
 
     SpigotGate(JavaPlugin plugin) { this.plugin = plugin; }
 
     void enable() {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
-        new SpigotFreeze(this::isHeld, this::reshow).register(plugin);
+        new SpigotFreeze(this::isHeld, this::isJoining, this::reshow).register(plugin);
         installCommand();
         try {
             defaults();
@@ -107,7 +111,7 @@ public final class SpigotGate implements Listener {
         }
         // Players already online after /reload or a late load go through the same join path.
         for (Player player : plugin.getServer().getOnlinePlayers()) {
-            if (!ready) player.kickPlayer(localized(null, "error-unavailable"));
+            if (!ready) refuse(player, "error-unavailable");
             else if (runtime.enabled()) hold(player, null);
         }
         // Usage statistics must never stop the gate from enabling.
@@ -122,17 +126,18 @@ public final class SpigotGate implements Listener {
         var active = runtime;
         if (!active.enabled()) return;
         UUID id = event.getUniqueId();
-        long expires = System.nanoTime() + TimeUnit.SECONDS.toNanos(active.config().timeoutSeconds());
+        long expires = System.nanoTime() + MARK_NANOS;
         PreviewQueue.Choice preview;
+        Mark pending;
         synchronized (held) {
-            long now = System.nanoTime();
-            marks.values().removeIf(mark -> now - mark.expires() >= 0);
-            long waiting = marks.values().stream().filter(mark -> !mark.admitted()).count();
+            marks.values().removeIf(mark -> !mark.valid());
+            // Only held players count toward the limit, so logins that drop before joining never block others.
             if (stopping || reloading || resetting.contains(id) || held.containsKey(id)
-                    || held.size() + waiting >= active.config().maxPending()) { refuse(event, "error-busy"); return; }
+                    || held.size() >= active.config().maxPending()) { refuse(event, "error-busy"); return; }
             preview = previews.take(id).orElse(null);
-            // Marked before the check, so a reset started now waits until this login has ended.
-            marks.put(id, new Mark(false, preview, expires));
+            // Marked before the check, so a reset started now waits until this login has joined or the mark expired.
+            pending = new Mark(false, preview, expires);
+            marks.put(id, pending);
         }
         if (preview != null) return;
         var accepted = new CompletableFuture<Boolean>();
@@ -141,16 +146,16 @@ public final class SpigotGate implements Listener {
                 try { accepted.complete(active.admissionService().orElseThrow().check(id, active.config().defaultLocale()).isEmpty()); }
                 catch (Exception | LinkageError ex) { accepted.completeExceptionally(ex); }
             }), false);
-        } catch (RejectedExecutionException ex) { marks.remove(id); refuse(event, "error-busy"); return; }
+        } catch (RejectedExecutionException ex) { marks.remove(id, pending); refuse(event, "error-busy"); return; }
         try {
-            if (accepted.get(CHECK_SECONDS, TimeUnit.SECONDS)) marks.put(id, new Mark(true, null, expires));
+            if (accepted.get(CHECK_SECONDS, TimeUnit.SECONDS)) marks.replace(id, pending, new Mark(true, null, expires));
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            marks.remove(id);
+            marks.remove(id, pending);
             refuse(event, "error-check");
         } catch (Exception ex) {
             plugin.getLogger().log(Level.WARNING, "Consent check failed for " + id, ex);
-            marks.remove(id);
+            marks.remove(id, pending);
             refuse(event, "error-check");
         }
     }
@@ -169,9 +174,11 @@ public final class SpigotGate implements Listener {
         Player player = event.getPlayer();
         for (var hold : held.values()) player.hidePlayer(plugin, hold.player);
         Mark mark = marks.remove(player.getUniqueId());
-        if (mark != null && mark.admitted() && System.nanoTime() - mark.expires() < 0) return;
+        if (mark != null && mark.admitted() && mark.valid()) return;
         // Anyone else is held, including a player with no mark at all.
-        if (ready && !stopping && !runtime.enabled()) return;
+        if (!ready || stopping) { refuse(player, "error-unavailable"); return; }
+        if (!runtime.enabled()) return;
+        if (held.size() >= runtime.config().maxPending()) { refuse(player, "error-busy"); return; }
         hold(player, mark == null ? null : mark.preview());
     }
 
@@ -195,15 +202,21 @@ public final class SpigotGate implements Listener {
     }
 
     private void hold(Player player, PreviewQueue.Choice preview) {
-        if (!ready || stopping) { player.kickPlayer(localized(null, "error-unavailable")); return; }
         var config = runtime.config();
         String locale = preview != null && preview.locale() != null ? preview.locale()
                 : config.useClientLocale() ? player.getLocale() : config.defaultLocale();
         var hold = new Hold(player, locale, preview);
+        hold.joining = true;
         var previous = held.put(hold.id, hold);
         if (previous != null) { previous.quit = true; previous.finish("Connection ended."); }
-        for (Player viewer : plugin.getServer().getOnlinePlayers()) if (viewer != player) viewer.hidePlayer(plugin, player);
+        hide(player);
         var scheduler = plugin.getServer().getScheduler();
+        // Spigot restores a saved vehicle after the join event, and a cancelled mount would delete it. So the mount goes
+        // through, and the held player gets off a tick later. This also covers players held while already riding.
+        scheduler.runTask(plugin, () -> {
+            hold.joining = false;
+            if (held.get(hold.id) == hold && player.isInsideVehicle()) player.leaveVehicle();
+        });
         hold.timeout = scheduler.runTaskLater(plugin, () -> hold.finish(hold.message("error-timeout")), config.timeoutSeconds() * 20L);
         scheduler.runTaskLater(plugin, () -> execute(hold, () -> {
             var service = runtime.admissionService().orElseThrow();
@@ -212,6 +225,18 @@ public final class SpigotGate implements Listener {
             if (request.isEmpty()) hold.finish(null);
             else onMain(() -> present(hold, request.orElseThrow()));
         }), FIRST_SHOW_TICKS);
+    }
+
+    /** For a player who cannot be held. If another plugin cancels the kick, the hold keeps them frozen and hidden. */
+    private void refuse(Player player, String key) {
+        var hold = new Hold(player, null, null);
+        held.put(hold.id, hold);
+        hide(player);
+        hold.finish(hold.message(key));
+    }
+
+    private void hide(Player player) {
+        for (Player viewer : plugin.getServer().getOnlinePlayers()) if (viewer != player) viewer.hidePlayer(plugin, player);
     }
 
     private void present(Hold hold, AdmissionRequest request) {
@@ -349,6 +374,11 @@ public final class SpigotGate implements Listener {
         return hold != null && hold.player == player;
     }
 
+    boolean isJoining(Player player) {
+        var hold = held.get(player.getUniqueId());
+        return hold != null && hold.player == player && hold.joining;
+    }
+
     /**
      * The client never says when a dialog closed, for example when another plugin opened its own screen. A held player who
      * chats, runs a command, interacts, or walks sideways has no screen open, so the current one is sent again. A timer
@@ -420,7 +450,8 @@ public final class SpigotGate implements Listener {
 
     /** Online, held, or between the pre-login check and the join. */
     private boolean connected(UUID id) {
-        return plugin.getServer().getPlayer(id) != null || held.containsKey(id) || marks.containsKey(id);
+        var mark = marks.get(id);
+        return plugin.getServer().getPlayer(id) != null || held.containsKey(id) || mark != null && mark.valid();
     }
 
     private void previewCommand(UUID id, String locale, Consumer<String> reply) {
@@ -598,6 +629,7 @@ public final class SpigotGate implements Listener {
         volatile BedrockView bedrock;
         volatile String joinMessage;
         volatile boolean quit;
+        volatile boolean joining;
         volatile BukkitTask timeout;
         Dialog current;
         long shownAt;
@@ -617,9 +649,12 @@ public final class SpigotGate implements Listener {
         @Override protected void disconnect(String reason) {
             onMain(() -> {
                 cancelTimeout();
-                // The kick fires the quit event at once, and that handler needs this hold to hide the quit message.
-                if (!quit && player.isOnline()) player.kickPlayer(reason);
-                held.remove(id, this);
+                if (quit || !player.isOnline()) { held.remove(id, this); return; }
+                // The kick fires the quit event at once; that handler hides the quit message and removes this hold.
+                player.kickPlayer(reason);
+                // A plugin that cancels PlayerKickEvent leaves the player online. The hold stays until they leave.
+                if (player.isOnline()) plugin.getLogger().severe("Another plugin cancelled ConsentGate's kick for "
+                        + player.getName() + ". They stay frozen and hidden until they leave.");
             });
         }
         @Override protected void admitted() { onMain(() -> release(this)); }

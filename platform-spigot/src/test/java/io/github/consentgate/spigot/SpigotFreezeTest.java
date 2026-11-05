@@ -1,5 +1,6 @@
 package io.github.consentgate.spigot;
 
+import org.bukkit.Input;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -9,6 +10,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
+import org.bukkit.entity.Vehicle;
 import org.bukkit.entity.Zombie;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
@@ -24,10 +26,12 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerInputEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.server.TabCompleteEvent;
+import org.bukkit.event.vehicle.VehicleEnterEvent;
 import org.bukkit.inventory.InventoryView;
 import org.junit.jupiter.api.Test;
 import java.lang.reflect.Proxy;
@@ -44,7 +48,8 @@ class SpigotFreezeTest {
     private final Player held = proxy(Player.class, Map.of("getUniqueId", UUID.randomUUID()));
     private final Player free = proxy(Player.class, Map.of("getUniqueId", UUID.randomUUID()));
     private final List<Player> blocked = new ArrayList<>();
-    private final SpigotFreeze freeze = new SpigotFreeze(player -> player == held, blocked::add);
+    private boolean joining;
+    private final SpigotFreeze freeze = new SpigotFreeze(player -> player == held, player -> player == held && joining, blocked::add);
 
     @Test void cancelsActionsOfHeldPlayersOnly() {
         List<Function<Player, Event>> events = List.of(
@@ -89,17 +94,45 @@ class SpigotFreezeTest {
         freeze.handle(walk);
         assertEquals(List.of(0.0, 64.0, 0.0, 90f, 10f), List.of(walk.getTo().getX(), walk.getTo().getY(), walk.getTo().getZ(),
                 walk.getTo().getYaw(), walk.getTo().getPitch()));
-        assertEquals(List.of(held), blocked, "Walking sideways means no screen is open");
         var fall = new PlayerMoveEvent(held, at(0, 64, 0), at(0, 63, 0));
         freeze.handle(fall);
         assertEquals(64.0, fall.getTo().getY());
-        assertEquals(1, blocked.size(), "Falling is not a sign of a closed screen");
+        assertEquals(List.of(), blocked, "Water and mobs push players with a screen open, so moving does not ask for the screen");
         var turn = new PlayerMoveEvent(held, at(0, 64, 0), look(at(0, 64, 0), 45, 0));
         freeze.handle(turn);
         assertEquals(45f, turn.getTo().getYaw());
         var other = new PlayerMoveEvent(free, at(0, 64, 0), at(5, 64, 0));
         freeze.handle(other);
         assertEquals(5.0, other.getTo().getX());
+    }
+
+    @Test void onlyPressedMovementKeysAskForTheScreenAgain() {
+        for (String key : List.of("isForward", "isBackward", "isLeft", "isRight", "isJump")) {
+            freeze.handle(new PlayerInputEvent(held, proxy(Input.class, Map.of(key, true))));
+            freeze.handle(new PlayerInputEvent(free, proxy(Input.class, Map.of(key, true))));
+        }
+        freeze.handle(new PlayerInputEvent(held, proxy(Input.class, Map.of("isSneak", true, "isSprint", true))));
+        freeze.handle(new PlayerInputEvent(held, proxy(Input.class, Map.of())));
+        assertEquals(List.of(held, held, held, held, held), blocked);
+    }
+
+    @Test void pressurePlatesAreBlockedWithoutAskingForTheScreen() {
+        var plate = new PlayerInteractEvent(held, Action.PHYSICAL, null, proxy(Block.class, Map.of()), BlockFace.SELF);
+        freeze.handle(plate);
+        assertTrue(plate.isCancelled());
+        assertEquals(List.of(), blocked);
+    }
+
+    @Test void mountsGoThroughOnlyDuringTheJoinTick() {
+        var boat = proxy(Vehicle.class, Map.of());
+        joining = true;
+        var restore = new VehicleEnterEvent(boat, held);
+        freeze.handle(restore);
+        assertFalse(restore.isCancelled(), "Spigot deletes a saved vehicle when the restoring mount is cancelled");
+        joining = false;
+        var later = new VehicleEnterEvent(boat, held);
+        freeze.handle(later);
+        assertTrue(later.isCancelled());
     }
 
     // Bukkit calls a listener only for the class that owns the handler list. Two entries sharing one list would run twice.
