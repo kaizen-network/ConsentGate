@@ -81,7 +81,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.UUID;
 
-@Plugin(id = "consentgate", name = "ConsentGate", version = "1.0.0",
+@Plugin(id = "consentgate", name = "ConsentGate", version = "1.1.0",
         description = "Configurable pre-admission agreements", authors = {"Kaizen Network"},
         dependencies = {@Dependency(id = "packetevents"), @Dependency(id = "geyser", optional = true)})
 public final class ConsentGateVelocity {
