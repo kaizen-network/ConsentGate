@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0 (unreleased)
+
+Anonymous usage statistics.
+
+### Added
+
+- Paper and Velocity send anonymous, server-level usage statistics to bStats: player count, server software and version, Java and operating system, ConsentGate version, and a random server ID. No player data, documents, or consent records are sent. See [usage statistics](docs/storage.md#usage-statistics-bstats) for the full list and how to turn it off.
+
+### Upgrading from 0.3.0
+
+Back up the plugin folder, stop the server or proxy, replace the JAR, and start again. To keep usage statistics off from the first start, turn bStats off before starting; see [turning it off](docs/storage.md#turning-it-off).
+
 ## 0.3.0 (2026-10-09)
 
 Translatable error messages and automatic config updates.
