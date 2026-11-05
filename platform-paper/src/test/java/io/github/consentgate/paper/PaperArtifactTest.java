@@ -27,6 +27,10 @@ class PaperArtifactTest {
             assertNotNull(jar.getEntry("db/mysql-v1.sql"));
             assertNotNull(jar.getEntry("META-INF/licenses/Examination.txt"));
             assertNotNull(jar.getEntry("META-INF/licenses/Adventure-NBT.txt"));
+            // bStats refuses to start unless it is relocated.
+            assertNotNull(jar.getEntry("io/github/consentgate/internal/bstats/bukkit/Metrics.class"));
+            assertNull(jar.getEntry("org/bstats/MetricsBase.class"));
+            assertNotNull(jar.getEntry("META-INF/licenses/bStats.txt"));
             try (var input = jar.getInputStream(jar.getEntry("io/github/consentgate/paper/PaperDialogs.class"))) {
                 String bytecode = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.ISO_8859_1);
                 assertTrue(bytecode.contains("net/kyori/adventure/nbt/api/BinaryTagHolder"));

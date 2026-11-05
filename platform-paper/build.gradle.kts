@@ -10,6 +10,7 @@ dependencies {
     implementation("net.kyori:adventure-nbt:4.26.1") { isTransitive = false }
     implementation("net.kyori:examination-api:1.3.0") { isTransitive = false }
     implementation("net.kyori:examination-string:1.3.0") { isTransitive = false }
+    implementation("org.bstats:bstats-bukkit:3.2.1")
     testImplementation("net.kyori:adventure-nbt:4.26.1")
     testImplementation("net.kyori:adventure-text-minimessage:4.26.1")
 }
@@ -27,6 +28,7 @@ tasks.shadowJar {
         exclude("net.kyori.adventure.nbt.api.**")
     }
     relocate("net.kyori.examination", "io.github.consentgate.internal.examination")
+    relocate("org.bstats", "io.github.consentgate.internal.bstats")
     exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
 }
 val pluginVersion = version.toString()

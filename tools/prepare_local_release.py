@@ -112,6 +112,7 @@ def main():
             required = ['META-INF/LICENSE', 'META-INF/THIRD_PARTY_NOTICES.md',
                         'META-INF/licenses/SnakeYAML.txt', 'META-INF/licenses/MariaDB-Connector-J.txt',
                         'META-INF/licenses/MariaDB-Connector-J-NOTICE.txt',
+                        'META-INF/licenses/bStats.txt',
                         'META-INF/maven/org.xerial/sqlite-jdbc/LICENSE',
                         'META-INF/maven/org.xerial/sqlite-jdbc/LICENSE.zentus']
             if platform == 'Paper':

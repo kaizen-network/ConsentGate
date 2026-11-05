@@ -21,6 +21,7 @@ import io.papermc.paper.connection.PlayerConfigurationConnection;
 import io.papermc.paper.event.connection.configuration.AsyncPlayerConnectionConfigureEvent;
 import io.papermc.paper.event.player.PlayerCustomClickEvent;
 import net.kyori.adventure.text.Component;
+import org.bstats.bukkit.Metrics;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -43,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 public final class ConsentGatePaper extends JavaPlugin implements Listener {
+    private static final int BSTATS_ID = 35143;
     private final Map<PlayerConfigurationConnection, Pending> sessions = new ConcurrentHashMap<>();
     private final Set<UUID> resetting = ConcurrentHashMap.newKeySet();
     private final Set<UUID> awaitingJoin = ConcurrentHashMap.newKeySet();
@@ -55,6 +57,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
     private volatile ConsentGateRuntime runtime;
     private PaperDialogs dialogs;
     private ThreadPoolExecutor database;
+    private Metrics metrics;
 
     @Override public void onEnable() {
         getServer().getPluginManager().registerEvents(this, this);
@@ -80,6 +83,9 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
         } catch (Exception | LinkageError ex) {
             getLogger().log(java.util.logging.Level.SEVERE, "ConsentGate could not start. Connections will be denied.", ex);
         }
+        // Usage statistics must never stop the gate from enabling.
+        try { metrics = new Metrics(this, BSTATS_ID); }
+        catch (RuntimeException | LinkageError ex) { getLogger().log(java.util.logging.Level.WARNING, "bStats could not start", ex); }
     }
 
     @EventHandler public void configure(AsyncPlayerConnectionConfigureEvent event) {
@@ -388,6 +394,7 @@ public final class ConsentGatePaper extends JavaPlugin implements Listener {
     }
 
     @Override public void onDisable() {
+        if (metrics != null) metrics.shutdown();
         List<Pending> ending;
         synchronized (sessions) { stopping = true; ending = List.copyOf(sessions.values()); }
         ending.forEach(pending -> finish(pending, pending.message("error-stopping")));

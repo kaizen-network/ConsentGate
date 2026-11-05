@@ -9,6 +9,7 @@ ConsentGate is GPL-3.0-only. Bundled dependencies retain the licenses below. The
 | MariaDB Connector/J | 3.5.10 | LGPL-2.1-or-later | Both JARs, relocated to `io.github.consentgate.internal.mariadb` |
 | Adventure NBT | 4.26.1 | MIT | Paper only, relocated to `io.github.consentgate.internal.adventurenbt`, except the shared API package |
 | Examination API and String | 1.3.0 | MIT | Paper only, relocated to `io.github.consentgate.internal.examination` |
+| bStats Metrics | 3.2.1 | MIT | `bstats-base` in both JARs, with `bstats-bukkit` in Paper and `bstats-velocity` in Velocity, relocated to `io.github.consentgate.internal.bstats` |
 
 Relocation changes package names in bytecode and service descriptors. ConsentGate does not edit these libraries' upstream Java sources. The Gradle scripts describe the transformations. Rebuilding the project with a modified dependency and replacing the resulting platform JAR is supported; no signature or license check prevents replacement. Review local server policy before replacing software.
 

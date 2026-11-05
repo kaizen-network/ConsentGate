@@ -13,6 +13,7 @@ dependencies {
     testImplementation("com.velocitypowered:velocity-api:3.4.0-20260121.190037-118")
     annotationProcessor("com.velocitypowered:velocity-api:3.4.0-20260121.190037-118")
     compileOnly("com.github.retrooper:packetevents-api:2.13.0")
+    implementation("org.bstats:bstats-velocity:3.2.1")
 }
 tasks.test {
     dependsOn(tasks.shadowJar)
@@ -28,5 +29,6 @@ tasks.shadowJar {
     mergeServiceFiles()
     relocate("org.yaml.snakeyaml", "io.github.consentgate.internal.snakeyaml")
     relocate("org.mariadb.jdbc", "io.github.consentgate.internal.mariadb")
+    relocate("org.bstats", "io.github.consentgate.internal.bstats")
     exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
 }

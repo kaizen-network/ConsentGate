@@ -60,6 +60,36 @@
     "sha256": "5ee00410822f36e9019d94762ce01bcd6039569765351bef0660945cd4f9a56e"
   },
   {
+    "file": "bstats-base-3.2.1-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/org/bstats/bstats-base/3.2.1/bstats-base-3.2.1-sources.jar",
+    "sha256": "8dbaa6d58928ed4f40afbffb00c6a84ec922b37ba8e4c2d26b3eb8acdcafc9ca"
+  },
+  {
+    "file": "bstats-base-3.2.1.pom",
+    "url": "https://repo.maven.apache.org/maven2/org/bstats/bstats-base/3.2.1/bstats-base-3.2.1.pom",
+    "sha256": "3095a545da80aedb39599620986a0566f03bcb26ec0a7c2c53ced8e70a224a34"
+  },
+  {
+    "file": "bstats-bukkit-3.2.1-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/org/bstats/bstats-bukkit/3.2.1/bstats-bukkit-3.2.1-sources.jar",
+    "sha256": "3f077b7dd4c4598110c9ce91e49b6ba8d54f966526f68aa0d824bb9e374da6fb"
+  },
+  {
+    "file": "bstats-bukkit-3.2.1.pom",
+    "url": "https://repo.maven.apache.org/maven2/org/bstats/bstats-bukkit/3.2.1/bstats-bukkit-3.2.1.pom",
+    "sha256": "76064419e62bb0d3664ed3fb329987c4f907eef49bd3c7940e0476095c05ffbf"
+  },
+  {
+    "file": "bstats-velocity-3.2.1-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/org/bstats/bstats-velocity/3.2.1/bstats-velocity-3.2.1-sources.jar",
+    "sha256": "4fb3eb39a7dc89890a307714d54e5c8c239aa85719ec4c73e426553f5f92e160"
+  },
+  {
+    "file": "bstats-velocity-3.2.1.pom",
+    "url": "https://repo.maven.apache.org/maven2/org/bstats/bstats-velocity/3.2.1/bstats-velocity-3.2.1.pom",
+    "sha256": "b5aae20c55b5c845656afb6ac68c9cb2fa2c23ece2e32de41c134c2da5ac6aac"
+  },
+  {
     "file": "mariadb-connector-j-3.5.10.tar.gz",
     "url": "https://codeload.github.com/mariadb-corporation/mariadb-connector-j/tar.gz/refs/tags/3.5.10",
     "sha256": "1f548021beb8465a586db420b0dedfd621fdba3983c2c193eafc7444a6504fe7"

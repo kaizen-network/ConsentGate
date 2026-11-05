@@ -16,6 +16,10 @@ class VelocityArtifactTest {
             assertThrows(ClassNotFoundException.class, () -> loader.loadClass("org.mariadb.jdbc.Driver"));
             assertNotNull(jar.getEntry("META-INF/licenses/MariaDB-Connector-J.txt"));
             assertNotNull(jar.getEntry("db/mysql-v1.sql"));
+            // bStats refuses to start unless it is relocated.
+            assertNotNull(jar.getEntry("io/github/consentgate/internal/bstats/velocity/Metrics.class"));
+            assertNull(jar.getEntry("org/bstats/MetricsBase.class"));
+            assertNotNull(jar.getEntry("META-INF/licenses/bStats.txt"));
         }
     }
 }

@@ -27,7 +27,7 @@ tools/                Local test runners, probes, and the release packager
 docs/                 Admin docs; docs/contributing/ for contributors
 ```
 
-Each platform JAR is shaded with the shared core, relocated SnakeYAML and MariaDB Connector/J, SQLite JDBC with its native libraries, the remote schema, and license notices. Paper also bundles and relocates Adventure NBT and Examination for strict dialog response parsing. Platform APIs, PacketEvents, and Geyser stay external. The plugin never downloads anything at runtime.
+Each platform JAR is shaded with the shared core, relocated SnakeYAML, MariaDB Connector/J, and bStats, SQLite JDBC with its native libraries, the remote schema, and license notices. Paper also bundles and relocates Adventure NBT and Examination for strict dialog response parsing. Platform APIs, PacketEvents, and Geyser stay external. The plugin never downloads anything at runtime.
 
 ## Code guidelines
 

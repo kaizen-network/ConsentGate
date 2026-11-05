@@ -57,6 +57,7 @@ import io.github.consentgate.core.admission.AdmissionSession;
 import io.github.consentgate.core.runtime.ConsentGateRuntime;
 import io.github.consentgate.core.runtime.RuntimeLoader;
 import net.kyori.adventure.text.Component;
+import org.bstats.velocity.Metrics;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -86,9 +87,11 @@ import java.util.UUID;
 public final class ConsentGateVelocity {
     private static final Duration HEARTBEAT_INTERVAL = Duration.ofSeconds(10);
     private static final Duration HEARTBEAT_TIMEOUT = Duration.ofSeconds(25);
+    private static final int BSTATS_ID = 35145;
     private final ProxyServer proxy;
     private final Logger logger;
     private final Path dataDirectory;
+    private final Metrics.Factory metricsFactory;
     private final Map<Player, Pending> sessions = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<User, Pending> sessionsByUser = new java.util.concurrent.ConcurrentHashMap<>();
     private final Set<Player> admitted = java.util.concurrent.ConcurrentHashMap.newKeySet();
@@ -108,11 +111,13 @@ public final class ConsentGateVelocity {
     private volatile boolean stopping;
     private boolean reloading;
     private int databaseWork;
+    private Metrics metrics;
 
-    @Inject public ConsentGateVelocity(ProxyServer proxy, Logger logger, @DataDirectory Path dataDirectory) {
+    @Inject public ConsentGateVelocity(ProxyServer proxy, Logger logger, @DataDirectory Path dataDirectory, Metrics.Factory metricsFactory) {
         this.proxy = proxy;
         this.logger = logger;
         this.dataDirectory = dataDirectory;
+        this.metricsFactory = metricsFactory;
     }
 
     @Subscribe(priority = Short.MIN_VALUE) public void initialize(ProxyInitializeEvent event) {
@@ -164,6 +169,9 @@ public final class ConsentGateVelocity {
                         AdminDocuments.show(active.admissionService().orElseThrow().catalog(), active.config().defaultLocale(), args, reply);
                     }
                 }));
+        // Usage statistics must never stop the gate from starting.
+        try { metrics = metricsFactory.make(this, BSTATS_ID); }
+        catch (RuntimeException | LinkageError ex) { logger.warn("bStats could not start", ex); }
     }
 
     @Subscribe public EventTask choose(PlayerChooseInitialServerEvent event) {
@@ -861,6 +869,7 @@ public final class ConsentGateVelocity {
     }
 
     @Subscribe public void shutdown(ProxyShutdownEvent event) {
+        if (metrics != null) metrics.shutdown();
         List<Pending> ending;
         synchronized (sessions) {
             stopping = true;
