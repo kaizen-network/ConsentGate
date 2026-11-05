@@ -2,6 +2,7 @@
 **/build/
 /core/bin/
 /platform-paper/bin/
+/platform-spigot/bin/
 /platform-velocity/bin/
 /presentation/bin/
 /integration-bedrock/bin/

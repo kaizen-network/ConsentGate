@@ -18,8 +18,8 @@ subprojects {
     dependencyLocking {
         lockAllConfigurations()
         // Gradle stores timestamped Maven builds under their base SNAPSHOT version in lock files.
-        // These five coordinates are fixed explicitly and checked by verification-metadata.xml.
-        ignoredDependencies.addAll("io.papermc.paper:paper-api", "com.velocitypowered:velocity-api",
+        // These six coordinates are fixed explicitly and checked by verification-metadata.xml.
+        ignoredDependencies.addAll("io.papermc.paper:paper-api", "org.spigotmc:spigot-api", "com.velocitypowered:velocity-api",
             "com.velocitypowered:velocity-brigadier", "org.geysermc.geyser:api", "org.geysermc.event:events")
     }
     configurations.configureEach {

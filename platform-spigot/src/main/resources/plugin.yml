@@ -1,0 +1,30 @@
+name: ConsentGate
+version: '${version}'
+main: io.github.consentgate.spigot.ConsentGateSpigot
+api-version: '1.21'
+description: Configurable pre-admission agreements
+author: Kaizen Network
+softdepend: [Geyser-Spigot]
+commands:
+  consentgate:
+    description: Inspect consent records and manage ConsentGate
+    usage: /consentgate <status|reset|validate|reload|preview|document>
+permissions:
+  consentgate.admin.status:
+    description: Inspect current consent acceptance
+    default: op
+  consentgate.admin.reset:
+    description: Require consent again while preserving history
+    default: op
+  consentgate.admin.validate:
+    description: Validate edited ConsentGate files without applying them
+    default: op
+  consentgate.admin.reload:
+    description: Validate and reload supported ConsentGate settings
+    default: op
+  consentgate.admin.preview:
+    description: Queue a login preview that never saves consent
+    default: op
+  consentgate.admin.document:
+    description: Read active document versions and pages
+    default: op

@@ -13,7 +13,7 @@ sourceSets.test {
     resources.srcDir(project(":presentation").file("src/main/resources"))
 }
 
-for (platform in listOf("paper", "velocity")) {
+for (platform in listOf("paper", "spigot", "velocity")) {
     val artifact = configurations.create("${platform}Artifact") {
         isCanBeConsumed = false
         isCanBeResolved = true

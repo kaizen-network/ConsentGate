@@ -60,6 +60,76 @@
     "sha256": "5ee00410822f36e9019d94762ce01bcd6039569765351bef0660945cd4f9a56e"
   },
   {
+    "file": "adventure-api-4.26.1-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/adventure-api/4.26.1/adventure-api-4.26.1-sources.jar",
+    "sha256": "a39b5ec7967ee5375457c27381c09a47d4c379b3b537c499066c571db71cae8d"
+  },
+  {
+    "file": "adventure-api-4.26.1.pom",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/adventure-api/4.26.1/adventure-api-4.26.1.pom",
+    "sha256": "9c7682ecb494d5bec25690f6564278261f477d351d1ab44f2f9001ea4008a818"
+  },
+  {
+    "file": "adventure-key-4.26.1-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/adventure-key/4.26.1/adventure-key-4.26.1-sources.jar",
+    "sha256": "133cc1f89181ac4618219e985c8a12ca9db3164b9942cdd68b10917c21334c2b"
+  },
+  {
+    "file": "adventure-key-4.26.1.pom",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/adventure-key/4.26.1/adventure-key-4.26.1.pom",
+    "sha256": "532300907d2f7a8418c32c2d88994adbe64aa2f1130336f9f51e80d1d10cbca9"
+  },
+  {
+    "file": "adventure-text-minimessage-4.26.1-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/adventure-text-minimessage/4.26.1/adventure-text-minimessage-4.26.1-sources.jar",
+    "sha256": "fe0976e4893d1b366342f0e1b680ad54d2d1278fb0f51da827eea6885141e8ec"
+  },
+  {
+    "file": "adventure-text-minimessage-4.26.1.pom",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/adventure-text-minimessage/4.26.1/adventure-text-minimessage-4.26.1.pom",
+    "sha256": "23cfd51c97128fa8cdb8c7711613924cc0387f8e98649878dc87b8485682f8e8"
+  },
+  {
+    "file": "adventure-text-serializer-commons-4.26.1-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/adventure-text-serializer-commons/4.26.1/adventure-text-serializer-commons-4.26.1-sources.jar",
+    "sha256": "71e36abb8bcc28913088a76d7d7f0096c8b5cd5e11dfde5f40b0ff5a4ea8d359"
+  },
+  {
+    "file": "adventure-text-serializer-commons-4.26.1.pom",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/adventure-text-serializer-commons/4.26.1/adventure-text-serializer-commons-4.26.1.pom",
+    "sha256": "dd525c03545f6714565f2f8b0d508dc9dc6073db69d78ff3222e79aa8cab453b"
+  },
+  {
+    "file": "adventure-text-serializer-gson-4.26.1-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/adventure-text-serializer-gson/4.26.1/adventure-text-serializer-gson-4.26.1-sources.jar",
+    "sha256": "f80ad1756b9832719f5eae7354bb4283cef296a546288c704878e144c515df95"
+  },
+  {
+    "file": "adventure-text-serializer-gson-4.26.1.pom",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/adventure-text-serializer-gson/4.26.1/adventure-text-serializer-gson-4.26.1.pom",
+    "sha256": "d3cad10293f1f7954b9a56094469c35663eea0876dbb096051441f7336aef795"
+  },
+  {
+    "file": "adventure-text-serializer-json-4.26.1-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/adventure-text-serializer-json/4.26.1/adventure-text-serializer-json-4.26.1-sources.jar",
+    "sha256": "85d7ea62462f537ff578db9f19b333c98af5f748181bba1c11de77f5c333941f"
+  },
+  {
+    "file": "adventure-text-serializer-json-4.26.1.pom",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/adventure-text-serializer-json/4.26.1/adventure-text-serializer-json-4.26.1.pom",
+    "sha256": "576b7a1a30337e2c6516d5e5b20e0e319f3be08b87eb6df822a7678753a91682"
+  },
+  {
+    "file": "option-1.1.0-sources.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/option/1.1.0/option-1.1.0-sources.jar",
+    "sha256": "df829cf30d06e3eb426c9b2936f59bdf4ef3155c3a92d0b51faa301c9860abdb"
+  },
+  {
+    "file": "option-1.1.0.pom",
+    "url": "https://repo.maven.apache.org/maven2/net/kyori/option/1.1.0/option-1.1.0.pom",
+    "sha256": "1f3318a1cee63e8085096242cf0619a44b8576f6b56c2391a00cc5e1275847b6"
+  },
+  {
     "file": "bstats-base-3.2.1-sources.jar",
     "url": "https://repo.maven.apache.org/maven2/org/bstats/bstats-base/3.2.1/bstats-base-3.2.1-sources.jar",
     "sha256": "8dbaa6d58928ed4f40afbffb00c6a84ec922b37ba8e4c2d26b3eb8acdcafc9ca"
