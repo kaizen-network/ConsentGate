@@ -22,8 +22,11 @@ from build_artifacts import platform_artifact
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--protocol", type=int, choices=(771, 772), default=772)
+    parser.add_argument("--port", type=int, default=25590, help="Proxy port in velocity.toml")
+    parser.add_argument("--backend-port", type=int, default=25591, help="Port of the backend entry in velocity.toml")
     args = parser.parse_args()
     probe_velocity.PROTOCOL = args.protocol
+    probe_velocity.PORT, probe_velocity.BACKEND_PORT = args.port, args.backend_port
     print(f"Testing Java protocol {args.protocol}", flush=True)
     project = pathlib.Path(__file__).resolve().parents[1]
     directory = project / ".run" / "velocity"
@@ -37,13 +40,13 @@ def main():
     database = fixture / "probe.db"
     with (directory / "velocity.toml").open("rb") as source:
         config = tomllib.load(source)
-    assert config["bind"] == "127.0.0.1:25590", "Only the loopback test proxy is allowed"
+    assert config["bind"] == f"127.0.0.1:{args.port}", "Only the loopback test proxy is allowed"
     assert config["online-mode"] is False
     assert config["advanced"]["compression-threshold"] == -1
-    assert config["servers"]["backend"] == "127.0.0.1:25591"
+    assert config["servers"]["backend"] == f"127.0.0.1:{args.backend_port}"
     assert config["servers"]["try"] == ["backend"]
     with socket.socket() as check:
-        assert check.connect_ex(("127.0.0.1", 25590)) != 0, "Test port already occupied"
+        assert check.connect_ex(("127.0.0.1", args.port)) != 0, "Test port already occupied"
     process = None
     try:
         documents.mkdir(parents=True)
@@ -60,7 +63,7 @@ def main():
             if process.poll() is not None:
                 raise RuntimeError("Proxy exited; inspect .run/velocity/logs/latest.log")
             with socket.socket() as check:
-                if check.connect_ex(("127.0.0.1", 25590)) == 0:
+                if check.connect_ex(("127.0.0.1", args.port)) == 0:
                     break
             time.sleep(0.2)
         else:

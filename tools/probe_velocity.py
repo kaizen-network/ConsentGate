@@ -1,7 +1,7 @@
 """Local-only wire checks for the prototype using Minecraft Java protocol 771 or 772.
 
-Requires a running offline test proxy on 127.0.0.1:25590 with compression off
-and its initial backend set to 127.0.0.1:25591. No real account is used.
+Requires a running offline test proxy on 127.0.0.1:PORT (25590 by default) with compression off
+and its initial backend set to 127.0.0.1:BACKEND_PORT (25591). No real account is used.
 """
 
 import re
@@ -15,6 +15,8 @@ import time
 import uuid
 
 PROTOCOL = 772
+PORT = 25590
+BACKEND_PORT = 25591
 
 
 def varint(value):
@@ -55,8 +57,8 @@ class Client:
     def __init__(self, name=None, player_id=None, expect_dialog=True, protocol=None):
         self.name = name or "Probe_" + uuid.uuid4().hex[:8]
         self.player_id = player_id or uuid.uuid4()
-        self.socket = socket.create_connection(("127.0.0.1", 25590), timeout=5)
-        self.send(0, varint(PROTOCOL if protocol is None else protocol) + string("localhost") + struct.pack(">H", 25590) + varint(2))
+        self.socket = socket.create_connection(("127.0.0.1", PORT), timeout=5)
+        self.send(0, varint(PROTOCOL if protocol is None else protocol) + string("localhost") + struct.pack(">H", PORT) + varint(2))
         self.send(0, string(self.name) + self.player_id.bytes)
         packet, data = self.receive()
         assert packet == 2, ("Expected login success", packet, data)
@@ -132,7 +134,7 @@ def disconnected_without_backend(backend, client, seconds):
 
 def main(database=None, admin_check=None):
     with socket.socket() as backend:
-        backend.bind(("127.0.0.1", 25591))
+        backend.bind(("127.0.0.1", BACKEND_PORT))
         backend.listen()
         backend.settimeout(5)
         client = Client()
