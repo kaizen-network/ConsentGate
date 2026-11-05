@@ -4,6 +4,8 @@ Show your rules, terms, and privacy policy to players **before** they join, and 
 
 - **Velocity:** players accept before any backend connection.
 - **Paper:** players accept before entering the world.
+- **Spigot (hold mode, weaker):** players enter the world but stay frozen and hidden until they accept. Other plugins still see the join. Use Paper for the full guarantee.
+- **BungeeCord:** there is no proxy JAR. Install the Paper JAR (or the Spigot JAR) on each backend, with shared MySQL/MariaDB.
 
 ![Required agreements with Read and Continue buttons](https://kaizenmc.id/api/software/assets/consentgate/docs/images/required-agreements.png)
 
@@ -27,11 +29,13 @@ Show your rules, terms, and privacy policy to players **before** they join, and 
 | --- | --- |
 | Velocity | Java 21+, Minecraft Java 1.21.6+ clients, and [PacketEvents](https://modrinth.com/plugin/packetevents) 2.13.0 on the same proxy |
 | Paper | Java 21+, Paper 1.21.7+, Minecraft Java 1.21.6+ clients |
+| Spigot | Java 21+, Spigot 1.21.8+, Minecraft Java 1.21.6+ clients |
+| BungeeCord | No proxy JAR. The Paper or Spigot JAR on every backend, all using the same MySQL/MariaDB database |
 | Bedrock (optional) | [Geyser](https://geysermc.org/download) on the same proxy or server |
 
 ## Quick start
 
-1. Put the JAR for your platform in `plugins/` (with PacketEvents on Velocity) and start once.
+1. Put the JAR for your platform in `plugins/` (with PacketEvents on Velocity) and start once. Paper and Spigot have separate JARs.
 2. Edit the two starter documents in `documents/`, then rename them to end in `.yml`.
 3. Set `enabled: true` in `config.yml`.
 4. Run `consentgate validate`, then `consentgate reload`.

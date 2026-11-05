@@ -17,9 +17,10 @@ node --test tools/test_paper_probe.cjs
 - **Presentation:** message fallback and validation, safe text formatting, and adding new settings and messages to existing files without changing the admin's values, comments, or language list.
 - **Cache:** expiry, persistence, reset, capacity, corrupt files, failed invalidation, clock changes, and stalled connection setup.
 - **Admission hold (core, shared by Paper and Spigot):** commit before release, queued cancellation, full queues, locked SQLite, save and reset order after disconnect, shutdown, timeout, rendering failures, and native callback lock order.
-- **Bedrock:** Cumulus response parsing, menu and page navigation, unchecked defaults, partial selections, malformed and stale responses, close behavior, and failed delivery. `:integration-bedrock:paperArtifactTest` and `:integration-bedrock:velocityArtifactTest` repeat the provider regression against the real shaded JARs.
+- **Bedrock:** Cumulus response parsing, menu and page navigation, unchecked defaults, partial selections, malformed and stale responses, close behavior, and failed delivery. `:integration-bedrock:paperArtifactTest`, `:integration-bedrock:spigotArtifactTest`, and `:integration-bedrock:velocityArtifactTest` repeat the provider regression against the real shaded JARs.
+- **Spigot:** checkbox decoding (only bytes of 0 or 1), detection and refusal for each server type, entry classes that must load without the dialog API, the freeze rules (held players only, plugin teleports allowed, one handler list per event), the dialog JSON Spigot sends, and the shaded Adventure working without server Adventure.
 - **Python tools:** dialog framing against fixed bytes (see [protocol notes](protocol-notes.md)), runner cleanup, and the release packager.
-- **Node:** helpers for the Paper probe.
+- **Node:** helpers for the Paper and Spigot probes.
 
 ## Local test servers
 
@@ -61,7 +62,7 @@ Turn bStats off in `plugins/bStats/config.txt` with `enabled=false` and a `serve
 python tools/run_velocity_probe.py --protocol 772
 ```
 
-Use `--protocol 771` for Java 1.21.6 or `772` for 1.21.8 (the default). The probe opens an instrumented backend listener and checks:
+Use `--protocol 771` for Java 1.21.6 or `772` for 1.21.8 (the default). If the proxy and backend use other ports, pass `--port` and `--backend-port`. The probe opens an instrumented backend listener and checks:
 
 - no backend connection during 35 seconds of waiting with keepalives
 - the pending limit rejects extra connections
@@ -104,6 +105,30 @@ node tools/probe_paper.cjs --modules C:/path/to/node_modules --name ConsentProbe
 
 A disconnect alone does not say which plugin caused it; match it with the server log. Use a new `--name` per run, or an offline reset. The probe records real acceptance for its synthetic player and does not prove anything was read.
 
+### Spigot
+
+Spigot server JARs may not be redistributed, so build them locally with [BuildTools](https://hub.spigotmc.org/jenkins/job/BuildTools/), for example `java -jar BuildTools.jar --rev 1.21.8 --compile spigot`. Spigot 26.x needs Java 25. Prepare `.run/spigot-1.21.8` with the server JAR as `server.jar`, `eula.txt`, and a `server.properties` with `server-ip=127.0.0.1`, `server-port=25720`, `online-mode=false`, `enable-rcon=false`, `enable-query=false`, `enforce-secure-profile=false`, `level-type=minecraft\:flat`, and `spawn-protection=0`. Write `plugins/bStats/config.yml` with `enabled: false` before the first start.
+
+```powershell
+python tools/run_spigot_probe.py --modules C:/path/to/node_modules --version 1.21.8 --port 25720
+```
+
+Use `--version 26.1` for a Spigot 26.1.x server (protocol 775). The probe uses a watcher bot and held bots, with new player names on every run, and checks:
+
+- the dialog arrives in play and waits for the server after each button
+- held players are hidden, with no join message; movement is reverted; chat, commands, damage, digging, and item drops are blocked
+- a blocked command shows the screen again
+- unchecked, string, int, empty, and foreign-token payloads do not release; a valid acceptance does, and the join message is shown once
+- released players can move, chat, take damage, and dig; an accepted rejoin is not held
+- Leave, timeout, and preview save nothing and show no join or quit message; a second login for a held player is refused
+- `/reload` kicks held players, and players already online without acceptance are held after the plugin enables
+
+`--refusal` installs the Paper JAR instead and checks that it refuses every login on Spigot with the hint to use the Spigot JAR.
+
+### BungeeCord
+
+There is no proxy JAR, so test the backend setup: BungeeCord with `ip_forward: true`, a Paper backend with the Paper JAR and a Spigot backend with the Spigot JAR (`settings.bungeecord: true` in both `spigot.yml` files), and one MySQL/MariaDB database with the same scope and documents on both. Accept once, then switch servers with `/server` in both directions: no second prompt. BungeeCord sends its own statistics to `mcstats.spigotmc.org` and has no setting to turn that off; for local tests, start it with `-Dhttps.proxyHost=127.0.0.1` and a closed local `-Dhttps.proxyPort` (and the same for `http`).
+
 ## Remote databases
 
 Real database tests are opt-in and need a dedicated database whose name starts with `consentgate_test_`. Set these privately:
@@ -143,6 +168,10 @@ Automated probes are not a real client. Before a release that touches dialogs, f
 4. Offline reset, reconnect, and choose Leave: immediate, readable disconnect, no entry.
 
 **Bedrock on Paper** (Geyser-Spigot on the same server): with native forms on, repeat reading, Back, partial selections, acceptance, and accepted reconnect. Closing the agreement form returns to the menu; closing the menu disconnects. Then turn native forms off, restart, reset the test player, and check the translated dialogs.
+
+**Java on Spigot** (1.21.8 and the newest supported client): the same checklist, plus walking, jumping, chatting, `/help`, hitting a mob, opening a chest, a mob attacking at night, joining in lava, mid-air, and in a boat, and Escape on each screen. Check that the waiting screen after each button ends when the next screen or the release arrives, that the first screen survives terrain loading, and that the screen comes back after another plugin opens its own menu at join.
+
+**Bedrock on Spigot** (Geyser-Spigot on the same server): the same native and translated checks as on Paper.
 
 **Bedrock on Velocity** (Geyser on the proxy): the same native checks, plus normal login, backend entry, and reconnect. Check login and routing problems separately from consent.
 

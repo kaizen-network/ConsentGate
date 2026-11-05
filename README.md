@@ -8,6 +8,8 @@ ConsentGate shows rules, policies, and other documents to players before they ar
 
 - **Velocity:** players accept before any backend connection.
 - **Paper:** players accept before entering the world.
+- **Spigot (hold mode, weaker):** players enter the world but stay frozen and hidden until they accept. Other plugins still see the join. Use Paper for the full guarantee.
+- **BungeeCord:** there is no proxy JAR. Install the Paper JAR (or the Spigot JAR) on each backend, with shared MySQL/MariaDB.
 - Java dialogs, plus native Bedrock forms through Geyser.
 - SQLite by default, or MySQL/MariaDB to share consent across servers.
 
@@ -25,11 +27,13 @@ ConsentGate shows rules, policies, and other documents to players before they ar
 | --- | --- |
 | Velocity | Java 21+, Minecraft Java 1.21.6+ clients, and [PacketEvents](https://github.com/retrooper/packetevents) 2.13.0 on the same proxy |
 | Paper | Java 21+, Paper 1.21.7+, Minecraft Java 1.21.6+ clients |
+| Spigot | Java 21+, Spigot 1.21.8+, Minecraft Java 1.21.6+ clients |
+| BungeeCord | No proxy JAR. The Paper or Spigot JAR on every backend, all using the same MySQL/MariaDB database |
 | Bedrock (optional) | [Geyser](https://geysermc.org/download) on the same proxy or server |
 
 ## Quick start
 
-1. Download the JAR for your platform from [releases](https://github.com/kaizen-network/ConsentGate/releases) and put it in `plugins/` (with PacketEvents on Velocity).
+1. Download the JAR for your platform from [releases](https://github.com/kaizen-network/ConsentGate/releases) and put it in `plugins/` (with PacketEvents on Velocity). Paper and Spigot have separate JARs; each one refuses every login on the other.
 2. Start once. The gate starts disabled and creates its config and starter documents.
 3. Edit `documents/terms.yml.example` and `documents/privacy.yml.example`, then rename them to end in `.yml`.
 4. Set `enabled: true` in `config.yml`.

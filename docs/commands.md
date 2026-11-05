@@ -6,7 +6,7 @@ order: 6
 
 # Commands and permissions
 
-Run these in the console without the leading `/`, or in game with `/` and the right permission. On Paper, the permissions default to operators.
+Run these in the console without the leading `/`, or in game with `/` and the right permission. On Paper and Spigot, the permissions default to operators.
 
 | Command | Permission | What it does |
 | --- | --- | --- |

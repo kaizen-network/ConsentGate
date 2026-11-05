@@ -20,6 +20,10 @@ order: 5
 
 Checkboxes always start unchecked. Leave disconnects right away without saving anything. Closing the summary (for example with Escape) counts as Leave, and closing a reading page counts as Back. Disconnecting or timing out never counts as acceptance.
 
+## Spigot
+
+On Spigot, players see the same screens as on Paper. The difference is where they are: behind the screen they are already in the world. Until they accept, they cannot move, chat, or be hurt, and other players cannot see them. If another plugin's screen covers the consent screen, the consent screen comes back when the player tries to move, chat, or use a command.
+
 ## Bedrock
 
 Bedrock players see one of two versions:
@@ -34,7 +38,7 @@ With native forms:
 - Closing the menu or the language selector disconnects.
 - Broken or outdated form responses are rejected, never accepted.
 
-Native forms need Geyser on the same proxy or server (Geyser-Spigot on Paper). ConsentGate uses the Cumulus library that comes with Geyser and does not bundle it. If a form cannot be delivered, the player is not let in.
+Native forms need Geyser on the same proxy or server (Geyser-Spigot on Paper and Spigot). ConsentGate uses the Cumulus library that comes with Geyser and does not bundle it. If a form cannot be delivered, the player is not let in.
 
 Documents, versions, and acceptance records are shared between Java and Bedrock.
 
@@ -44,3 +48,4 @@ Documents, versions, and acceptance records are shared between Java and Bedrock.
 - If the database cannot save the acceptance, the player is not let in and sees a message to try again.
 - On Velocity, the player does not connect to any backend server until the acceptance is saved.
 - On Paper, the player does not enter the world until the acceptance is saved.
+- On Spigot, the player is in the world but frozen and hidden until the acceptance is saved.

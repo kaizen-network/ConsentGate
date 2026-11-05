@@ -14,15 +14,18 @@ These are the setups ConsentGate has been tested with. Newer versions often work
 | --- | --- |
 | Velocity | 3.4.0 build 563 and a 4.1.0 snapshot, with PacketEvents 2.13.0 |
 | Paper | Paper 1.21.7 build 32 (Java 21), and a Paper-compatible 26.2 server |
-| BungeeCord, Spigot | Not supported yet |
+| Spigot (hold mode) | Spigot 1.21.8 and 26.1.2, built with BuildTools (Java 25) |
+| BungeeCord | No proxy JAR. BungeeCord build 2111 with a Paper 1.21.7 backend (Paper JAR) and a Spigot 1.21.8 backend (Spigot JAR) sharing one MariaDB database |
 
 On Velocity, tests covered normal routing, server switches, forced hosts, fallback when the main backend is down, and accepted rejoin, with no backend connection before acceptance.
+
+Behind BungeeCord, a player accepted once on either backend, then switched to the other and back without being asked again. The Paper backend held the player before world entry, and the Spigot backend held them in the world until they accepted.
 
 ## Clients
 
 | Client | Status |
 | --- | --- |
-| Java 1.21.6 and newer | Supported. Tested with 1.21.6, 1.21.7, 1.21.8, and 26.1. |
+| Java 1.21.6 and newer | Supported. Tested with 1.21.6, 1.21.7, 1.21.8, and 26.1. On Spigot, tested so far with bot clients for 1.21.8 and 26.1, not with the game itself. |
 | Java before 1.21.6 | Not supported. Dialogs do not exist before 1.21.6. |
 | Bedrock, native forms | Tested with Geyser 2.11.2 build 1235 and Floodgate 2.2.5 build 138, on Velocity and Paper |
 | Bedrock, translated dialogs | Tested through Geyser |
@@ -51,4 +54,37 @@ Plugins that hold a player in the configuration stage for a long time after they
 
 Paper 1.21.7 and newer have the dialog and configuration APIs ConsentGate needs. ConsentGate builds against the 1.21.7 API. Older builds are not supported. If Paper reports a missing method, check your exact build against the table above.
 
-On Spigot 1.21 or newer, and on Paper 1.21 to 1.21.6, ConsentGate logs an error and refuses every login until the server runs Paper 1.21.7 or newer. Servers older than 1.21 do not load ConsentGate at all, so it cannot block logins there.
+## Spigot hold mode
+
+Spigot has no step before world entry where a plugin can hold a player, so the Spigot JAR uses a hold mode instead:
+
+- Players who already accepted join normally and are never held.
+- Other players join the world, then see the same screens as on Paper. Until they accept, they cannot move, chat, type commands, interact, break or place blocks, use inventories, drop or pick up items, take or deal damage, lose hunger or air, or be targeted by mobs. Other players cannot see them in the world or in the tab list.
+- Their join message is hidden and shown after they accept. If they leave or are kicked first, no join or quit message is shown.
+- Plugin teleports still work, so spawn plugins can move a held player.
+- Leave, a timeout, or a failed save kicks the player. Nothing is saved, and the next join holds them again.
+- Stopping or reloading the server kicks held players. After `/reload`, players who are already online are checked again, and anyone without a current acceptance is held.
+
+What this mode cannot do:
+
+- Other plugins see the join, and their join handlers run before acceptance: welcome messages they send themselves, kits, spawn teleports, Discord join notices, and MOTDs.
+- Plugins that ignore cancelled events, or undo the cancel afterwards, can still act on a held player. Vanish, staff, and tab-list plugins may show held players.
+- The player count in the server list and in `/list` includes held players. Experience orbs and harmless potion effects are not blocked.
+- Clients older than 1.21.6 (through ViaBackwards) get no dialog and stay frozen until the timeout.
+
+The Spigot JAR logs this warning at every start: "ConsentGate is running in Spigot hold mode. Players enter the world first and stay frozen and hidden until they accept. This is weaker than Paper, where players accept before entering the world. Other plugins still see each join. Use Paper for the full guarantee."
+
+Spigot 1.21.6 and 1.21.7 have the same dialog API but were not tested. Bedrock players through Geyser-Spigot have not been tested on Spigot yet.
+
+## Wrong JAR or old server
+
+Each JAR refuses every login where it cannot protect players, and the log says why. Players see: "ConsentGate is not set up for this server. Ask the server owner to install the right ConsentGate file."
+
+| Server | Paper JAR | Spigot JAR |
+| --- | --- | --- |
+| Paper 1.21.7 and newer | Full gate | Refuses every login. The log says to use the Paper JAR. |
+| Spigot 1.21.6 and newer | Refuses every login. The log points to the Spigot JAR. | Hold mode |
+| Spigot 1.21 to 1.21.5, Paper 1.21 to 1.21.6 | Refuses every login | Refuses every login |
+| Older than 1.21 | Does not load | Does not load |
+
+Servers older than 1.21 do not load ConsentGate at all, so it cannot block logins there.

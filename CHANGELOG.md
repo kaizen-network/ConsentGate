@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.1.0 (unreleased)
+
+A Spigot JAR with a hold mode, and a documented BungeeCord setup.
+
+### Added
+
+- `ConsentGate-Spigot`, a separate JAR for Spigot 1.21.8 and newer. Spigot has no way to hold players before they enter the world, so this is a hold mode with a weaker guarantee: players enter the world but stay frozen and hidden until they accept. They see the same documents and checkboxes as on Paper, and their join message is shown only after they accept. Other plugins still see the join. Use Paper for the full guarantee. See [Spigot hold mode](docs/compatibility.md#spigot-hold-mode).
+- BungeeCord setup: there is no BungeeCord JAR. Install the Paper JAR (full guarantee) or the Spigot JAR (hold mode) on every backend, with the same MySQL/MariaDB database, so one acceptance counts everywhere. See [BungeeCord](docs/installation.md#bungeecord).
+
+### Changed
+
+- On Spigot, the Paper JAR still refuses every login. Its log now points to the Spigot JAR, and players see "ConsentGate is not set up for this server. Ask the server owner to install the right ConsentGate file." The Spigot JAR refuses every login on Paper, and on Spigot without dialogs (before 1.21.6), with the same message to players.
+
+### Upgrading from 1.0.0
+
+Paper and Velocity: back up the plugin folder, stop the server or proxy, replace the JAR, and start again. Nothing else changes.
+
+Spigot: remove the Paper JAR if you installed it, add `ConsentGate-Spigot-1.1.0.jar`, and start again. The plugin folder and files are the same as on Paper, so moving to Paper later only needs a JAR swap. Read [Spigot hold mode](docs/compatibility.md#spigot-hold-mode) first. To keep usage statistics off from the first start, turn bStats off before starting; see [turning it off](docs/storage.md#turning-it-off).
+
 ## 1.0.0 (2026-11-05)
 
 Anonymous usage statistics, and a safe stop on servers that are not Paper.

@@ -13,7 +13,7 @@ order: 7
 | SQLite (default) | One proxy or server | Built in, no setup. One process owns each file; do not share it between machines. |
 | MySQL / MariaDB | Sharing consent across several proxies or servers | Needs an empty database and an account. Tables are created automatically. See [remote storage](remote-storage.md). |
 
-Both JARs bundle SQLite and MariaDB Connector/J (which also works with MySQL), so no driver plugin is needed.
+Every JAR bundles SQLite and MariaDB Connector/J (which also works with MySQL), so no driver plugin is needed.
 
 Moving from SQLite to MySQL/MariaDB does not copy existing records. Players accept again. Keep the old SQLite file for your records.
 
@@ -34,7 +34,7 @@ A reset adds withdrawal records and keeps the history. There is no command to de
 
 ## Usage statistics (bStats)
 
-ConsentGate sends anonymous usage statistics to [bStats](https://bstats.org), a service many plugins use. They show how many servers run ConsentGate and which platform versions matter. The combined charts are public: [Paper](https://bstats.org/plugin/bukkit/ConsentGate/35143) and [Velocity](https://bstats.org/plugin/velocity/ConsentGate/35145).
+ConsentGate sends anonymous usage statistics to [bStats](https://bstats.org), a service many plugins use. They show how many servers run ConsentGate and which platform versions matter. The combined charts are public: [Paper and Spigot](https://bstats.org/plugin/bukkit/ConsentGate/35143) and [Velocity](https://bstats.org/plugin/velocity/ConsentGate/35145).
 
 The statistics describe the server, not its players. Each report contains:
 
@@ -56,7 +56,7 @@ bStats has one setting for all plugins on a server or proxy. Change it, then res
 
 | Platform | File | Setting |
 | --- | --- | --- |
-| Paper | `plugins/bStats/config.yml` | `enabled: false` |
+| Paper, Spigot | `plugins/bStats/config.yml` | `enabled: false` |
 | Velocity | `plugins/bStats/config.txt` | `enabled=false` |
 
 On Velocity, change only the `enabled` line and keep the `server-uuid` line. If that line is missing, bStats replaces the file with a new one where `enabled=true`. If you create `config.txt` yourself before the first start, include a `server-uuid=` line with any random UUID.

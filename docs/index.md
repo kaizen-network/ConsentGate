@@ -10,12 +10,14 @@ ConsentGate shows rules, policies, and other documents to players before they ar
 
 ## Where it runs
 
-| Platform | When players see the documents |
-| --- | --- |
-| Velocity | On the proxy, before any backend server connection |
-| Paper | On the server, before the player enters the world |
+| Platform | When players accept | Guarantee |
+| --- | --- | --- |
+| Velocity | Before any backend connection | Full |
+| Paper | Before entering the world | Full |
+| Spigot (hold mode) | After entering the world, while frozen and hidden | Weaker: other plugins see the join |
+| BungeeCord | On each backend that runs ConsentGate | Same as that backend's JAR |
 
-Install it on the proxy for network-wide agreements, on a standalone Paper server, or on both for separate requirements. See [choosing where to install](installation.md#choose-where-to-install).
+Install it on the proxy for network-wide agreements, on a standalone Paper or Spigot server, or on both for separate requirements. Use Paper over Spigot when you can. See [choosing where to install](installation.md#choose-where-to-install).
 
 ## Features
 
@@ -33,7 +35,7 @@ Install it on the proxy for network-wide agreements, on a standalone Paper serve
 2. If they did, they continue right away.
 3. If not, they see a summary with a checkbox and a Read button for each required document.
 4. They check every box and press Continue. ConsentGate saves the acceptance.
-5. Only after the save succeeds is the player let through. Leaving, timing out, or a failed save never lets them in.
+5. Only after the save succeeds is the player let through. Leaving, timing out, or a failed save never lets them in. On Spigot, the player is already in the world, but frozen and hidden until this point.
 
 See [player experience](player-experience.md) for what the screens look like on Java and Bedrock.
 

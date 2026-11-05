@@ -20,6 +20,10 @@ Other values: no payload is `01 00`, and an empty compound is `02 0a 00`.
 
 PacketEvents 2.13.0 reads and writes the length-prefixed form ([`WrapperCommonClientCustomClickAction`](https://github.com/retrooper/packetevents/blob/v2.13.0/api/src/main/java/com/github/retrooper/packetevents/wrapper/common/client/WrapperCommonClientCustomClickAction.java)), and ConsentGate uses that wrapper.
 
+## Spigot payloads
+
+On Spigot, CraftBukkit converts this NBT to JSON before `PlayerCustomClickEvent` and keeps each number's Java type, so a checked box arrives as a `Byte` of 1. A bot run on Spigot 1.21.8 and 26.1.2 confirmed it: byte payloads release the player, and the same payload with `TAG_Int` does not. In play, the serverbound packet IDs are `0x41` (1.21.8) and `0x44` (26.1); the payload layout is the same as above.
+
 ## Bot library bug
 
 `minecraft-protocol` 1.68.0 with `minecraft-data` 3.115.0 defines this payload as `option<anonymousNbt>`: a boolean flag followed by the NBT, without the length. PacketEvents reads the flag byte `01` as a length of one, which causes an end-of-data error. Upstream tracks it in [minecraft-data#1222](https://github.com/PrismarineJS/minecraft-data/issues/1222) and [minecraft-data#1196](https://github.com/PrismarineJS/minecraft-data/pull/1196).
