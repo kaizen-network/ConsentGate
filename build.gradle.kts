@@ -5,7 +5,7 @@ plugins {
 
 allprojects {
     group = "io.github.consentgate"
-    version = "0.3.0"
+    version = "0.4.0"
     repositories {
         mavenCentral()
         maven("https://repo.papermc.io/repository/maven-public/")
