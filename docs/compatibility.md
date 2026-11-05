@@ -19,7 +19,7 @@ These are the setups ConsentGate has been tested with. Newer versions often work
 
 On Velocity, tests covered normal routing, server switches, forced hosts, fallback when the main backend is down, and accepted rejoin, with no backend connection before acceptance.
 
-Behind BungeeCord, a player accepted once on either backend, then switched to the other and back without being asked again. The Paper backend held the player before world entry, and the Spigot backend held them in the world until they accepted.
+Behind BungeeCord, a player accepted once on either backend, then switched to the other and back without being asked again. The Paper backend held the player before world entry, and the Spigot backend held them in the world until they accepted. The proxy sees the player before they accept, so proxy plugins such as `/glist` or a chat bridge already list them. On a Spigot backend, proxy commands such as `/msg` and `/server` still work while the player is held, because they never reach the backend.
 
 ## Clients
 
@@ -62,14 +62,16 @@ Spigot has no step before world entry where a plugin can hold a player, so the S
 - Other players join the world, then see the same screens as on Paper. Until they accept, they cannot move, chat, type commands, interact, break or place blocks, use inventories, drop or pick up items, take or deal damage, lose hunger or air, or be targeted by mobs. Other players cannot see them in the world or in the tab list.
 - Their join message is hidden and shown after they accept. If they leave or are kicked first, no join or quit message is shown.
 - Plugin teleports still work, so spawn plugins can move a held player.
+- A held player is taken off any vehicle they joined in. The vehicle stays in the world.
 - Leave, a timeout, or a failed save kicks the player. Nothing is saved, and the next join holds them again.
-- Stopping or reloading the server kicks held players. After `/reload`, players who are already online are checked again, and anyone without a current acceptance is held.
+- Stopping or reloading the server kicks held players. After `/reload`, every online player is held and hidden for about a second while their acceptance is checked again. Players who already accepted are then released; anyone else stays held.
 
 What this mode cannot do:
 
 - Other plugins see the join, and their join handlers run before acceptance: welcome messages they send themselves, kits, spawn teleports, Discord join notices, and MOTDs.
 - Plugins that ignore cancelled events, or undo the cancel afterwards, can still act on a held player. Vanish, staff, and tab-list plugins may show held players.
 - The player count in the server list and in `/list` includes held players. Experience orbs and harmless potion effects are not blocked.
+- Plugin messages from a held client still reach plugins, because Spigot has no way to cancel them. For example, a voice chat plugin can still complete its handshake.
 - Clients older than 1.21.6 (through ViaBackwards) get no dialog and stay frozen until the timeout.
 
 The Spigot JAR logs this warning at every start: "ConsentGate is running in Spigot hold mode. Players enter the world first and stay frozen and hidden until they accept. This is weaker than Paper, where players accept before entering the world. Other plugins still see each join. Use Paper for the full guarantee."

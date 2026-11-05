@@ -48,6 +48,8 @@ Instead, install ConsentGate on every backend:
 
 Each backend keeps its own guarantee. On a Paper backend, players accept before entering that server's world. On a Spigot backend, they enter it first and stay frozen and hidden until they accept. A backend without ConsentGate lets players in without asking.
 
+The proxy sees the player before they accept, so proxy plugins such as `/glist` or a chat bridge already list them. On a Spigot backend, proxy commands such as `/msg` and `/server` still work while the player is held, because they never reach the backend.
+
 ## First installation
 
 1. Back up your server or proxy, then stop it.

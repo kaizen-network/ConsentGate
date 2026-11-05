@@ -107,7 +107,7 @@ A disconnect alone does not say which plugin caused it; match it with the server
 
 ### Spigot
 
-Spigot server JARs may not be redistributed, so build them locally with [BuildTools](https://hub.spigotmc.org/jenkins/job/BuildTools/), for example `java -jar BuildTools.jar --rev 1.21.8 --compile spigot`. Spigot 26.x needs Java 25. Prepare `.run/spigot-1.21.8` with the server JAR as `server.jar`, `eula.txt`, and a `server.properties` with `server-ip=127.0.0.1`, `server-port=25720`, `online-mode=false`, `enable-rcon=false`, `enable-query=false`, `enforce-secure-profile=false`, `level-type=minecraft\:flat`, and `spawn-protection=0`. Write `plugins/bStats/config.yml` with `enabled: false` before the first start.
+Spigot server JARs may not be redistributed, so build them locally with [BuildTools](https://hub.spigotmc.org/jenkins/job/BuildTools/), for example `java -jar BuildTools.jar --rev 1.21.8 --compile spigot`. Spigot 26.x needs Java 25. Prepare `.run/spigot-1.21.8` with the server JAR as `server.jar`, `eula.txt`, and a `server.properties` with `server-ip=127.0.0.1`, `server-port=25720`, `online-mode=false`, `enable-rcon=false`, `enable-query=false`, `enforce-secure-profile=false`, `level-type=minecraft\:flat`, and `spawn-protection=0`. Before the first start, write `plugins/bStats/config.yml` with `enabled: false`, and `plugins/PluginMetrics/config.yml` with `opt-out: true` (Spigot's own statistics, which are on by default).
 
 ```powershell
 python tools/run_spigot_probe.py --modules C:/path/to/node_modules --version 1.21.8 --port 25720
@@ -117,13 +117,16 @@ Use `--version 26.1` for a Spigot 26.1.x server (protocol 775). The probe uses a
 
 - the dialog arrives in play and waits for the server after each button
 - held players are hidden, with no join message; movement is reverted; chat, commands, damage, digging, and item drops are blocked
-- a blocked command shows the screen again
+- a blocked command or a pressed movement key shows the screen again; a push without movement keys or a pressure plate does not
 - unchecked, string, int, empty, and foreign-token payloads do not release; a valid acceptance does, and the join message is shown once
 - released players can move, chat, take damage, and dig; an accepted rejoin is not held
 - Leave, timeout, and preview save nothing and show no join or quit message; a second login for a held player is refused
 - `/reload` kicks held players, and players already online without acceptance are held after the plugin enables
+- with a test-only helper plugin (`tools/spigot_probe_helper`) that cancels kicks, Leave and timeout leave the player frozen and hidden until they quit
+- logins that drop after the pre-login check do not block new players, and their marks expire after 60 seconds
+- a player who logged out in a boat keeps the boat when held at the next join, and is taken off it
 
-`--refusal` installs the Paper JAR instead and checks that it refuses every login on Spigot with the hint to use the Spigot JAR.
+The runner builds the helper plugin with `javac` (`--javac` to choose one) and removes it afterwards. `--refusal` installs the Paper JAR instead and checks that it refuses every login on Spigot with the hint to use the Spigot JAR.
 
 ### BungeeCord
 

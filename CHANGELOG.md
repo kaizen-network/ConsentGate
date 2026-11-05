@@ -6,12 +6,12 @@ A Spigot JAR with a hold mode, and a documented BungeeCord setup.
 
 ### Added
 
-- `ConsentGate-Spigot`, a separate JAR for Spigot 1.21.8 and newer. Spigot has no way to hold players before they enter the world, so this is a hold mode with a weaker guarantee: players enter the world but stay frozen and hidden until they accept. They see the same documents and checkboxes as on Paper, and their join message is shown only after they accept. Other plugins still see the join. Use Paper for the full guarantee. See [Spigot hold mode](docs/compatibility.md#spigot-hold-mode).
+- `ConsentGate-Spigot`, a separate JAR for Spigot 1.21.8 and newer. Spigot has no way to hold players before they enter the world, so this is a hold mode with a weaker guarantee: players enter the world but stay frozen and hidden until they accept. They see the same documents and checkboxes as on Paper, and their join message is shown only after they accept. Other plugins still see the join. Use Paper for the full guarantee. See [Spigot hold mode](docs/compatibility.md#spigot-hold-mode). Like the Paper JAR, it sends anonymous usage statistics to bStats; see [turning it off](docs/storage.md#turning-it-off).
 - BungeeCord setup: there is no BungeeCord JAR. Install the Paper JAR (full guarantee) or the Spigot JAR (hold mode) on every backend, with the same MySQL/MariaDB database, so one acceptance counts everywhere. See [BungeeCord](docs/installation.md#bungeecord).
 
 ### Changed
 
-- On Spigot, the Paper JAR still refuses every login. Its log now points to the Spigot JAR, and players see "ConsentGate is not set up for this server. Ask the server owner to install the right ConsentGate file." The Spigot JAR refuses every login on Paper, and on Spigot without dialogs (before 1.21.6), with the same message to players.
+- Where the Paper JAR refuses every login (Spigot, and Paper 1.21 to 1.21.6), players now see "ConsentGate is not set up for this server. Ask the server owner to install the right ConsentGate file." On Spigot, its log now points to the Spigot JAR. The Spigot JAR refuses every login on Paper, and on Spigot without dialogs (before 1.21.6), with the same message to players.
 
 ### Upgrading from 1.0.0
 

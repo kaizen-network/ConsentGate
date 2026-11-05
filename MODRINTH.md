@@ -1,6 +1,6 @@
 ![ConsentGate: in-game agreements for Minecraft servers and networks](https://kaizenmc.id/api/software/assets/consentgate/docs/images/banner.webp)
 
-Show your rules, terms, and privacy policy to players **before** they join, and only let them in after they accept. Documents live in local files, so no website or extra hosting is needed.
+Show your rules, terms, and privacy policy to players **before** they can play, and let them play only after they accept. Documents live in local files, so no website or extra hosting is needed.
 
 - **Velocity:** players accept before any backend connection.
 - **Paper:** players accept before entering the world.
@@ -32,6 +32,8 @@ Show your rules, terms, and privacy policy to players **before** they join, and 
 | Spigot | Java 21+, Spigot 1.21.8+, Minecraft Java 1.21.6+ clients |
 | BungeeCord | No proxy JAR. The Paper or Spigot JAR on every backend, all using the same MySQL/MariaDB database |
 | Bedrock (optional) | [Geyser](https://geysermc.org/download) on the same proxy or server |
+
+Each platform has its own JAR. The Spigot JAR is on Modrinth and GitHub releases, not on Hangar.
 
 ## Quick start
 

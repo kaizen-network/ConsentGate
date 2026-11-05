@@ -1,6 +1,6 @@
 ---
 title: Overview
-description: ConsentGate shows your rules and policies to players before they join, and records their acceptance.
+description: ConsentGate shows your rules and policies to players before they can play, and records their acceptance.
 order: 1
 ---
 
