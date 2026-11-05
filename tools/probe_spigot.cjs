@@ -2,9 +2,10 @@
 const path = require('node:path');
 const readline = require('node:readline');
 const {encodeClick} = require('./paper_probe_helpers.cjs');
-const [modules, port, name, version] = process.argv.slice(2);
-if (!modules || !/^\d+$/.test(port) || !/^[A-Za-z0-9_]{1,16}$/.test(name || '') || !['1.21.8', '26.1'].includes(version)) {
-  throw new Error('Usage: probe_spigot.cjs <node_modules> <port> <offline name> <1.21.8|26.1>');
+const [modules, port, name, version, mode] = process.argv.slice(2);
+if (!modules || !/^\d+$/.test(port) || !/^[A-Za-z0-9_]{1,16}$/.test(name || '') || !['1.21.8', '26.1'].includes(version)
+    || ![undefined, 'drop'].includes(mode)) {
+  throw new Error('Usage: probe_spigot.cjs <node_modules> <port> <offline name> <1.21.8|26.1> [drop]');
 }
 const protocol = require(path.resolve(modules, 'minecraft-protocol'));
 const nbt = require(path.resolve(modules, 'prismarine-nbt'));
@@ -25,6 +26,8 @@ client.on('show_dialog', packet => {
 });
 client.on('clear_dialog', () => report('clear_dialog', {state: client.state}));
 client.on('login', () => { position = null; report('play'); });
+// drop: leave right after the pre-login check, while the server configures the connection.
+client.on('state', state => { if (mode === 'drop' && state === 'configuration') client.end('Dropped during configuration'); });
 client.on('position', packet => {
   if (packet.teleportId != null) client.write('teleport_confirm', {teleportId: packet.teleportId});
   // Like a real client once terrain has loaded. Until then the server ignores movement and blocks damage.
@@ -66,6 +69,9 @@ readline.createInterface({input: process.stdin}).on('line', line => {
       case 'move': client.write('position', {x: position.x + (command.dx || 0), y: position.y + (command.dy || 0),
         z: position.z + (command.dz || 0), flags: {onGround: true, hasHorizontalCollision: false}}); report('moved', command); break;
       case 'chat': client._signedChat(command.text); report('chatted', command); break;
+      // Movement keys, as a client sends them only with no screen open.
+      case 'input': client.write('player_input', {inputs: {forward: !!command.forward, backward: false, left: false, right: false,
+        jump: false, shift: false, sprint: false}}); report('input', command); break;
       case 'dig': {
         const location = {x: Math.floor(position.x), y: Math.floor(position.y) - 1, z: Math.floor(position.z)};
         client.write('block_dig', {status: 0, location, face: 1, sequence: sequence++});

@@ -1,0 +1,4 @@
+name: ConsentGateProbeHelper
+version: test
+main: io.github.consentgate.probe.ProbeHelper
+api-version: '1.21'

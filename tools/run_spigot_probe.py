@@ -4,6 +4,7 @@ import argparse
 from contextlib import closing
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -13,6 +14,7 @@ import subprocess
 import threading
 import time
 import uuid
+import zipfile
 
 from run_velocity_probe import PROBE_CONFIG, PROBE_DOCUMENT
 from probe_process import stop_server
@@ -29,9 +31,9 @@ def offline_uuid(name):
 class Bot:
     """One bot process. Events are kept in order; `mark()` and `since` limit a wait to newer events."""
 
-    def __init__(self, project, modules, port, name, version):
+    def __init__(self, project, modules, port, name, version, *mode):
         self.name = name
-        self.process = subprocess.Popen(['node', str(project / 'tools/probe_spigot.cjs'), str(modules), str(port), name, version],
+        self.process = subprocess.Popen(['node', str(project / 'tools/probe_spigot.cjs'), str(modules), str(port), name, version, *mode],
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                                         creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
         self.events, self.lines, self.changed = [], [], threading.Condition()
@@ -95,6 +97,7 @@ def main():
     parser.add_argument('--port', type=int, default=25720)
     parser.add_argument('--version', choices=('1.21.8', '26.1'), default='1.21.8')
     parser.add_argument('--java', default='java', help='Java executable for the prepared server')
+    parser.add_argument('--javac', default='javac', help='javac that builds the test-only helper plugin')
     parser.add_argument('--refusal', action='store_true', help='Install the Paper JAR instead and check that it refuses every login')
     args = parser.parse_args()
     project = Path(__file__).resolve().parents[1]
@@ -108,6 +111,9 @@ def main():
     assert properties.get('enable-rcon') == 'false'
     assert properties.get('enable-query') == 'false'
     assert 'enabled: false' in (directory / 'plugins/bStats/config.yml').read_text(), 'Turn bStats off before the first start'
+    # Spigot itself reports to mcstats.org unless this file opts out; it is created with opt-out: false on the first start.
+    metrics = directory / 'plugins/PluginMetrics/config.yml'
+    assert metrics.is_file() and 'opt-out: true' in metrics.read_text(), 'Opt out of Spigot metrics before the first start'
     with socket.socket() as check:
         assert check.connect_ex(('127.0.0.1', args.port)) != 0, 'Test port already occupied'
     modules = args.modules.resolve()
@@ -130,7 +136,11 @@ def main():
     bots = []
     # The world keeps player data between runs, so every run uses new players.
     run = uuid.uuid4().hex[:4]
-    N = {name: name[:12] + run for name in ['Watcher', 'HeldBot', 'LeaveBot', 'DupBot', 'PreviewBot', 'SlowBot', 'ReloadBot', 'LateBot', 'RefusedProbe']}
+    N = {name: name[:12] + run for name in ['Watcher', 'HeldBot', 'LeaveBot', 'DupBot', 'PreviewBot', 'SlowBot', 'ReloadBot',
+                                           'LateBot', 'RefusedProbe', 'KeepLeave', 'KeepSlow', 'Drop0', 'Drop1', 'Drop2', 'Rider']}
+    # Test-only plugin: cancels kicks for players named Keep*, and logs pressure plate contact.
+    helper = directory / 'plugins/ConsentGateProbeHelper.jar'
+    assert not helper.exists(), 'A helper is already present; inspect it before repeating this check'
 
     def log():
         return log_file.read_text(encoding='utf-8', errors='replace') if log_file.exists() else ''
@@ -148,10 +158,27 @@ def main():
             time.sleep(0.1)
         raise AssertionError('Missing console reply for ' + value + ': ' + expected)
 
-    def bot(name):
-        created = Bot(project, modules, args.port, name, args.version)
+    def bot(name, *mode):
+        created = Bot(project, modules, args.port, name, args.version, *mode)
         bots.append(created)
         return created
+
+    def wait_log(text, offset, timeout=15):
+        deadline = time.monotonic() + timeout
+        while text not in log()[offset:]:
+            assert time.monotonic() < deadline, 'Missing log line: ' + text
+            time.sleep(0.2)
+
+    def build_helper():
+        classes = fixture / 'helper-classes'
+        classes.mkdir()
+        classpath = os.pathsep.join(str(path) for path in (directory / 'bundler/libraries').glob('*.jar'))
+        subprocess.run([args.javac, '--release', '21', '-proc:none', '-classpath', classpath, '-d', str(classes),
+                        str(project / 'tools/spigot_probe_helper/ProbeHelper.java')], check=True)
+        with zipfile.ZipFile(helper, 'x') as jar:
+            for path in classes.rglob('*.class'):
+                jar.write(path, path.relative_to(classes).as_posix())
+            jar.write(project / 'tools/spigot_probe_helper/plugin.yml', 'plugin.yml')
 
     def decisions(name):
         with closing(sqlite3.connect(database)) as connection:
@@ -193,6 +220,8 @@ def main():
     try:
         shutil.copyfile(artifact, directory / 'plugins/ConsentGate.jar')
         config_file.write_text(config, encoding='utf-8')
+        if not args.refusal:
+            build_helper()
         start()
         if args.refusal:
             assert ('ConsentGate-Paper needs Paper 1.21.7 or newer. This server lacks' in log()
@@ -261,6 +290,26 @@ def main():
         held.wait('dialog', since=since, timeout=5)
         print('PASS: a blocked command brings the dialog back', flush=True)
 
+        # A push without movement keys and a pressure plate do not send the screen again, so ticked boxes stay ticked.
+        spot = held.find('position')[-1]
+        x, y, z = (math.floor(spot[axis]) for axis in ('x', 'y', 'z'))
+        command(f'setblock {x} {y} {z} minecraft:stone_pressure_plate', 'Changed the block')
+        time.sleep(3)
+        since, offset = held.mark(), len(log())
+        held.send(do='move', dx=0.4)
+        held.wait('position', since=since, timeout=5)
+        for _ in range(5):
+            held.send(do='move', dx=0)
+            time.sleep(1)
+        held.absent('dialog', since=since, seconds=1)
+        wait_log('Physical interaction by ' + N['HeldBot'], offset, timeout=1)
+        command(f'setblock {x} {y} {z} minecraft:air', 'Changed the block')
+        since = held.mark()
+        held.send(do='input', forward=True)
+        held.wait('dialog', since=since, timeout=5)
+        held.send(do='input')
+        print('PASS: a push and a pressure plate keep the screen as it is; a pressed movement key brings it back', flush=True)
+
         # Only exact checked bytes with the session token release the player.
         for values, token in (('unchecked', None), ('string', None), ('int', None), ('none', None), ('byte', str(uuid.uuid4()))):
             since = held.mark()
@@ -319,6 +368,33 @@ def main():
         assert decisions(N["LeaveBot"]) == []
         print('PASS: Leave kicks with the decline message, saves nothing, and shows no join or quit message', flush=True)
 
+        # Another plugin cancels the kick: the player stays frozen and hidden until they leave.
+        watched, offset = watcher.mark(), len(log())
+        keep, _ = held_join(N['KeepLeave'], watcher)
+        keep.send(do='click', action='leave')
+        wait_log("Another plugin cancelled ConsentGate's kick for " + N['KeepLeave'], offset)
+        keep.absent('kick', seconds=1)
+        since = keep.mark()
+        keep.send(do='move', dx=2)
+        keep.wait('position', since=since, timeout=5)
+        keep.send(do='chat', text='kept-chat-probe')
+        watcher.absent('chat', lambda event: 'kept-chat-probe' in event['text'], watched, seconds=1)
+        assert not watcher.find('player_info', lambda event: event['name'] == N['KeepLeave'], watched)
+        assert not keep.find('clear_dialog') and decisions(N['KeepLeave']) == []
+        keep.close()
+        time.sleep(1)
+        assert not watcher.find('chat', lambda event: N['KeepLeave'] in event['text'], watched), 'Join or quit message shown'
+        command('consentgate reset ' + offline_uuid(N['KeepLeave']), 'History was kept.')
+        print('PASS: a cancelled kick after Leave leaves the player frozen and hidden until they leave', flush=True)
+
+        # Logins that drop after the pre-login check do not count toward max-pending (2 here).
+        drops = [bot(N[f'Drop{index}'], 'drop') for index in range(3)]
+        for dropped in drops:
+            dropped.ended()
+            assert not dropped.find('play')
+        dropped_at = time.monotonic()
+        command('consentgate reset ' + offline_uuid(N['Drop0']), 'Disconnect the player first')
+
         # A second login for a held player is refused.
         first, _ = held_join(N["DupBot"], watcher)
         second = bot(N["DupBot"])
@@ -337,14 +413,28 @@ def main():
         assert decisions(N["PreviewBot"]) == []
         print('PASS: preview shows the screens in play and saves nothing', flush=True)
 
-        # Timeout kicks without saving.
-        watched = watcher.mark()
+        # Timeout kicks without saving; with the kick cancelled, the player stays frozen.
+        watched, offset = watcher.mark(), len(log())
         slow, _ = held_join(N["SlowBot"], watcher)
+        keep, _ = held_join(N['KeepSlow'], watcher)
         assert 'Consent request timed out.' in slow.wait('kick', timeout=45)['reason']
+        wait_log("Another plugin cancelled ConsentGate's kick for " + N['KeepSlow'], offset)
+        time.sleep(1)
+        assert not keep.find('kick')
+        since = keep.mark()
+        keep.send(do='move', dx=2)
+        keep.wait('position', since=since, timeout=5)
+        assert not watcher.find('player_info', lambda event: event['name'] == N['KeepSlow'], watched)
+        keep.close()
         time.sleep(1)
         assert not watcher.find('chat', lambda event: N["SlowBot"] in event['text'], watched)
-        assert decisions(N["SlowBot"]) == []
-        print('PASS: timeout kicks without saving and shows no join or quit message', flush=True)
+        assert decisions(N["SlowBot"]) == [] and decisions(N['KeepSlow']) == []
+        print('PASS: timeout kicks without saving and shows no join or quit message; a cancelled timeout kick keeps the player frozen', flush=True)
+
+        # Marks of dropped logins expire, so admin commands work for those players again.
+        time.sleep(max(0.0, 61 - (time.monotonic() - dropped_at)))
+        command('consentgate reset ' + offline_uuid(N['Drop0']), 'History was kept.')
+        print('PASS: three dropped logins did not block new players, and their marks expired after 60 seconds', flush=True)
 
         # /reload kicks held players; an online player without acceptance is held after the plugin enables again.
         stopping, _ = held_join(N["ReloadBot"], watcher)
@@ -365,6 +455,31 @@ def main():
         assert decisions(N["LateBot"]) == ['granted']
         print('PASS: /reload kicks held players; after enabling, an online player without acceptance is held, '
               'and an accepted one passes', flush=True)
+
+        # A saved vehicle survives a held join, and the held player is taken off it.
+        rider, _ = held_join(N['Rider'], watcher)
+        since = rider.mark()
+        rider.send(do='click', action='accept')
+        rider.wait('clear_dialog', since=since)
+        spot = rider.find('position')[-1]
+        boat = 'cgboat' + run
+        command(f'summon minecraft:oak_boat {spot["x"]} {spot["y"]} {spot["z"]} {{Tags:["{boat}"]}}', 'Summoned new')
+        command(f'ride {N["Rider"]} mount @e[tag={boat},limit=1]', 'started riding')
+        rider.close()
+        time.sleep(1)
+        (documents / 'agreement.yml').write_text(PROBE_DOCUMENT.replace('version: "probe-1"', 'version: "probe-2"'), encoding='utf-8')
+        command('consentgate reload', 'ConsentGate reloaded.')
+        offset = len(log())
+        again, _ = held_join(N['Rider'], watcher)
+        time.sleep(1)
+        assert "Couldn't reattach entity to player" not in log()[offset:]
+        command(f'execute if entity @e[tag={boat}] run say boat-kept-{run}', f'boat-kept-{run}')
+        process.stdin.write(f'execute as {N["Rider"]} on vehicle run say still-riding-{run}\n')
+        process.stdin.flush()
+        time.sleep(1)
+        assert f'still-riding-{run}' not in log()
+        again.close()
+        print('PASS: a held player keeps their saved boat in the world and is taken off it', flush=True)
         print('PASS: Spigot ' + args.version + ' hold mode', flush=True)
     finally:
         for created in bots:
@@ -372,6 +487,7 @@ def main():
         try:
             stop_server(process, 'stop', 30)
         finally:
+            helper.unlink(missing_ok=True)
             if original_config is None:
                 config_file.unlink(missing_ok=True)
             else:
