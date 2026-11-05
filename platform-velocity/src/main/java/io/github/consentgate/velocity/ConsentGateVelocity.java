@@ -807,7 +807,7 @@ public final class ConsentGateVelocity {
 
     private void clearPresentation(Pending pending) {
         if (pending.bedrock != null) pending.bedrock.close();
-        else pending.user.sendPacket(new WrapperConfigServerClearDialog());
+        else OpenConnection.send(pending.player::isActive, () -> pending.user.sendPacket(new WrapperConfigServerClearDialog()));
     }
 
     private void deny(Player player, String message, HeldConnection held) {
