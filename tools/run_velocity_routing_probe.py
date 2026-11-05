@@ -103,7 +103,8 @@ def main():
             relays.append(relay)
         proxy = fixture / 'proxy'
         (proxy / 'plugins/bStats').mkdir(parents=True)
-        (proxy / 'plugins/bStats/config.txt').write_text('enabled=false\n')
+        # Without a server-uuid line, bStats rewrites the file with enabled=true.
+        (proxy / 'plugins/bStats/config.txt').write_text(f'enabled=false\nserver-uuid={uuid.uuid4()}\n')
         shutil.copyfile(args.velocity_from / 'velocity.jar', proxy / 'velocity.jar')
         shutil.copyfile(args.velocity_from / 'plugins/packetevents.jar', proxy / 'plugins/packetevents.jar')
         shutil.copyfile(artifact, proxy / 'plugins/ConsentGate.jar')

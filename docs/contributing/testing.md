@@ -55,7 +55,7 @@ read-timeout = 30000
 enabled = false
 ```
 
-Set `enabled=false` in `plugins/bStats/config.txt`. Build the Velocity JAR, then run:
+Turn bStats off in `plugins/bStats/config.txt` with `enabled=false` and a `server-uuid=` line holding any random UUID. Without that line, bStats rewrites the file with `enabled=true`. Build the Velocity JAR, then run:
 
 ```powershell
 python tools/run_velocity_probe.py --protocol 772
