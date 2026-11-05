@@ -38,6 +38,8 @@ Show your rules, terms, and privacy policy to players **before** they join, and 
 
 The starter Terms of Service and Privacy Policy are templates. Review and adapt them before use.
 
+ConsentGate sends anonymous, server-level usage statistics to bStats, never player data or consent records. See [what is sent and how to turn it off](https://kaizenmc.id/software/consentgate/storage#usage-statistics-bstats).
+
 ## Links
 
 - [Documentation](https://kaizenmc.id/software/consentgate)
