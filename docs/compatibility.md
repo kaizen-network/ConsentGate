@@ -51,4 +51,4 @@ Plugins that hold a player in the configuration stage for a long time after they
 
 Paper 1.21.7 and newer have the dialog and configuration APIs ConsentGate needs. ConsentGate builds against the 1.21.7 API. Older builds are not supported. If Paper reports a missing method, check your exact build against the table above.
 
-On Spigot, or any server without these Paper APIs, ConsentGate logs an error and refuses every login until the server runs Paper. Players never join without the gate.
+On Spigot 1.21 or newer, and on Paper 1.21 to 1.21.6, ConsentGate logs an error and refuses every login until the server runs Paper 1.21.7 or newer. Servers older than 1.21 do not load ConsentGate at all, so it cannot block logins there.

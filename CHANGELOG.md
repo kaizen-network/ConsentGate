@@ -10,7 +10,7 @@ Anonymous usage statistics, and a safe stop on servers that are not Paper.
 
 ### Fixed
 
-- On Spigot or another server without Paper's APIs, the Paper JAR now logs an error and refuses every login. Before, the server failed to load ConsentGate and let players in without the gate.
+- On Spigot 1.21 or newer, and on Paper 1.21 to 1.21.6, the Paper JAR now loads, logs an error, and refuses every login. Before, these servers did not load ConsentGate and let players in without the gate. Servers older than 1.21 still do not load it.
 - On Velocity, a player who leaves while their consent screen is closing no longer causes a "Could not disconnect a denied connection" warning. In rare cases this also logged "Consent save failed" after the acceptance had been saved.
 
 ### Upgrading from 0.3.0

@@ -1,7 +1,7 @@
 name: ConsentGate
 version: '${version}'
 main: io.github.consentgate.paper.ConsentGatePaper
-api-version: '1.21.7'
+api-version: '1.21'
 description: Configurable pre-admission agreements
 softdepend: [Geyser-Spigot]
 commands:
