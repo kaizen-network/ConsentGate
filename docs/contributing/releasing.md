@@ -35,9 +35,13 @@ The source ZIP includes the wrapper and everything needed to rebuild the shaded 
 ## Publishing a version
 
 1. Update the version in `build.gradle.kts` and in the `@Plugin` annotation of `ConsentGateVelocity.java`.
-2. Add a `## <version> (<date>)` section at the top of `CHANGELOG.md`. Modrinth and GitHub Releases use that section as the release notes.
+2. Add a `## <version> (<date>)` section at the top of `CHANGELOG.md`. Modrinth, Hangar, and GitHub Releases use that section as the release notes.
 3. Run the automated tests, and the [manual client checklist](testing.md#manual-client-checklist) if dialogs, forms, or connection handling changed.
 4. Commit and push, and wait for the GitHub Actions run on that commit to pass.
 5. Publish the JARs from that exact run's package, with their SHA-256 checksums. Do not rebuild them separately.
 
 Only list platforms and versions that were actually tested. Include the license and third-party notices with every published binary.
+
+Publishing a GitHub release also uploads its JARs to Modrinth and Hangar through `.github/workflows/modrinth.yml` and `.github/workflows/hangar.yml`. Each upload's settings are in `tools/modrinth.json` and `tools/hangar.json`. The Hangar workflow needs a `HANGAR_TOKEN` secret: a Hangar API key with the `create_version` and `edit_page` permissions. The Hangar project needs `Release` and `Snapshot` channels, because the API cannot create them.
+
+Hangar lists BungeeCord plugins under its `WATERFALL` platform. To publish a BungeeCord JAR there, add a `files` entry with `"platform": "WATERFALL"` to `tools/hangar.json`.

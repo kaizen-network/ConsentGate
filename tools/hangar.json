@@ -1,0 +1,19 @@
+{
+  "project": "ConsentGate",
+  "files": [
+    {
+      "pattern": "ConsentGate-Paper-{version}.jar",
+      "platform": "PAPER",
+      "min_version": "1.21.7",
+      "dependencies": []
+    },
+    {
+      "pattern": "ConsentGate-Velocity-{version}.jar",
+      "platform": "VELOCITY",
+      "min_version": "3.4",
+      "dependencies": [
+        { "name": "PacketEvents", "url": "https://modrinth.com/plugin/packetevents", "required": true }
+      ]
+    }
+  ]
+}
