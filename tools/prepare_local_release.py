@@ -83,7 +83,7 @@ def main():
     if changed or git('rev-parse', 'HEAD').decode().strip() != revision:
         raise RuntimeError('Source changed during the build; create a fresh package after reviewing it')
     reports = list(project.glob('*/build/test-results/test/TEST-*.xml'))
-    for task in ('paperArtifactTest', 'velocityArtifactTest'):
+    for task in ('paperArtifactTest', 'spigotArtifactTest', 'velocityArtifactTest'):
         packaged_reports = list((project / 'integration-bedrock/build/test-results' / task).glob('TEST-*.xml'))
         if not packaged_reports:
             raise RuntimeError('Missing required packaged Bedrock test report: ' + task)
@@ -106,7 +106,7 @@ def main():
         raise FileExistsError('This revision already has a local package: ' + str(directory))
     staging = root / ('.staging-' + uuid.uuid4().hex)
     staging.mkdir()
-    for platform in ('Paper', 'Velocity'):
+    for platform in ('Paper', 'Spigot', 'Velocity'):
         artifact = platform_artifact(project, platform.lower())
         with zipfile.ZipFile(artifact) as jar:
             required = ['META-INF/LICENSE', 'META-INF/THIRD_PARTY_NOTICES.md',
@@ -117,6 +117,9 @@ def main():
                         'META-INF/maven/org.xerial/sqlite-jdbc/LICENSE.zentus']
             if platform == 'Paper':
                 required += ['META-INF/licenses/Adventure-NBT.txt', 'META-INF/licenses/Examination.txt']
+            if platform == 'Spigot':
+                required += ['META-INF/licenses/Adventure.txt', 'META-INF/licenses/Examination.txt',
+                             'META-INF/licenses/Option.txt']
             for resource in required:
                 if not jar.read(resource):
                     raise ValueError('Missing packaged notice: ' + resource)

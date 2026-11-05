@@ -57,7 +57,7 @@ jobs:
       - name: Test Node tools
         run: node --test tools/test_paper_probe.cjs
 
-      - name: Build, test, and package both platforms
+      - name: Build, test, and package all platforms
         run: python tools/prepare_local_release.py --sources .run/release-sources --fetch-sources
 
       - name: Save distribution

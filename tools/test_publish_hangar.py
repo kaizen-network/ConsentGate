@@ -47,6 +47,8 @@ class PublishHangarTest(unittest.TestCase):
             self.assertIn('{version}', entry['pattern'])
             self.assertIn(entry['platform'], {'PAPER', 'VELOCITY', 'WATERFALL'})
             self.assertTrue(entry['min_version'])
+            # Hangar has no Spigot platform, and under PAPER the Spigot JAR would refuse every login.
+            self.assertNotIn('Spigot', entry['pattern'])
 
     def test_missing_version_is_none_and_other_errors_stop(self):
         def answer(code):

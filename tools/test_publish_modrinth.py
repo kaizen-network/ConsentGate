@@ -49,6 +49,9 @@ class PublishModrinthTest(unittest.TestCase):
         for entry in config['files']:
             self.assertIn('{version}', entry['pattern'])
             self.assertTrue(set(entry['loaders']) <= {'paper', 'purpur', 'folia', 'spigot', 'bukkit', 'velocity', 'bungeecord'})
+            # The Spigot JAR refuses every login on Paper, so it must not show up under Paper or Bukkit filters.
+            if 'Spigot' in entry['pattern']:
+                self.assertEqual(['spigot'], entry['loaders'])
 
 
 if __name__ == '__main__':

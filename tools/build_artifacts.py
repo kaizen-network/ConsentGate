@@ -12,7 +12,7 @@ def project_version(project):
 
 
 def platform_artifact(project, platform):
-    if platform not in ('paper', 'velocity'):
+    if platform not in ('paper', 'spigot', 'velocity'):
         raise ValueError('Unsupported platform: ' + platform)
     version = project_version(project)
     artifact = project / f'platform-{platform}/build/libs/ConsentGate-{platform.title()}-{version}.jar'
