@@ -10,7 +10,7 @@
     },
     {
       "pattern": "ConsentGate-Spigot-{version}.jar",
-      "label": "Spigot (hold mode)",
+      "label": "Spigot hold mode",
       "loaders": ["spigot"],
       "min_game_version": "1.21.8",
       "dependencies": []
