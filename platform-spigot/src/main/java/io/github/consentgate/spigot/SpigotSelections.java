@@ -2,12 +2,14 @@ package io.github.consentgate.spigot;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
-import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Spigot turns the checkbox NBT bytes into JSON numbers, so only 0 and 1 count; booleans, strings, and extra keys do not. */
+/**
+ * Spigot turns the click NBT into JSON and keeps each number's type, so a checkbox arrives as a {@link Byte} of 0 or 1.
+ * Like the Paper decoder, anything else is rejected: other number types, booleans, strings, and missing or extra keys.
+ */
 final class SpigotSelections {
     private SpigotSelections() { }
 
@@ -17,13 +19,9 @@ final class SpigotSelections {
         if (fields.size() != documents.size()) return null;
         var result = new LinkedHashMap<String, Boolean>();
         for (int index = 0; index < documents.size(); index++) {
-            if (!(fields.get("document_" + index) instanceof JsonPrimitive value) || !value.isNumber()) return null;
-            BigDecimal number;
-            try { number = value.getAsBigDecimal(); }
-            catch (NumberFormatException ex) { return null; }
-            boolean checked = number.compareTo(BigDecimal.ONE) == 0;
-            if (!checked && number.compareTo(BigDecimal.ZERO) != 0) return null;
-            result.put(documents.get(index), checked);
+            if (!(fields.get("document_" + index) instanceof JsonPrimitive value) || !value.isNumber()
+                    || !(value.getAsNumber() instanceof Byte checked) || (checked != 0 && checked != 1)) return null;
+            result.put(documents.get(index), checked == 1);
         }
         return result;
     }

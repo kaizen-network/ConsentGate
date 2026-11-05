@@ -17,7 +17,17 @@ class SpigotSelectionsTest {
         payload.add("document_0", new JsonPrimitive((byte) 1));
         payload.add("document_1", new JsonPrimitive((byte) 0));
         assertEquals(Map.of("rules", true, "privacy", false), SpigotSelections.decode(payload, DOCUMENTS));
-        assertEquals(Map.of("rules", true, "privacy", true), SpigotSelections.decode(JsonParser.parseString("{\"document_0\":1,\"document_1\":1.0}"), DOCUMENTS));
+    }
+
+    @Test void numbersThatWereNotBytesAreRejected() {
+        for (Number number : java.util.List.<Number>of(1, 1L, 1.0, (short) 1, (byte) 2, (byte) -1)) {
+            var payload = new JsonObject();
+            payload.add("document_0", new JsonPrimitive(number));
+            payload.add("document_1", new JsonPrimitive((byte) 1));
+            assertNull(SpigotSelections.decode(payload, DOCUMENTS), number.getClass().getSimpleName() + " " + number);
+        }
+        // Parsed JSON text has no byte type, so it never counts.
+        assertNull(SpigotSelections.decode(JsonParser.parseString("{\"document_0\":1,\"document_1\":1}"), DOCUMENTS));
     }
 
     @Test void booleansStringsOtherNumbersAndWrongKeysAreRejected() {
