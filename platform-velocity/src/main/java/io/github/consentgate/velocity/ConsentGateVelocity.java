@@ -764,11 +764,10 @@ public final class ConsentGateVelocity {
     private void finishDenied(Pending pending, String message) {
         if (!markFinished(pending)) return;
         admitted.remove(pending.player);
+        // Disconnecting closes the presentation; sending dialog packets here can race PacketEvents teardown.
         DenialCompletion.releaseThenDisconnect(() -> release(pending),
-                () -> {
-                    try { clearPresentation(pending); }
-                    finally { pending.player.disconnect(Component.text(message)); }
-                },
+                pending.player::isActive,
+                () -> pending.player.disconnect(Component.text(message)),
                 ex -> logger.warn("Could not disconnect a denied connection", ex));
     }
 
