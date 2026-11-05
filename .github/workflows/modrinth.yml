@@ -25,8 +25,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      # The default branch, not the tag: it has the publisher, MODRINTH.md, and
-      # the changelog, which older tags may lack.
+      # Checks out the ref that started the run: the release tag on a release event, or the branch chosen for a manual run. The publisher, MODRINTH.md, and the changelog come from that checkout. To publish an older tag that lacks them, start a manual run from the default branch.
       - name: Check out sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
