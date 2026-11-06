@@ -215,7 +215,7 @@ def main():
         held = bot(name)
         held.wait('play')
         dialog = held.wait('dialog')
-        assert dialog['state'] == 'play' and dialog['waits'] and dialog['inputs'] == ['document_0'], dialog
+        assert dialog['state'] == 'play' and dialog['after'] == 'none' and dialog['inputs'] == ['document_0'], dialog
         watcher.absent('player_info', lambda event: event['name'] == name, since, seconds=1)
         assert not watcher.find('chat', joined(name), since), 'Join message shown while held'
         assert not watcher.find('spawn_entity', lambda event: event['uuid'] == offline_uuid(name), since)
@@ -245,13 +245,13 @@ def main():
         # A first player is held like anyone else, then becomes the observer.
         watcher = bot(N["Watcher"])
         dialog = watcher.wait('dialog')
-        assert dialog['state'] == 'play' and dialog['waits'], dialog
+        assert dialog['state'] == 'play' and dialog['after'] == 'none', dialog
         since = watcher.mark()
         watcher.send(do='click', action='accept')
         watcher.wait('clear_dialog', since=since)
         watcher.wait('chat', joined(N["Watcher"]), since)
         assert decisions(N["Watcher"]) == ['granted']
-        print('PASS: first player held in play, dialog waits for the server, accepted, released, join message shown', flush=True)
+        print('PASS: first player held in play, dialog stays open after each button, accepted, released, join message shown', flush=True)
 
         held, dialog = held_join(N["HeldBot"], watcher)
         start_position = held.wait('position')
@@ -355,6 +355,9 @@ def main():
         since = held.mark()
         held.send(do='dig')
         assert held.wait('block_change', since=since, timeout=5)['type'] == 0
+        # The world is reused between runs, so put the block back for the next player who spawns here.
+        dug = held.find('dug')[-1]['location']
+        command(f'setblock {dug["x"]} {dug["y"]} {dug["z"]} minecraft:grass_block', 'Changed the block')
         assert len(watcher.find('chat', joined(N["HeldBot"]))) == 1, 'Join message must be shown exactly once'
         print('PASS: released player can move, chat, take damage, and break blocks; join message shown once', flush=True)
 
@@ -528,8 +531,12 @@ def main():
         time.sleep(1)
         assert f'still-riding-{run}' not in log()
         again.close()
+        for key in ('Rider', 'KeepRider'):
+            command(f'kill @e[tag={boats[key]}]', 'Killed')
         print('PASS: held players keep their saved boats in the world and are taken off them; a cancelled dismount is '
               'logged once and retried until it works', flush=True)
+        # A screen the game rejects fails closed, so it would only show up here.
+        assert 'Consent operation failed' not in log() and 'Consent screen failed' not in log(), 'ConsentGate logged a failure'
         print('PASS: Spigot ' + args.version + ' hold mode', flush=True)
     finally:
         for created in bots:

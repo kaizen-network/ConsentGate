@@ -22,7 +22,7 @@ client.on('show_dialog', packet => {
   const serialized = JSON.stringify(nbt.simplify(raw));
   actions = [...new Set(serialized.match(/consentgate:[a-z0-9/._-]+/g) || [])];
   inputs = [...new Set(serialized.match(/document_[0-9]+/g) || [])];
-  report('dialog', {state: client.state, actions, inputs, waits: serialized.includes('wait_for_response'), text: serialized});
+  report('dialog', {state: client.state, actions, inputs, after: (serialized.match(/"after_action":"([a-z_]+)"/) || [])[1], text: serialized});
 });
 client.on('clear_dialog', () => report('clear_dialog', {state: client.state}));
 client.on('login', () => { position = null; report('play'); });
