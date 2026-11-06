@@ -84,9 +84,13 @@ final class SpigotDialogs {
     }
     private Dialog dialog(Component title, Component body, List<DialogInput> inputs, List<ActionButton> buttons,
                           ActionButton exit, int columns, boolean canClose) {
-        // In play, CLOSE would show the world between screens. The next screen, or clearDialog() on release, ends the wait.
+        // NONE keeps the screen open after a button: the next screen replaces it, and clearDialog() on release closes it.
+        // In play, CLOSE would show the world between screens, and the client's waiting screen (WAIT_FOR_RESPONSE) is not
+        // closed by clearDialog(): ClientCommonPacketListenerImpl.clearDialog() only closes dialog screens. Escape and the
+        // exit action still close the screen, since the client always runs those as CLOSE. The game rejects a pausing dialog
+        // with NONE, and a server never pauses anyway.
         var base = new DialogBase(chat(title)).body(List.of(new PlainMessageBody(chat(body), 500))).inputs(inputs)
-                .canCloseWithEscape(canClose).afterAction(DialogBase.AfterAction.WAIT_FOR_RESPONSE);
+                .canCloseWithEscape(canClose).pause(false).afterAction(DialogBase.AfterAction.NONE);
         return new MultiActionDialog(base, buttons, columns, exit);
     }
 }

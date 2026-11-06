@@ -39,12 +39,15 @@ class SpigotDialogsTest {
 
     @AfterEach void close() throws Exception { runtime.close(); }
 
-    // This is the JSON Spigot hands to the game's dialog codec.
-    @Test void summaryKeepsThePaperShapeAndWaitsForTheServerAfterEachButton() throws Exception {
+    // This is the JSON Spigot hands to the game's dialog codec. The release's clear packet closes a dialog screen but not the
+    // client's waiting screen, so the screen must stay open after a button instead of waiting.
+    @Test void summaryKeepsThePaperShapeAndStaysOpenAfterEachButton() throws Exception {
         var session = new AdmissionSession(runtime.admissionService().orElseThrow().check(UUID.randomUUID(), "en-US").orElseThrow());
         var dialog = json(dialogs.summary(session, "en-US", false));
         assertEquals("minecraft:multi_action", dialog.get("type").getAsString());
-        assertEquals("wait_for_response", dialog.get("after_action").getAsString());
+        assertEquals("none", dialog.get("after_action").getAsString());
+        // The game's codec (CommonDialogData) rejects pausing dialogs whose after_action is none, and pause defaults to true.
+        assertFalse(dialog.get("pause").getAsBoolean());
         assertTrue(dialog.get("can_close_with_escape").getAsBoolean());
         var input = dialog.getAsJsonArray("inputs").get(0).getAsJsonObject();
         assertEquals("document_0", input.get("key").getAsString());
