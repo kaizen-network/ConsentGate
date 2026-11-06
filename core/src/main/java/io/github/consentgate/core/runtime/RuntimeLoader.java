@@ -56,7 +56,7 @@ public final class RuntimeLoader {
         }
         try {
             return new ConsentGateRuntime(config, new AdmissionService(config, prepared.catalog(), repository));
-        } catch (RuntimeException ex) {
+        } catch (RuntimeException | Error ex) {
             try { repository.close(); }
             catch (SQLException closeFailure) { ex.addSuppressed(closeFailure); }
             throw ex;

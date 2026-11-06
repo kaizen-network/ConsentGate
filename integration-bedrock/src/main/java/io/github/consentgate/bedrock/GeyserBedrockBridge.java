@@ -29,7 +29,26 @@ public final class GeyserBedrockBridge {
         }
     };
 
+    private static volatile java.util.Map<String, byte[]> preloaded;
+
     private GeyserBedrockBridge() { }
+
+    /** Reads the form classes from the plugin file at startup, so a renamed or replaced file cannot break the first form. */
+    public static void preload() throws IOException {
+        if (preloaded != null) return;
+        var classes = new java.util.HashMap<String, byte[]>();
+        try (var jar = new java.util.jar.JarFile(java.nio.file.Path.of(
+                GeyserBedrockBridge.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toFile())) {
+            for (var entry : java.util.Collections.list(jar.entries())) {
+                String name = entry.getName();
+                if (!name.endsWith(".class") || !FormLoader.owned(name.substring(0, name.length() - 6).replace('/', '.'))) continue;
+                try (var input = jar.getInputStream(entry)) { classes.put(name, input.readAllBytes()); }
+            }
+        } catch (java.net.URISyntaxException | RuntimeException ex) {
+            throw new IOException("Could not read the Bedrock form classes from the plugin file", ex);
+        }
+        preloaded = java.util.Map.copyOf(classes);
+    }
 
     public static BedrockView open(UUID player, SafeTextFormatter formatter, String buttonColor, Function<String, String> messages,
                             BooleanSupplier active, Runnable leave, Consumer<RuntimeException> failure) {
@@ -98,6 +117,12 @@ public final class GeyserBedrockBridge {
         }
 
         @Override protected Class<?> findClass(String name) throws ClassNotFoundException {
+            var classes = preloaded;
+            if (classes != null) {
+                byte[] bytes = classes.get(name.replace('.', '/') + ".class");
+                if (bytes == null) throw new ClassNotFoundException(name);
+                return defineClass(name, bytes, 0, bytes.length);
+            }
             try (var input = getParent().getResourceAsStream(name.replace('.', '/') + ".class")) {
                 if (input == null) throw new ClassNotFoundException(name);
                 byte[] bytes = input.readAllBytes();

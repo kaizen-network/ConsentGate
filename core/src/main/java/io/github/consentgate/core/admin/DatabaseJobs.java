@@ -18,6 +18,10 @@ public final class DatabaseJobs {
             executor.execute(() -> {
                 started.set(true);
                 try { operation.run(); }
+                catch (Throwable failure) {
+                    // Report it like an uncaught error, but keep the worker thread alive.
+                    Thread.currentThread().getUncaughtExceptionHandler().uncaughtException(Thread.currentThread(), failure);
+                }
                 finally { pending.decrementAndGet(); }
             });
         } catch (RuntimeException ex) {

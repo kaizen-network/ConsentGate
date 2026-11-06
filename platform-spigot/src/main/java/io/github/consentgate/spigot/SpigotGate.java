@@ -14,6 +14,8 @@ import io.github.consentgate.core.runtime.RuntimeLoader;
 import io.github.consentgate.presentation.AdminDocuments;
 import io.github.consentgate.presentation.DefaultFiles;
 import io.github.consentgate.presentation.InterfaceMessages;
+import io.github.consentgate.core.storage.RemoteAcceptanceRepository;
+import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import io.github.consentgate.presentation.PresentationValidator;
 import io.github.consentgate.presentation.SafeTextFormatter;
 import net.md_5.bungee.api.dialog.Dialog;
@@ -90,6 +92,11 @@ public final class SpigotGate implements Listener {
         installCommand();
         try {
             defaults();
+            // Read what later work needs from the plugin file now: the file may be renamed or replaced while running.
+            RemoteAcceptanceRepository.preload();
+            InterfaceMessages.defaultText("denied");
+            GeyserBedrockBridge.preload();
+            GsonComponentSerializer.gson();
             runtime = new RuntimeLoader(plugin.getLogger()::warning).load(plugin.getDataFolder().toPath());
             var messages = new InterfaceMessages(plugin.getDataFolder().toPath().resolve("messages"));
             int capacity = Math.min(10_000, Math.max(32, runtime.config().maxPending() * 2));
@@ -106,7 +113,7 @@ public final class SpigotGate implements Listener {
                 plugin.getLogger().info("ConsentGate is enabled with " + runtime.config().storage().type() + " storage.");
             } else plugin.getLogger().warning("ConsentGate is disabled. Configure documents before enabling it.");
             ready = true;
-        } catch (Exception | LinkageError ex) {
+        } catch (Exception | Error ex) {
             plugin.getLogger().log(Level.SEVERE, "ConsentGate could not start. Connections will be denied.", ex);
         }
         // Players already online after /reload or a late load go through the same join path.
@@ -145,7 +152,7 @@ public final class SpigotGate implements Listener {
         try {
             submitDatabase(() -> playerOperations.run(id, () -> {
                 try { accepted.complete(active.admissionService().orElseThrow().check(id, active.config().defaultLocale()).isEmpty()); }
-                catch (Exception | LinkageError ex) { accepted.completeExceptionally(ex); }
+                catch (Exception | Error ex) { accepted.completeExceptionally(ex); }
             }), false);
         } catch (RejectedExecutionException ex) { marks.remove(id, pending); refuse(event, "error-busy"); return; }
         try {
@@ -340,7 +347,7 @@ public final class SpigotGate implements Listener {
                     }
                     default -> { }
                 }
-            } catch (Exception | LinkageError ex) {
+            } catch (Exception | Error ex) {
                 plugin.getLogger().log(Level.WARNING, "Consent response failed for " + hold.id, ex);
                 hold.finish(hold.message("error-response"));
             }
@@ -543,7 +550,7 @@ public final class SpigotGate implements Listener {
                         for (var status : service.status(id)) reply.accept(status.id() + " (" + status.version() + "): "
                                 + (status.accepted() ? "accepted" : "acceptance required"));
                     }
-                } catch (Exception ex) {
+                } catch (Exception | Error ex) {
                     plugin.getLogger().log(Level.WARNING, "Consent admin operation failed for " + id, ex);
                     reply.accept("Consent records could not be processed. Check the server log before retrying.");
                 } finally { if (reset) resetting.remove(id); }
@@ -587,7 +594,7 @@ public final class SpigotGate implements Listener {
                         reply.accept(apply ? "ConsentGate reloaded. Changes apply to new connections; existing players are not kicked."
                                 : activating ? "Validation passed. Configuration, documents, and messages are valid. Reload to enable; storage will be checked then."
                                 : "Validation passed. Configuration, documents, messages, and saved revisions are compatible. Nothing was applied.");
-                    } catch (Exception ex) {
+                    } catch (Exception | Error ex) {
                         plugin.getLogger().log(Level.WARNING, "ConsentGate configuration check failed", ex);
                         reply.accept("Configuration check failed: " + ex.getMessage() + ". The running configuration was kept.");
                     } finally {

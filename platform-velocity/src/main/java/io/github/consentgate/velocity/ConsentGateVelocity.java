@@ -10,6 +10,7 @@ import io.github.consentgate.presentation.AdminDocuments;
 import io.github.consentgate.presentation.SafeTextFormatter;
 import io.github.consentgate.presentation.DefaultFiles;
 import io.github.consentgate.presentation.InterfaceMessages;
+import io.github.consentgate.core.storage.RemoteAcceptanceRepository;
 import io.github.consentgate.presentation.PresentationValidator;
 
 import com.github.retrooper.packetevents.PacketEvents;
@@ -81,7 +82,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.UUID;
 
-@Plugin(id = "consentgate", name = "ConsentGate", version = "1.1.0",
+@Plugin(id = "consentgate", name = "ConsentGate", version = "1.1.1",
         description = "Configurable pre-admission agreements", authors = {"Kaizen Network"},
         dependencies = {@Dependency(id = "packetevents"), @Dependency(id = "geyser", optional = true)})
 public final class ConsentGateVelocity {
@@ -123,6 +124,10 @@ public final class ConsentGateVelocity {
     @Subscribe(priority = Short.MIN_VALUE) public void initialize(ProxyInitializeEvent event) {
         try {
             installDefaults();
+            // Read what later work needs from the plugin file now: the file may be renamed or replaced while running.
+            RemoteAcceptanceRepository.preload();
+            InterfaceMessages.defaultText("denied");
+            GeyserBedrockBridge.preload();
             runtime = new RuntimeLoader(logger::warn).load(dataDirectory);
             formatter = new SafeTextFormatter(runtime.config().appearance());
             messages = new InterfaceMessages(dataDirectory.resolve("messages"));
@@ -135,7 +140,7 @@ public final class ConsentGateVelocity {
             } else {
                 logger.warn("ConsentGate is disabled. Edit config.yml and add a required document before enabling it.");
             }
-        } catch (Exception ex) {
+        } catch (Exception | Error ex) {
             if (runtime != null) {
                 try { runtime.close(); }
                 catch (Exception closeFailure) { ex.addSuppressed(closeFailure); }
@@ -244,7 +249,7 @@ public final class ConsentGateVelocity {
             }
             if (runtime.config().languageSelector().enabled() && (pending.preview == null || pending.preview.locale() == null)) showLanguageSelector(pending);
             else beginSession(pending, request.orElseThrow());
-        } catch (Exception ex) {
+        } catch (Exception | Error ex) {
             logger.error("Consent check failed for {}", pending.player.getUniqueId(), ex);
             finishDenied(pending, message(pending, "error-check"));
         }
@@ -290,7 +295,7 @@ public final class ConsentGateVelocity {
                 finishDenied(pending, "Connection ended before admission.");
                 return;
             }
-        } catch (Exception ex) {
+        } catch (Exception | Error ex) {
             logger.error("Consent save failed for {}", pending.player.getUniqueId(), ex);
             finishDenied(pending, message(pending, "error-save"));
         }
@@ -435,7 +440,7 @@ public final class ConsentGateVelocity {
                     : java.util.Optional.of(service.preview(pending.player.getUniqueId(), locale));
             if (request.isEmpty()) admit(pending);
             else beginSession(pending, request.orElseThrow());
-        } catch (Exception ex) {
+        } catch (Exception | Error ex) {
             logger.error("Consent check failed for {}", pending.player.getUniqueId(), ex);
             finishDenied(pending, message(pending, "error-check"));
         }
@@ -641,6 +646,7 @@ public final class ConsentGateVelocity {
             try {
                 databaseExecutor.execute(() -> {
                     try { operation.run(); }
+                    catch (Throwable failure) { logger.error("ConsentGate database task failed", failure); }
                     finally { synchronized (sessions) { databaseWork--; } }
                 });
             } catch (RejectedExecutionException ex) {
@@ -685,7 +691,7 @@ public final class ConsentGateVelocity {
                         reply.accept(apply ? "ConsentGate reloaded. Changes apply to new connections; existing players are not kicked."
                                 : activating ? "Validation passed. Configuration, documents, and messages are valid. Reload to enable; storage will be checked then."
                                 : "Validation passed. Configuration, documents, messages, and saved revisions are compatible. Nothing was applied.");
-                    } catch (Exception ex) {
+                    } catch (Exception | Error ex) {
                         logger.warn("ConsentGate configuration check failed", ex);
                         reply.accept("Configuration check failed: " + ex.getMessage() + ". The running configuration was kept.");
                     } finally {
@@ -739,7 +745,7 @@ public final class ConsentGateVelocity {
                                     + (status.accepted() ? "accepted" : "acceptance required"));
                         }
                     }
-                } catch (Exception ex) {
+                } catch (Exception | Error ex) {
                     logger.error("Consent admin operation failed for {}", playerId, ex);
                     reply.accept("Consent records could not be processed. Check the server log before retrying.");
                 } finally {

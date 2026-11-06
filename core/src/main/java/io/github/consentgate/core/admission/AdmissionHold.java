@@ -52,7 +52,7 @@ public abstract class AdmissionHold {
             database.execute(() -> players.run(id, () -> {
                 if (finished.get() || stopping.getAsBoolean()) { finish(message("error-stopping")); return; }
                 try { operation.run(); }
-                catch (Exception | LinkageError ex) {
+                catch (Exception | Error ex) {
                     try { failure.accept(ex); }
                     finally { finish(message(failureKey)); }
                 }

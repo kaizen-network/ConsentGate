@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.1 (unreleased)
+
+A fix for servers that swap plugin files while running.
+
+### Fixed
+
+- With MySQL/MariaDB storage, renaming, deleting, or replacing the ConsentGate JAR while the server or proxy was running broke every database check from then on, until a restart. The database driver read parts of the JAR from disk on every new connection, and the old file was gone. ConsentGate now reads everything it needs from its JAR at startup, so it keeps working until the next restart even if the file is renamed or replaced. This also covers the database setup script and the Bedrock form classes.
+- When a database check failed with an unexpected internal error, the player waited on the loading screen until the gate timed out, admin commands got no reply, and the error ended the database worker thread. Now the player is refused at once with the usual error message, the command replies with an error, and the worker keeps running. Login stays blocked while the error lasts.
+
+### Upgrading from 1.1.0
+
+Back up the plugin folder, stop the server or proxy, replace the JAR, and start again. Nothing else changes.
+
 ## 1.1.0 (2026-11-06)
 
 A Spigot JAR with a hold mode, and a documented BungeeCord setup.

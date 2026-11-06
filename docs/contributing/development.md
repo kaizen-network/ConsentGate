@@ -31,6 +31,8 @@ docs/                 Admin docs; docs/contributing/ for contributors
 
 Each platform JAR is shaded with the shared core, relocated SnakeYAML, MariaDB Connector/J, and bStats, SQLite JDBC with its native libraries, the remote schema, and license notices. Paper also bundles and relocates Adventure NBT and Examination for strict dialog response parsing. Spigot has no Adventure, so the Spigot JAR bundles and relocates Adventure (API, key, MiniMessage, and the Gson text serializer), Option, and Examination under `io.github.consentgate.internal.kyori`. Platform APIs, Gson, PacketEvents, and Geyser stay external. The plugin never downloads anything at runtime.
 
+Server owners may rename or replace the JAR while the server runs, so anything read from the JAR after startup must be read at startup instead. The platform class loaders keep the JAR open for classes, but `ServiceLoader` and resource reads open the file again by its path. That is why the MariaDB driver is read into memory at startup and runs from its own class loader (`IsolatedDriver`), and why the database setup script, the Bedrock form classes, and Spigot's Adventure services are loaded during startup.
+
 ## Code guidelines
 
 - Keep platform types out of `core`. Platforms plug in through small interfaces for holding and releasing a connection, showing dialogs, identity, scheduling, and storage.

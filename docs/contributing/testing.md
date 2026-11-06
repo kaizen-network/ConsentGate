@@ -19,6 +19,7 @@ node --test tools/test_paper_probe.cjs
 - **Admission hold (core, shared by Paper and Spigot):** commit before release, queued cancellation, full queues, locked SQLite, save and reset order after disconnect, shutdown, timeout, rendering failures, and native callback lock order.
 - **Bedrock:** Cumulus response parsing, menu and page navigation, unchecked defaults, partial selections, malformed and stale responses, close behavior, and failed delivery. `:integration-bedrock:paperArtifactTest`, `:integration-bedrock:spigotArtifactTest`, and `:integration-bedrock:velocityArtifactTest` repeat the provider regression against the real shaded JARs.
 - **Spigot:** checkbox decoding (only bytes of 0 or 1), detection and refusal for each server type, entry classes that must load without the dialog API, the freeze rules (held players only, plugin teleports allowed, one handler list per event), the dialog JSON Spigot sends, and the shaded Adventure working without server Adventure.
+- **Velocity JAR:** after the shaded JAR file is deleted, the MariaDB driver still loads its codecs and login plugins, and a connection attempt fails with a normal connection error.
 - **Python tools:** dialog framing against fixed bytes (see [protocol notes](protocol-notes.md)), runner cleanup, and the release packager.
 - **Node:** helpers for the Paper and Spigot probes.
 

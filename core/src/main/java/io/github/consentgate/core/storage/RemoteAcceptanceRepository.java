@@ -12,6 +12,7 @@ import java.util.*;
 /** One primary, one connection per operation, bounded by the platform's database workers. */
 public final class RemoteAcceptanceRepository implements AcceptanceRepository {
     private static final DateTimeFormatter TIMESTAMP = new DateTimeFormatterBuilder().appendInstant(9).toFormatter();
+    private static String schema;
     private final Connections connections;
 
     @FunctionalInterface public interface Connections { Connection open() throws SQLException; }
@@ -23,6 +24,12 @@ public final class RemoteAcceptanceRepository implements AcceptanceRepository {
     public RemoteAcceptanceRepository(Connections connections) throws SQLException {
         this.connections = Objects.requireNonNull(connections);
         try (Connection connection = connections.open()) { initializeSchema(connection); }
+    }
+
+    /** Reads the database driver and setup script from the plugin file. Call at startup, while the file is in place. */
+    public static void preload() throws SQLException {
+        IsolatedDriver.get();
+        schema();
     }
 
     public static Connection openConnection(RemoteStorageConfig config) throws SQLException {
@@ -37,7 +44,7 @@ public final class RemoteAcceptanceRepository implements AcceptanceRepository {
         properties.setProperty("allowMultiQueries", "false");
         properties.setProperty("transactionReplay", "false");
         properties.setProperty("maxQuerySizeToLog", "0");
-        Connection connection = new org.mariadb.jdbc.Driver().connect(
+        Connection connection = IsolatedDriver.get().connect(
                 "jdbc:mariadb://" + config.host() + ":" + config.port() + "/" + config.database(), properties);
         try {
             connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
@@ -65,11 +72,7 @@ public final class RemoteAcceptanceRepository implements AcceptanceRepository {
                 empty = rows.getInt(1) == 0;
             }
             if (empty) {
-                String sql;
-                try (var input = RemoteAcceptanceRepository.class.getResourceAsStream("/db/mysql-v1.sql")) {
-                    if (input == null) throw new IOException("Missing bundled database schema");
-                    sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
-                } catch (IOException ex) { throw new SQLException("Could not load the ConsentGate database setup.", ex); }
+                String sql = schema();
                 try (var statement = connection.createStatement()) {
                     for (String command : sql.replaceAll("(?m)^--[^\\r\\n]*", "").split(";")) {
                         if (!command.isBlank()) statement.execute(command);
@@ -85,6 +88,16 @@ public final class RemoteAcceptanceRepository implements AcceptanceRepository {
         } finally {
             try (var query = connection.createStatement()) { query.executeQuery("SELECT RELEASE_LOCK(" + lock + ")").close(); }
         }
+    }
+
+    private static synchronized String schema() throws SQLException {
+        if (schema == null) {
+            try (var input = RemoteAcceptanceRepository.class.getResourceAsStream("/db/mysql-v1.sql")) {
+                if (input == null) throw new IOException("Missing bundled database schema");
+                schema = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+            } catch (IOException ex) { throw new SQLException("Could not load the ConsentGate database setup.", ex); }
+        }
+        return schema;
     }
 
     private static void validateSchema(Connection connection) throws SQLException {

@@ -16,6 +16,7 @@ import io.github.consentgate.core.runtime.ConsentGateRuntime;
 import io.github.consentgate.core.runtime.RuntimeLoader;
 import io.github.consentgate.presentation.DefaultFiles;
 import io.github.consentgate.presentation.InterfaceMessages;
+import io.github.consentgate.core.storage.RemoteAcceptanceRepository;
 import io.github.consentgate.presentation.PresentationValidator;
 import io.github.consentgate.presentation.SafeTextFormatter;
 import io.papermc.paper.connection.PlayerConfigurationConnection;
@@ -69,6 +70,10 @@ public final class PaperGate implements Listener {
         installCommand();
         try {
             defaults();
+            // Read what later work needs from the plugin file now: the file may be renamed or replaced while running.
+            RemoteAcceptanceRepository.preload();
+            InterfaceMessages.defaultText("denied");
+            GeyserBedrockBridge.preload();
             runtime = new RuntimeLoader(plugin.getLogger()::warning).load(plugin.getDataFolder().toPath());
             var messages = new InterfaceMessages(plugin.getDataFolder().toPath().resolve("messages"));
             int capacity = Math.min(10_000, Math.max(32, runtime.config().maxPending() * 2));
@@ -85,7 +90,7 @@ public final class PaperGate implements Listener {
                 plugin.getLogger().info("ConsentGate is enabled with " + runtime.config().storage().type() + " storage.");
             } else plugin.getLogger().warning("ConsentGate is disabled. Configure documents before enabling it.");
             ready = true;
-        } catch (Exception | LinkageError ex) {
+        } catch (Exception | Error ex) {
             plugin.getLogger().log(java.util.logging.Level.SEVERE, "ConsentGate could not start. Connections will be denied.", ex);
         }
         // Usage statistics must never stop the gate from enabling.
@@ -194,7 +199,7 @@ public final class PaperGate implements Listener {
                     }
                     default -> { }
                 }
-            } catch (Exception | LinkageError ex) {
+            } catch (Exception | Error ex) {
                 plugin.getLogger().log(java.util.logging.Level.WARNING, "Consent response failed for " + pending.id, ex);
                 finish(pending, pending.message("error-response"));
             }
@@ -341,7 +346,7 @@ public final class PaperGate implements Listener {
                         for (var status : service.status(id)) reply.accept(status.id() + " (" + status.version() + "): "
                                 + (status.accepted() ? "accepted" : "acceptance required"));
                     }
-                } catch (Exception ex) {
+                } catch (Exception | Error ex) {
                     plugin.getLogger().log(java.util.logging.Level.WARNING, "Consent admin operation failed for " + id, ex);
                     reply.accept("Consent records could not be processed. Check the server log before retrying.");
                 } finally { if (reset) resetting.remove(id); }
@@ -381,7 +386,7 @@ public final class PaperGate implements Listener {
                         reply.accept(apply ? "ConsentGate reloaded. Changes apply to new connections; existing players are not kicked."
                                 : activating ? "Validation passed. Configuration, documents, and messages are valid. Reload to enable; storage will be checked then."
                                 : "Validation passed. Configuration, documents, messages, and saved revisions are compatible. Nothing was applied.");
-                    } catch (Exception ex) {
+                    } catch (Exception | Error ex) {
                         plugin.getLogger().log(java.util.logging.Level.WARNING, "ConsentGate configuration check failed", ex);
                         reply.accept("Configuration check failed: " + ex.getMessage() + ". The running configuration was kept.");
                     } finally {
