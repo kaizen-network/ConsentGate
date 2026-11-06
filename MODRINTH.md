@@ -1,4 +1,4 @@
-![ConsentGate: in-game agreements for Minecraft servers and networks](https://kaizenmc.id/api/software/assets/consentgate/docs/images/banner.webp)
+![ConsentGate: in-game agreements for Minecraft servers and networks](https://raw.githubusercontent.com/kaizen-network/ConsentGate/main/docs/images/banner.webp)
 
 Show your rules, terms, and privacy policy to players **before** they can play, and let them play only after they accept. Documents live in local files, so no website or extra hosting is needed.
 
@@ -7,7 +7,7 @@ Show your rules, terms, and privacy policy to players **before** they can play, 
 - **Spigot (hold mode, weaker):** players enter the world but stay frozen and hidden until they accept. Other plugins still see the join. Use Paper for the full guarantee.
 - **BungeeCord:** there is no proxy JAR. Install the Paper JAR (or the Spigot JAR) on each backend, with shared MySQL/MariaDB.
 
-![Required agreements with Read and Continue buttons](https://kaizenmc.id/api/software/assets/consentgate/docs/images/required-agreements.png)
+![Required agreements with Read and Continue buttons](https://raw.githubusercontent.com/kaizen-network/ConsentGate/main/docs/images/required-agreements.png)
 
 ## Features
 
@@ -21,7 +21,7 @@ Show your rules, terms, and privacy policy to players **before** they can play, 
 - English and Indonesian included; add any language with a file.
 - Updates add new settings and messages to your files and keep your values.
 
-![Reading a document, page one of two](https://kaizenmc.id/api/software/assets/consentgate/docs/images/document-reader.png)
+![Reading a document, page one of two](https://raw.githubusercontent.com/kaizen-network/ConsentGate/main/docs/images/document-reader.png)
 
 ## Requirements
 
