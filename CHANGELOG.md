@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.0 (unreleased)
+## 1.1.0 (2026-11-06)
 
 A Spigot JAR with a hold mode, and a documented BungeeCord setup.
 
