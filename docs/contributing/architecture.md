@@ -27,7 +27,7 @@ The Spigot JAR is separate from the Paper JAR. Spigot has no Adventure, so the S
 
 Java dialogs exist since 1.21.6. In the configuration stage they must be defined inline, and command click actions are not available, so ConsentGate uses custom click callbacks for navigation and acceptance. Long documents are split into admin-defined pages to keep packets bounded.
 
-On Spigot, dialogs are built with the BungeeCord dialog API that Spigot exposes. Text goes through the shared Adventure formatter, then JSON, then BungeeCord components. The checkbox payload arrives as JSON, and only `Byte` values of 0 or 1 count, matching the Paper decoder.
+On Spigot, dialogs are built with the BungeeCord dialog API that Spigot exposes. They use `after_action: none`: in play, `close` would show the world between screens, and the client's clear-dialog packet does not close its waiting screen (`wait_for_response`), so a released player would be left on it. Text goes through the shared Adventure formatter, then JSON, then BungeeCord components. The checkbox payload arrives as JSON, and only `Byte` values of 0 or 1 count, matching the Paper decoder.
 
 Bedrock clients are detected through Geyser's API, never by a username prefix. Native forms use the Cumulus copy that Geyser's connection API needs. Geyser and Floodgate can each expose their own Cumulus, and binding to the wrong one causes a `LinkageError`. The renderer binds to Geyser's actual provider, and the packaged Bedrock tests check this with two independent providers.
 

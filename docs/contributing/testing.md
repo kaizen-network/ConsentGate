@@ -115,7 +115,7 @@ python tools/run_spigot_probe.py --modules C:/path/to/node_modules --version 1.2
 
 Use `--version 26.1` for a Spigot 26.1.x server (protocol 775). The probe uses a watcher bot and held bots, with new player names on every run, and checks:
 
-- the dialog arrives in play and waits for the server after each button
+- the dialog arrives in play and stays open after each button (`after_action: none`)
 - held players are hidden, with no join message; movement is reverted; chat, commands, damage, digging, and item drops are blocked
 - a blocked command or a pressed movement key shows the screen again, and a key pressed inside the 3-second limit shows it once the limit ends; a push without movement keys or a pressure plate does not
 - unchecked, string, int, empty, and foreign-token payloads do not release; a valid acceptance does, and the join message is shown once
@@ -172,7 +172,7 @@ Automated probes are not a real client. Before a release that touches dialogs, f
 
 **Bedrock on Paper** (Geyser-Spigot on the same server): with native forms on, repeat reading, Back, partial selections, acceptance, and accepted reconnect. Closing the agreement form returns to the menu; closing the menu disconnects. Then turn native forms off, restart, reset the test player, and check the translated dialogs.
 
-**Java on Spigot** (1.21.8 and the newest supported client): the same checklist, plus walking, jumping, chatting, `/help`, hitting a mob, opening a chest, a mob attacking at night, joining in lava, mid-air, and in a boat, and Escape on each screen. Check that the waiting screen after each button ends when the next screen or the release arrives, that the first screen survives terrain loading, and that the screen comes back after another plugin opens its own menu at join.
+**Java on Spigot** (1.21.8 and the newest supported client): the same checklist, plus walking, jumping, chatting, `/help`, hitting a mob, opening a chest, a mob attacking at night, joining in lava, mid-air, and in a boat, and Escape on each screen. Check that the screen stays open after each button until the next screen replaces it, that it closes on release, that the first screen survives terrain loading, and that the screen comes back after another plugin opens its own menu at join.
 
 **Bedrock on Spigot** (Geyser-Spigot on the same server): the same native and translated checks as on Paper.
 
