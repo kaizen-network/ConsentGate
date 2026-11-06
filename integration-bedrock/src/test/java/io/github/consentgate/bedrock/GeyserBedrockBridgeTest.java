@@ -29,6 +29,8 @@ class GeyserBedrockBridgeTest {
             assertEquals(Path.of(artifact).toRealPath(),
                     Path.of(GeyserBedrockBridge.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toRealPath(),
                     "Packaged checks must load the renderer bridge from the supplied JAR");
+            // The platforms preload at startup, so packaged checks render from the preloaded classes.
+            GeyserBedrockBridge.preload();
         }
     }
 
